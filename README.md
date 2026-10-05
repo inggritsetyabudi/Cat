@@ -268,18 +268,25 @@ From the compiler directory, the main commands are:
 
 The active revised test suites are separated by layer:
 
+- `claw/tests/frontend/` - revised frontend and semantic checks
+- `claw/tests/backend/` - LLVM IR regression checks
+- `claw/tests/native/` - native executable integration tests
+- `claw/tests/run_all_tests.sh` - runs every suite above in order
 - `claw/test/` - compatibility wrapper for the frontend suite entry point
-- `claw/test_frontend/` - revised frontend and semantic checks
-- `claw/test_backend/` - LLVM IR regression checks
-- `claw/test_native/` - native executable integration tests
 
 On the current MSYS2 UCRT64 setup, the project is typically built and tested with:
 
 ```bash
 C:/msys64/ucrt64/bin/cmake.exe --build claw/build-ucrt64-clang --target claw -- -j 4
-bash claw/test/run_frontend_tests.sh
-bash claw/test_backend/run_backend_tests.sh
-bash claw/test_native/run_native_tests.sh
+bash claw/tests/frontend/run_frontend_tests.sh
+bash claw/tests/backend/run_backend_tests.sh
+bash claw/tests/native/run_native_tests.sh
+```
+
+Or all suites at once:
+
+```bash
+bash claw/tests/run_all_tests.sh
 ```
 
 The backend and native suites intentionally keep generated `.ll` artifacts so they can be inspected after a run.

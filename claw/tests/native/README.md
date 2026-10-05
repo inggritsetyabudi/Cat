@@ -2,12 +2,14 @@
 
 This suite covers revised-language native executable generation for the currently supported subset.
 
-Recommended runner:
-- `bash test_native/run_native_tests.sh`
-- Override the compiler path if needed with `CLAW_EXE=/path/to/claw.exe bash test_native/run_native_tests.sh`
+Recommended runner (from `claw/`):
+- `bash tests/native/run_native_tests.sh`
+- Override the compiler path if needed with `CLAW_EXE=/path/to/claw.exe bash tests/native/run_native_tests.sh`
 
 Artifacts:
-- Built executables and generated LLVM IR are left in `test_native/artifacts/` so both `.exe` and `.ll` outputs can be inspected after the runner finishes.
+- Built executables and generated LLVM IR are left in `artifacts/` so both `.exe` and `.ll` outputs can be inspected after the runner finishes.
+
+Fixtures live in `fixtures/`, except `revise_maybe.cat`, which is shared from `tests/frontend/fixtures/`.
 
 Current fixtures:
 - `revise_single_file.cat`

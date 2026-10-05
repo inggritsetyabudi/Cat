@@ -1,10 +1,11 @@
 # Revised Frontend Tests
 
 This folder now contains only revised-language frontend fixtures.
+Fixtures live in `fixtures/`.
 
-Recommended runner:
-- `bash test/run_frontend_tests.sh`
-- Override the compiler path if needed with `CLAW_EXE=/path/to/claw.exe bash test/run_frontend_tests.sh`
+Recommended runner (from `claw/`):
+- `bash tests/frontend/run_frontend_tests.sh`
+- Override the compiler path if needed with `CLAW_EXE=/path/to/claw.exe bash tests/frontend/run_frontend_tests.sh`
 
 Current fixtures:
 - `revise_surface.cat`
@@ -29,6 +30,6 @@ Coverage focus:
 - revised diagnostics for entry and `try` misuse
 
 Backend and native integration suites live separately:
-- `bash test_backend/run_backend_tests.sh`
-- `bash test_native/run_native_tests.sh`
+- `bash tests/backend/run_backend_tests.sh`
+- `bash tests/native/run_native_tests.sh`
 

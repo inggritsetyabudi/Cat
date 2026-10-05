@@ -42,9 +42,15 @@ Use MSYS2 UCRT64.
 
 ```bash
 cmake --build build-ucrt64 -j 4
-bash test/run_frontend_tests.sh
-bash test_backend/run_backend_tests.sh
-bash test_native/run_native_tests.sh
+bash tests/frontend/run_frontend_tests.sh
+bash tests/backend/run_backend_tests.sh
+bash tests/native/run_native_tests.sh
+```
+
+Or run every suite in order:
+
+```bash
+bash tests/run_all_tests.sh
 ```
 
 ## Current Notes

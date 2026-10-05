@@ -35,9 +35,9 @@ The compiler still keeps the deeper frontend and backend pipeline in place:
 ## What Is Verified Right Now
 
 Revised-only suites now live in:
-- `test/`
-- `test_backend/`
-- `test_native/`
+- `tests/frontend/`
+- `tests/backend/`
+- `tests/native/`
 
 Verified commands:
 
@@ -114,10 +114,18 @@ cmake --build build-ucrt64 -j 4
 Run suites:
 
 ```bash
-bash test/run_frontend_tests.sh
-bash test_backend/run_backend_tests.sh
-bash test_native/run_native_tests.sh
+bash tests/frontend/run_frontend_tests.sh
+bash tests/backend/run_backend_tests.sh
+bash tests/native/run_native_tests.sh
 ```
+
+All suites at once:
+
+```bash
+bash tests/run_all_tests.sh
+```
+
+`bash test/run_frontend_tests.sh` still works as a compatibility shim.
 
 ## Repository Layout
 
@@ -127,12 +135,14 @@ bash test_native/run_native_tests.sh
   LLVM/backend emission and native codegen boundary.
 - src/workspace/
   Workspace loading, config parsing, and module graph resolution.
-- `test/`
+- `tests/frontend/`
   Revised frontend regression suite.
-- `test_backend/`
+- `tests/backend/`
   Revised LLVM/backend regression suite.
-- `test_native/`
+- `tests/native/`
   Revised native executable integration suite.
+- `test/`
+  Compatibility shim for the frontend suite entry point.
 - `docs/`
   Internal status notes and next-wave planning.
 

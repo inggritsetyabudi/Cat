@@ -57,10 +57,10 @@ Important directories:
 - `claw/src/driver/`
 - `claw/src/workspace/`
 - `claw/runtime/`
+- `claw/tests/frontend/`
+- `claw/tests/backend/`
+- `claw/tests/native/`
 - `claw/test/`
-- `claw/test_frontend/`
-- `claw/test_backend/`
-- `claw/test_native/`
 - `revise/`
 
 The outer `README.md` is the professional user-facing language overview. Keep it aligned with the revised surface and the actual supported subset.
@@ -76,26 +76,33 @@ C:/msys64/ucrt64/bin/cmake.exe --build claw/build-ucrt64-clang --target claw -- 
 
 Frontend tests:
 ```bash
-bash claw/test/run_frontend_tests.sh
+bash claw/tests/frontend/run_frontend_tests.sh
 ```
 
 Backend tests:
 ```bash
-bash claw/test_backend/run_backend_tests.sh
+bash claw/tests/backend/run_backend_tests.sh
 ```
 
 Native tests:
 ```bash
-bash claw/test_native/run_native_tests.sh
+bash claw/tests/native/run_native_tests.sh
 ```
+
+All suites at once:
+```bash
+bash claw/tests/run_all_tests.sh
+```
+
+The old entry point `bash claw/test/run_frontend_tests.sh` remains as a compatibility shim.
 
 When invoking from PowerShell, prefer launching through MSYS2 UCRT64 shell if plain `bash.exe` behaves badly.
 
 ## Artifacts
 
 Do not remove the intentional test artifacts behavior:
-- backend tests keep `.ll` files in `claw/test_backend/artifacts/`
-- native tests keep `.ll` and `.exe` files in `claw/test_native/artifacts/`
+- backend tests keep `.ll` files in `claw/tests/backend/artifacts/`
+- native tests keep `.ll` and `.exe` files in `claw/tests/native/artifacts/`
 
 These are part of the workflow for inspection and debugging.
 
