@@ -433,7 +433,23 @@ std::string LlvmEmitter::emitNativeEntryWrapper() const {
 std::string LlvmEmitter::emit() {
     std::ostringstream out;
     out << "; ModuleID = 'claw'\n";
+#if defined(__APPLE__)
+#if defined(__aarch64__)
+    out << "target triple = \"aarch64-apple-darwin\"\n\n";
+#else
+    out << "target triple = \"x86_64-apple-darwin\"\n\n";
+#endif
+#elif defined(_WIN32)
     out << "target triple = \"x86_64-w64-windows-gnu\"\n\n";
+#elif defined(__linux__)
+#if defined(__aarch64__)
+    out << "target triple = \"aarch64-unknown-linux-gnu\"\n\n";
+#else
+    out << "target triple = \"x86_64-unknown-linux-gnu\"\n\n";
+#endif
+#else
+    out << "target triple = \"x86_64-unknown-unknown\"\n\n";
+#endif
     out << "%claw.slice = type { ptr, i64 }\n";
     out << "%claw.buffer = type { ptr, i64, i64 }\n";
 

@@ -2,11 +2,19 @@
 
 #include "codegen/llvm.h"
 
+#include <cstdlib>
 #include <fstream>
-#include <process.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#if defined(_WIN32)
+#include <process.h>
+#else
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
 
 namespace {
 
@@ -23,13 +31,19 @@ std::string sanitizeStem(std::string_view raw) {
     return out.empty() ? std::string("main") : out;
 }
 
+#if defined(_WIN32)
 std::wstring widen(const std::filesystem::path& path) {
     return path.wstring();
 }
+#endif
 
 std::filesystem::path makeTempLlPath() {
     const std::filesystem::path dir = std::filesystem::temp_directory_path();
+#if defined(_WIN32)
     const int pid = _getpid();
+#else
+    const int pid = static_cast<int>(getpid());
+#endif
     for (int attempt = 0; attempt < 256; ++attempt) {
         const auto candidate = dir / ("claw-native-" + std::to_string(pid) + "-" + std::to_string(attempt) + ".ll");
         if (!std::filesystem::exists(candidate)) {
@@ -74,6 +88,7 @@ int runClangLink(
     const std::filesystem::path& llvmPath,
     const std::filesystem::path& runtimePath,
     const std::filesystem::path& outputPath) {
+#if defined(_WIN32)
     const std::vector<std::wstring> argsStorage = {
         L"clang",
         L"-O2",
@@ -96,6 +111,14 @@ int runClangLink(
         throw std::runtime_error("Failed to launch `clang` from PATH while building native executable.");
     }
     return result;
+#else
+    std::string cmd = "clang -O2 -std=c11 \"" + llvmPath.string() + "\" \"" + runtimePath.string() + "\" -o \"" + outputPath.string() + "\"";
+    const int ret = std::system(cmd.c_str());
+    if (ret != 0) {
+        throw std::runtime_error("Failed to launch `clang` while building native executable.");
+    }
+    return ret;
+#endif
 }
 
 } // namespace

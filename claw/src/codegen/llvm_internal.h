@@ -40,13 +40,13 @@ inline std::string trim(std::string_view text) {
 
 inline std::string stripViewPrefix(std::string_view type) {
     const std::string trimmed = trim(type);
-    if (trimmed.rfind("ref[", 0) == 0) {
+    if (trimmed.rfind("ref mut[", 0) == 0) {
         const size_t close = trimmed.find(']');
         if (close != std::string::npos) {
             return trim(std::string_view(trimmed).substr(close + 1));
         }
     }
-    if (trimmed.rfind("ref mut[", 0) == 0) {
+    if (trimmed.rfind("ref[", 0) == 0) {
         const size_t close = trimmed.find(']');
         if (close != std::string::npos) {
             return trim(std::string_view(trimmed).substr(close + 1));
@@ -55,20 +55,8 @@ inline std::string stripViewPrefix(std::string_view type) {
     if (trimmed.rfind("ref mut ", 0) == 0) {
         return trim(std::string_view(trimmed).substr(8));
     }
-    if (trimmed.rfind("ref mut[", 0) == 0) {
-        const size_t close = trimmed.find(']');
-        if (close != std::string::npos) {
-            return trim(std::string_view(trimmed).substr(close + 1));
-        }
-    }
     if (trimmed.rfind("ref ", 0) == 0) {
         return trim(std::string_view(trimmed).substr(4));
-    }
-    if (trimmed.rfind("ref[", 0) == 0) {
-        const size_t close = trimmed.find(']');
-        if (close != std::string::npos) {
-            return trim(std::string_view(trimmed).substr(close + 1));
-        }
     }
     if (trimmed.rfind("look ", 0) == 0 || trimmed.rfind("edit ", 0) == 0) {
         return trim(std::string_view(trimmed).substr(5));

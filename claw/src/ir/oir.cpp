@@ -601,11 +601,11 @@ std::optional<size_t> lowerStmt(
         return context.addBlock(exitLabel);
     }
 
-    if (auto* scopeStmt = dynamic_cast<const ScopeStmt*>(stmt)) {
-        const std::string scopeLabel = context.blockName("scope_" + scopeStmt->name);
+    if (auto* scope = dynamic_cast<const ScopeStmt*>(stmt)) {
+        const std::string scopeLabel = context.blockName("scope_" + scope->name);
         const std::string contLabel = context.blockName("scope_cont");
         appendInst(context, currentBlockIndex, OirGotoInst{scopeLabel});
-        lowerBlock(sema, ownership, scopeStmt->body.get(), scopeLabel, context, contLabel, emitter);
+        lowerBlock(sema, ownership, scope->body.get(), scopeLabel, context, contLabel, emitter);
         return context.addBlock(contLabel);
     }
 
@@ -671,14 +671,6 @@ std::optional<size_t> lowerStmt(
         context.rawRegionStack.push_back(rawRegion);
         lowerBlock(sema, ownership, raw->body.get(), rawLabel, context, contLabel, emitter);
         context.rawRegionStack.pop_back();
-        return context.addBlock(contLabel);
-    }
-
-    if (auto* scope = dynamic_cast<const ScopeStmt*>(stmt)) {
-        const std::string scopeLabel = context.blockName("scope");
-        const std::string contLabel = context.blockName("scope_cont");
-        appendInst(context, currentBlockIndex, OirGotoInst{scopeLabel});
-        lowerBlock(sema, ownership, scope->body.get(), scopeLabel, context, contLabel, emitter);
         return context.addBlock(contLabel);
     }
 

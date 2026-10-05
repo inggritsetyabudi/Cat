@@ -1,4 +1,6 @@
 .vscode
+.DS_Store
+graphify-out
 claw/build
 claw/build-ucrt64
 ideas

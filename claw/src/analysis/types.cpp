@@ -616,7 +616,6 @@ TypeCatalog::TypeCatalog()
     registerKnownTypeArity("Set", 1);
     registerKnownTypeArity("Anchor", 1);
     registerKnownTypeArity("Maybe", 1);
-    registerKnownTypeArity("Anchor", 1);
     registerKnownTypeArity("Map", 2);
     registerKnownTypeArity("Result", 2);
 }
