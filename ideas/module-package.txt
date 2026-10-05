@@ -1,0 +1,107 @@
+C@ Module and Package System
+
+1. Design Decisions
+
+1.1 Source unit
+The source file extension is `.cat`.
+Each file belongs to one `realm`.
+
+Example
+realm net.http
+
+1.2 Realm rules
+- Realm path must match directory path.
+- One realm may span multiple files inside the same directory tree only through explicit package indexing rules.
+- Shared items form the public surface of the realm.
+
+1.3 Visibility
+- Default visibility is private to the defining realm.
+- `share` exports an item from the realm.
+- Imported realms see only shared items.
+
+1.4 Import system
+Import syntax:
+import std.fs
+import super.{util}
+import app.runtime.{banner}
+
+Rules
+- Imports are explicit.
+- Same-folder sibling imports use `super`.
+- Cross-folder traversal is allowed only through directories that publish modules in `modules.cat`.
+- Cyclic realm dependencies inside one package are forbidden.
+
+1.5 Package identity
+Packages are managed by `paw`.
+A package is identified by:
+- canonical name
+- version
+- source checksum
+- dependency graph
+
+1.6 Workspace entry and config
+Workspace entry files: `main.cat` + optional config (`claw.toml`, `claw.yaml`, `claw.yml`, `project.toml`, `project.yaml`, `project.yml`)
+
+Example TOML
+[project]
+name = "TICTACTOE"
+version = "0.1.0"
+edition = "2025"
+
+[dependencies]
+term = "1.0.0"
+
+Notes
+- `main.cat` is the required and fixed workspace entry source file.
+- The root workspace directory does not need `modules.cat`.
+- `modules.cat` publishes which files or child folders in a non-root directory are visible outside that directory.
+- Declared dependency roots are used by import resolution for external packages.
+- YAML config files use the same `project` and `dependencies` structure in mapping form.
+
+1.7 Build units
+A package may expose:
+- library target
+- binary target
+- test target
+- benchmark target
+
+1.8 Dependency rules
+- Semantic versioning is supported at resolver level.
+- Lock file is mandatory for reproducible application builds.
+- Library builds may omit lock pinning for publication but never for CI release artifacts.
+
+1.9 Artifact model
+Primary build outputs:
+- native executable
+- static library
+- shared library
+- object file bundle
+- metadata bundle for documentation and IDE tooling
+
+2. Rationale
+
+FAST
+- Explicit realms and imports keep compile graphs stable and cacheable.
+- Package reproducibility improves build performance and deployment safety.
+
+SAFE
+- Visibility boundaries reduce accidental API coupling.
+- Locked dependency graphs reduce supply-chain drift.
+
+SIMPLE
+- Realm path mirrors filesystem path.
+- One import form and one export form keep the model small.
+
+3. Constraints
+
+- No implicit module discovery at compile time outside declared package roots.
+- No wildcard import in v1.
+- No cyclic realm graph.
+- Package resolution must be deterministic across platforms.
+
+4. Trade-offs
+
+- Explicit imports are slightly longer than wildcard imports.
+- Strict package locking adds release discipline.
+- Realm/file alignment limits some ad hoc layout freedom but improves maintainability.
+

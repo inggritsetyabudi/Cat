@@ -1,0 +1,105 @@
+C@ Memory Model
+
+1. Design Decisions
+
+1.1 Ownership core
+C@ uses affine ownership.
+A non-plain value has one owning location at a time.
+Ownership may move but may not be duplicated implicitly.
+
+1.2 View types
+C@ defines two safe non-owning view forms:
+- `look T`: shared read-only view
+- `edit T`: exclusive mutable view
+
+Rules
+- Any number of `look` views may coexist.
+- Exactly one `edit` view may exist for a value region, and no `look` view may overlap that region at the same time.
+- Views are lexical and cannot outlive the owner.
+- Users do not write lifetime parameters. The compiler infers lexical view scopes.
+
+1.3 Plain vs owned memory behavior
+Plain types
+- Copy on assignment/pass/return
+- No destructor
+- No ownership checker move restrictions
+
+Owned types
+- Move on assignment/pass/return
+- Destruct at end of owning scope
+- May be borrowed through views
+- Require explicit `clone` operation for duplication
+
+1.4 Allocation model
+C@ has no implicit heap allocation.
+Storage forms:
+- Stack/local storage for local bindings when layout allows
+- Inline aggregation inside owning values
+- Explicit heap allocation through library abstractions such as `Heap of T`, `Vec of T`, `Table of K, V`, and arenas
+
+1.5 Stable address model
+Most owned values may move before optimization finalization.
+When stable address is required, use `Anchor of T`.
+`Anchor of T` provides heap-backed stable placement with deterministic destruction.
+
+1.6 Initialization rules
+- Every variable must be definitely initialized before read.
+- Partial initialization of shapes is tracked only within constructors and compiler-generated initialization states.
+- A moved-out `slot` becomes uninitialized until reassigned.
+
+1.7 Destruction rules
+- Destruction occurs exactly once.
+- Destruction order is reverse lexical order within each scope.
+- Reassignment of an initialized owned `slot` destroys the prior value before storing the new one.
+- Panics do not skip destruction of already-initialized local owned values on the unwound path if unwinding is enabled; abort mode terminates immediately without further language-level progress.
+
+1.8 Indexing and bounds
+- Safe indexing is bounds-checked and defined.
+- Bounds checks may be removed if provably redundant.
+- Out-of-bounds in safe code triggers a defect, not undefined behavior.
+
+1.9 Raw memory
+Raw address types exist only for FFI and raw blocks:
+- `Addr`
+- `RawPtr of T`
+- `RawMut of T`
+
+Rules
+- Safe code cannot dereference raw addresses.
+- Raw addresses carry no lifetime guarantee.
+- Converting raw addresses to safe views requires `raw` and proof obligations at the wrapper boundary.
+
+1.10 Thread memory safety
+- Data races are forbidden in safe code.
+- Moved values across threads require `sendable`.
+- Shared values require `shareable` plus synchronization-safe APIs.
+- Interior mutability is limited to compiler-recognized synchronization primitives.
+
+2. Rationale
+
+FAST
+- Affine ownership and lexical views compile to ordinary stack/heap code with no collector.
+- Explicit stable-address wrappers avoid global pinning cost.
+
+SAFE
+- No dangling view can exist in safe code.
+- Aliasing is statically controlled.
+- Raw memory is isolated.
+
+SIMPLE
+- Users learn owner, look view, and edit view.
+- No lifetime syntax.
+- Deterministic destruction matches lexical structure.
+
+3. Constraints
+
+- No general-purpose reference counting in the language core.
+- No hidden escape analysis promise may change semantics.
+- Stable address must always be explicit.
+- Safety cannot depend on optimizer proof success.
+
+4. Trade-offs
+
+- Some self-referential data structures require `Anchor` or raw internals.
+- Some APIs expose view types explicitly where other languages would hide borrowing.
+- Checked indexing and checked integer semantics may require opt-in raw/bit forms for maximum low-level control.

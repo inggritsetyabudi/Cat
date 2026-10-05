@@ -1,0 +1,129 @@
+C@ Type System
+
+1. Design Decisions
+
+1.1 Type families
+C@ v1 supports:
+- Primitive scalars
+- Shapes
+- Choices
+- Arrays with static length
+- Slices/spans as view-backed library types
+- Function types
+- Generic nominal types
+- Raw foreign address types behind raw or foreign boundaries
+
+1.2 Primitive types
+Core scalar types:
+- Bool
+- Byte
+- Rune
+- Int8, Int16, Int32, Int64, Int128
+- UInt8, UInt16, UInt32, UInt64, UInt128
+- Bits8, Bits16, Bits32, Bits64, Bits128
+- Float32, Float64
+- USize, ISize
+- Unit
+
+Rules
+- `Int*` and `UInt*` represent arithmetic integers with checked overflow semantics.
+- `Bits*` represent wrapping bitwise integers.
+- Floats follow IEEE 754.
+- `Bool` is two-valued only.
+
+1.3 Nominal typing
+Shapes and choices are nominal.
+Two declarations with identical fields are still different types unless explicitly converted through safe constructors.
+
+1.4 Generic system
+Generic declaration form:
+shape Pair of A, B [ ... ]
+choice Outcome of T, E [ ... ]
+fn swap of T[a: T, b: T] -> Pair of T, T [ ... ]
+
+Rules
+- V1 generics are parametric and monomorphized.
+- Type arguments must satisfy built-in ability bounds when required.
+- No higher-kinded types in v1.
+
+1.5 Built-in abilities
+V1 includes built-in abilities only:
+- plain: bitwise copy, no destructor
+- clone: explicit duplication supported
+- drop: custom destruction supported
+- sendable: may cross thread boundaries by move
+- shareable: may be shared read-only across threads
+
+Rules
+- Ability derivation is structural for primitives and compiler-known containers.
+- User types may qualify automatically when their fields qualify.
+- User-defined ad-hoc abilities are deferred beyond v1.
+
+1.6 Function types
+Function type form:
+Fn of [A, B] -> R
+
+Rules
+- Function items may coerce to function pointers when capture-free.
+- Closures are deferred from v1 core language.
+- Function types are plain if the referenced function is static and capture-free.
+
+1.7 Inference
+Inference is local only.
+The compiler may infer:
+- Local binding type
+- Generic arguments from call sites
+- Pattern payload types from the matched choice
+
+The compiler must not infer:
+- Public function parameter types
+- Public function return types
+- Shared item types
+- Ambiguous numeric widening
+
+1.8 Conversions
+Allowed conversions:
+- Literal fitting into target numeric type if exact
+- Explicit numeric literal suffixes using full type names, for example `42_UInt16` and `1.5_Float32`
+- Safe view coercions from `edit T` to `look T`
+- Array to span view
+- Explicit constructors between nominal types
+
+
+Literal defaults
+- Unsuffixed integer literals default locally to `Int32` when no numeric context is present.
+- Unsuffixed float literals default locally to `Float64` when no numeric context is present.
+
+Forbidden implicit conversions:
+- Signed/unsigned changes
+- Width changes
+- Choice payload coercion
+- Raw address to safe view
+- Owned-to-view escape across lexical limit
+
+2. Rationale
+
+FAST
+- Monomorphized generics and nominal types lower efficiently.
+- Limited inference reduces compiler ambiguity and codegen surprises.
+
+SAFE
+- No implicit lossy conversion.
+- Ability system constrains movement and sharing safely.
+
+SIMPLE
+- The type system stays readable because it avoids user-defined trait machinery in v1.
+- Local inference keeps code brief without hiding public contracts.
+
+3. Constraints
+
+- Every type must have a defined move, copy, and destroy classification.
+- Ability derivation must remain deterministic and explainable.
+- Generic specialization must not change semantics between instantiations.
+- No subtyping hierarchy in v1 beyond view weakening (`edit` to `look`).
+
+4. Trade-offs
+
+- V1 omits user-defined traits/interfaces to keep the type system small.
+- Some generic abstractions are less expressive than in research-heavy languages.
+- Explicit constructors are preferred over implicit conversion convenience.

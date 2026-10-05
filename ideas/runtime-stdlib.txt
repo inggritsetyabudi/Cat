@@ -1,0 +1,120 @@
+C@ Runtime and Standard Library
+
+1. Design Decisions
+
+1.1 Runtime scope
+The runtime is intentionally minimal.
+It provides:
+- program entry and startup
+- allocator interface selection
+- defect handling
+- stack unwinding support when enabled
+- threading and synchronization shims where required by the platform
+- time and environment hooks required by stdlib
+
+It does not provide:
+- garbage collection
+- reflection metadata by default
+- hidden scheduler
+- hidden async runtime
+
+1.2 Allocator model
+Default allocator is explicit and replaceable.
+The runtime exposes:
+- global allocator binding
+- per-container allocator parameter hooks
+- failure policy configuration
+
+Containers never allocate silently outside named methods that imply growth or allocation.
+
+1.3 Standard library layers
+
+core
+- core.mem
+- core.text
+- core.math
+- core.option
+- core.outcome
+- core.iter
+- core.sync
+- core.time
+
+std
+- std.fs
+- std.io
+- std.net
+- std.process
+- std.path
+- std.rand
+- std.format
+- std.log
+- std.test
+
+sys
+- sys.posix
+- sys.win32
+- sys.linux
+- sys.macos
+- platform-specific modules isolated behind safe wrappers
+
+1.4 Core library rules
+- Core types are no-heap unless their names imply allocation.
+- Iteration uses views and explicit iterators, not hidden generator stacks.
+- Formatting allocates only in APIs that return owned text buffers; direct writers stream into sinks.
+- `print` and `println` are prelude builtins that write to standard output without explicit import.
+- Core text and collection helpers may expose static receiver-style methods when the dispatch remains compile-time and allocation behavior stays explicit.
+- Expected examples include `len`, `is_empty`, `byte_at`, `slice`, `capacity`, `reserve`, `truncate`, and `clear` where the name keeps cost visible.
+
+1.5 String and text model
+- `Text` is immutable UTF-8 owned text.
+- `TextView` is `look Text`-compatible view semantics for borrowed text APIs.
+- `Bytes` and `Span of Byte` exist for raw binary data.
+
+1.6 Container model
+Primary v1 containers:
+- Vec of T
+- Table of K, V
+- Set of T
+- Heap of T
+- Ring of T
+- Arena
+- Pool of T
+
+Rules
+- Growth may allocate.
+- Indexing is checked.
+- Mutable iteration requires exclusive access.
+
+1.7 Testing runtime
+Built-in test harness through paw:
+- deterministic test discovery
+- isolated execution options
+- benchmark harness with stable timing controls
+- property testing deferred beyond v1 core but allowed as library tooling
+
+2. Rationale
+
+FAST
+- Minimal runtime keeps deployment small and latency predictable.
+- Explicit allocation APIs preserve cost visibility.
+
+SAFE
+- The stdlib is the safe boundary over system APIs.
+- Checked containers and text primitives reduce common memory bugs.
+
+SIMPLE
+- Clear layer split: core, std, sys.
+- No hidden runtime framework to understand before writing services.
+
+3. Constraints
+
+- Stdlib must not weaken language safety rules.
+- Allocation behavior must remain visible in API naming and documentation.
+- Platform-specific modules may not leak unchecked handles into safe APIs.
+- Core must remain usable in constrained environments.
+
+4. Trade-offs
+
+- Some conveniences common in managed languages are intentionally absent.
+- Explicit allocator and container APIs are slightly more verbose.
+- Minimal runtime shifts more responsibility onto well-designed library interfaces.

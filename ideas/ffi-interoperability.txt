@@ -1,0 +1,114 @@
+C@ FFI and Interoperability
+
+1. Design Decisions
+
+1.1 Foreign boundary model
+FFI is explicit and isolated.
+Foreign declarations use:
+foreign c [
+    fn symbol[params] -> ReturnType
+]
+
+Other ABIs may be added as:
+foreign system [...]
+foreign abi_name [...]
+
+1.2 Safety boundary
+Foreign calls are not assumed safe merely because they are declared.
+Safe wrappers must validate:
+- nullability
+- ownership transfer
+- lifetime expectations
+- mutability expectations
+- layout compatibility
+- error channel mapping
+
+1.3 Foreign-compatible types
+Direct FFI-safe types include:
+- fixed-width integers
+- floats
+- plain shapes with explicit foreign layout
+- raw pointers/address types
+- fixed-size arrays when ABI-compatible
+- function pointers
+
+Non-direct types:
+- Text
+- Vec of T
+- Table of K, V
+- choice types without explicit repr contract
+- arbitrary owned shapes with destructor semantics
+
+1.4 Layout control
+Foreign-compatible layout requires explicit representation annotation in the declaration subsystem.
+Rules:
+- Field order fixed
+- Padding target-defined but validated against ABI
+- No hidden destructor state
+- No non-plain field unless wrapper-managed
+
+1.5 String interop
+- C strings use `CStr` view or `OwnedCStr` wrapper
+- UTF-8 `Text` is not passed directly to foreign APIs without conversion
+- Conversion allocation is explicit
+
+1.6 Ownership transfer across FFI
+Four allowed transfer contracts:
+- borrow-in: foreign reads only during the call
+- borrow-edit: foreign mutates only during the call
+- give-away: ownership transferred to foreign side
+- take-back: ownership returned from foreign side through wrapper contract
+
+Every safe wrapper must document which contract applies.
+
+1.7 Raw regions
+Any direct dereference, layout reinterpretation, or unverified aliasing for FFI must occur in `raw` blocks only.
+
+Example
+foreign c [
+    fn write[fd: Int32, buf: RawPtr of Byte, len: USize] -> ISize
+]
+
+fn safe_write[fd: Int32, data: look Span of Byte] -> Outcome of USize, IoFault [
+    raw [
+        hold ptr = span.raw_ptr(data)
+        hold len = span.len(data)
+        hold n = write(fd, ptr, len)
+        when n < 0 [
+            give fail(IoFault.write_failed)
+        ]
+        give ok(cast.usize(n))
+    ]
+]
+
+1.8 C interop policy
+C interop is first-class because production systems require it.
+C++ interop is restricted to `extern "C"` style stable surfaces only in v1.
+Direct ABI interop with C++ classes is not a v1 goal.
+
+2. Rationale
+
+FAST
+- Thin wrappers over C APIs preserve native performance.
+- Explicit transfer contracts avoid hidden copying.
+
+SAFE
+- FFI risk is isolated to foreign and raw boundaries.
+- Safe wrappers convert unsafe foreign contracts into checked C@ APIs.
+
+SIMPLE
+- One explicit foreign boundary model.
+- Clear distinction between raw interop types and safe language types.
+
+3. Constraints
+
+- No safe wrapper may assume undocumented foreign ownership behavior.
+- Foreign-compatible layout must be explicit.
+- Raw pointer dereference outside `raw` is forbidden.
+- FFI metadata must be sufficient for diagnostics and auditing.
+
+4. Trade-offs
+
+- Safe wrappers add some boilerplate around low-level foreign APIs.
+- Rich FFI safety validation may cost wrapper code size.
+- Limiting direct C++ ABI interop keeps v1 tractable and portable.

@@ -1,0 +1,117 @@
+C@ Risk Analysis
+
+1. Design Decisions
+
+Risk 1: Ownership model still feels complex
+Cause
+- Even simplified affine systems can overwhelm users if diagnostics are weak.
+
+Impact
+- Adoption slowdown
+- Misuse of raw blocks as escape hatches
+
+Mitigation
+- Keep only two view kinds
+- Ban user lifetime syntax
+- Invest heavily in ownership diagnostics and IDE explanations
+- Provide standard refactoring patterns for move/view fixes
+
+Risk 2: Syntax uniqueness harms onboarding
+Cause
+- Deliberately non-derivative syntax reduces immediate familiarity.
+
+Impact
+- Early resistance from experienced developers
+
+Mitigation
+- Keep grammar small and consistent
+- Use plain words instead of symbolic novelty
+- Ship formatter, docs, and examples early
+
+Risk 3: Checked integer semantics hurt hot-path performance
+Cause
+- `Int*` overflow checks may survive optimization in some code paths.
+
+Impact
+- Performance regressions relative to low-level languages
+
+Mitigation
+- Separate `Bits*` for wrapping arithmetic
+- Allow optimizer removal of proven-safe checks
+- Provide profiling guidance and low-level numeric APIs
+
+Risk 4: FFI boundary weakens safety story
+Cause
+- Production systems require interop with unsafe external libraries.
+
+Impact
+- Real-world bugs may cluster at wrappers
+
+Mitigation
+- Raw boundary remains explicit
+- Safe wrappers mandatory for public APIs
+- Linter flags expansive raw regions
+- Conformance suite includes FFI ownership tests
+
+Risk 5: Compiler implementation complexity
+Cause
+- Strong ownership diagnostics, incremental compilation, and multi-stage IR are costly to build.
+
+Impact
+- Slow delivery
+- unstable early tooling
+
+Mitigation
+- Freeze semantics before IR
+- Build AIR/OIR/LIR in sequence
+- keep v1 feature set narrow
+- prioritize compiler test infrastructure early
+
+Risk 6: Ecosystem immaturity
+Cause
+- New language lacks packages, docs, and community patterns.
+
+Impact
+- Limited production adoption despite strong core
+
+Mitigation
+- Ship batteries-included stdlib
+- Provide official tooling end to end
+- target infrastructure niches first where value is strongest
+
+Risk 7: Pressure to add shortcuts that violate the core
+Cause
+- Users will request macros, hidden propagation, implicit conversions, and relaxed ownership.
+
+Impact
+- Conceptual drift
+- contradiction with master blueprint
+
+Mitigation
+- ideas.txt remains authoritative
+- edition policy gates changes
+- new feature review requires FAST/SAFE/SIMPLE proof and cross-file consistency check
+
+2. Rationale
+
+FAST
+- Risks are analyzed not only for correctness but for deployment cost and performance regressions.
+
+SAFE
+- The highest-risk area is boundary unsafety, especially raw and foreign interop.
+
+SIMPLE
+- Complexity creep is treated as a first-class design risk.
+
+3. Constraints
+
+- Risks may not be “solved” by weakening safety.
+- No mitigation may contradict ideas.txt.
+- Performance complaints do not justify undefined behavior.
+- Familiarity complaints do not justify syntax collapse into existing-language imitation.
+
+4. Trade-offs
+
+- The design accepts some early friction to preserve a coherent long-term core.
+- Strict governance reduces experimentation speed, but protects language integrity.
+- Production credibility depends more on consistency than on rapid feature expansion.

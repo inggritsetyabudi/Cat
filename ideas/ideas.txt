@@ -1,0 +1,273 @@
+C@ MASTER BLUEPRINT
+Status: Authoritative control document
+Language: English
+Applies to: Every subsystem, every file, every future revision
+
+1. PURPOSE
+
+C@ is a general-purpose systems programming language for production backends, infrastructure, tooling, and OS-adjacent software.
+
+C@ exists to meet one combined requirement set:
+- Native-level performance
+- Full memory safety
+- Low cognitive load
+- Deterministic execution
+- Production implementation discipline
+
+C@ rejects the failure modes of current systems languages:
+- No undefined behavior exposure in safe code
+- No garbage collector as default execution model
+- No user-written lifetime algebra
+- No hidden heap activity
+- No unstable language core
+- No syntax ritual that obscures intent
+
+2. PRIMARY SUCCESS CRITERIA
+
+A design decision is valid only if it satisfies all three mandatory principles:
+
+FAST
+- Abstractions must lower to direct machine-level constructs with no hidden runtime tax.
+- Allocation, copying, bounds checks, dynamic dispatch, and synchronization must be explicit or statically removable.
+- The compiler must preserve predictable cost models.
+
+SAFE
+- Safe code must not permit memory corruption, data races, invalid aliasing, use-after-free, double free, null dereference, or out-of-bounds access.
+- All arithmetic and control semantics must be defined.
+- FFI and unchecked operations must be fenced into explicit raw regions.
+
+SIMPLE
+- The language core must remain small.
+- User mental models must be lexical, local, and inspectable.
+- Ownership must be enforceable without user-written lifetime parameters.
+- Syntax must minimize ceremony and visual noise.
+
+If any subsystem violates FAST, SAFE, or SIMPLE, that subsystem is invalid.
+
+3. NON-NEGOTIABLE LANGUAGE INVARIANTS
+
+3.1 Execution invariants
+- No garbage collector in the default runtime.
+- No hidden exceptions.
+- No hidden allocation.
+- No implicit copy of non-plain values.
+- No implicit shared mutable aliasing.
+- No undefined behavior in safe code.
+- No syntax-driven semantic ambiguity.
+
+3.2 Memory invariants
+- Every non-plain value has exactly one owning location at a time.
+- Non-owning access is expressed through explicit view types.
+- Views are statically bounded by lexical lifetime inference.
+- Destruction is deterministic and scope-driven.
+- Safe code cannot perform pointer arithmetic or dereference raw addresses.
+
+3.3 Compiler invariants
+- Frontend implementation language: C++.
+- Backend: LLVM.
+- Required pipeline order:
+  1. Tokenization
+  2. Parsing
+  3. AST
+  4. Semantic analysis
+  5. Type checking
+  6. Ownership checking
+  7. IR
+  8. LLVM lowering
+  9. Optimization
+  10. Codegen
+- No stage may absorb responsibilities of a later stage.
+- Ownership semantics must be finalized before IR semantics are frozen.
+- IR design is invalid if type and ownership rules are still unstable.
+
+4. ARCHITECTURE RULES
+
+4.1 Surface language rules
+- Syntax must prioritize visual clarity over historical familiarity.
+- One block form only: square-bracket blocks.
+- No mandatory semicolons.
+- Function declaration uses `fn`.
+- Mutability is explicit in bindings, not hidden in type inference.
+- Recoverable failure is explicit in types and control flow.
+
+4.2 Semantic rules
+- Values are either plain-copy, owned, or view-based.
+- Public APIs must state ownership transfer through type position, never through hidden conventions.
+- Mutability of storage and ownership of values are separate concepts.
+- Aliasing is legal only for immutable views or synchronization-protected shared data.
+
+4.3 Type rules
+- Nominal types for shapes and choices.
+- Local inference is allowed where unique and obvious.
+- Public boundaries require explicit parameter and return types.
+- No implicit numeric conversion except literal fitting.
+- Generic specialization uses monomorphization in v1.
+
+4.4 Runtime rules
+- Runtime remains minimal: process startup, allocator abstraction, defect handling, and required platform shims.
+- The standard library provides safe wrappers; the runtime does not rescue unsafe designs.
+- No dependence on a moving collector.
+
+5. MANDATORY EXECUTION RULES FOR ALL SUBSYSTEMS
+
+Every subsystem MUST obey all rules below.
+
+5.1 No step skipping
+- No file may assume a later subsystem is already solved.
+- Syntax may define forms, but semantics remain governed by semantic-model.txt, type-system.txt, and memory-model.txt.
+- Compiler architecture must not invent language behavior.
+- IR must not define ownership policy. It only represents already-approved ownership policy.
+
+5.2 No safety compromise
+- Safe code must remain memory safe by construction.
+- Any escape hatch must be explicit, narrow, auditable, and isolated.
+- Convenience features that weaken ownership, lifetime checking, or alias control are forbidden.
+
+5.3 No performance regression
+- Hidden allocations are forbidden.
+- Default operations must map to predictable machine behavior.
+- Runtime checks are allowed only when required for safety or language-defined semantics and should be eliminable when provable.
+
+5.4 No syntax inconsistency
+- The same visual form must not carry unrelated semantics.
+- Keywords must keep one primary role.
+- Blocks, declarations, and control structures must remain uniform across the language.
+
+5.5 Alignment enforcement
+- All subsystem files must align with ideas.txt.
+- If any file conflicts with ideas.txt, ideas.txt wins.
+- If ideas.txt becomes insufficiently precise, it must be amended before subsystem changes are accepted.
+
+6. PRIORITY ORDER
+
+When trade-offs are unavoidable, the priority order is fixed:
+1. Safety correctness
+2. Semantic simplicity
+3. Performance predictability
+4. Syntax compactness
+5. Ecosystem convenience
+
+This order is mandatory.
+Performance optimizations that weaken safety are invalid.
+Syntax shortcuts that reduce clarity are invalid.
+Convenience features that require semantic exceptions are invalid.
+
+7. ENFORCEMENT LOGIC
+
+A design decision is accepted only if it passes all checks below:
+
+Check A: Memory safety
+- Can safe code trigger memory corruption, invalid aliasing, dangling access, or data race?
+- If yes, reject.
+
+Check B: Cost visibility
+- Can a user identify ownership transfer, allocation, and mutation from local code?
+- If no, reject.
+
+Check C: Compiler tractability
+- Can the frontend compute names, types, moves, view lifetimes, and destruction order deterministically?
+- If no, reject.
+
+Check D: Readability
+- Can an experienced developer read the code without symbolic decoding or lifetime calculus?
+- If no, reject.
+
+Check E: Cross-file consistency
+- Does the decision match ideas.txt, semantic-model.txt, type-system.txt, and memory-model.txt?
+- If no, reject.
+
+8. SUBSYSTEM DEPENDENCY GRAPH
+
+The dependency graph is normative.
+
+Stage 1: Foundational intent
+- visi-misi.txt
+- prinsip-desain.txt
+
+Stage 2: Surface specification
+- desain-syntax.txt
+
+Stage 3: Semantic core
+- semantic-model.txt
+- type-system.txt
+- memory-model.txt
+- error-model.txt
+
+Stage 4: Composition boundary
+- module-package.txt
+
+Stage 5: Implementation architecture
+- compiler-arsitektur.txt
+- ir-design.txt
+
+Stage 6: Platform surface
+- runtime-stdlib.txt
+- ffi-interoperability.txt
+- tooling-ecosystem.txt
+
+Stage 7: Validation and delivery
+- contoh-kode.txt
+- roadmap.txt
+- risk-analysis.txt
+
+No stage may finalize before its prerequisites are stable.
+
+9. EXPLICIT NON-GOALS FOR V1
+
+The following are excluded unless they can be added without violating the core:
+- GC-backed default runtime
+- User-written lifetime parameters
+- Macros that alter core syntax
+- Inheritance
+- Implicit dynamic dispatch
+- Operator overloading
+- Hidden coroutine transformations
+- Reflection with runtime metadata cost by default
+
+10. IMPLEMENTATION DIRECTIVES
+
+- The parser must preserve precise source spans for every token and AST node.
+- Semantic analysis must resolve names before type inference finalization.
+- Type checking must classify plain vs owned vs view values.
+- Ownership checking must insert move, drop, and view scopes before IR lowering.
+- LLVM lowering must operate on ownership-resolved IR only.
+- Diagnostics must prefer local fixes and plain language over theory vocabulary.
+
+11. DESIGN DECISIONS
+
+- C@ uses affine ownership with explicit view types and inferred lexical lifetimes.
+- C@ uses square-bracket block syntax and noun-based declaration forms to reduce ritual syntax.
+- C@ uses explicit typed outcomes for recoverable failure and defects for unrecoverable faults.
+- C@ uses nominal modules and packages managed by paw and compiled by claw.
+- C@ uses a small runtime and a safe standard library boundary.
+
+12. RATIONALE
+
+FAST
+- Affine ownership enables deterministic destruction and static alias control with no GC overhead.
+- Monomorphized generics and LLVM backend preserve native performance.
+
+SAFE
+- Explicit views replace raw aliasing.
+- Typed outcomes and raw fences isolate failure and unsafety.
+
+SIMPLE
+- No user lifetime parameters.
+- Uniform block form.
+- Small keyword core.
+- Local reasoning over global borrow proofs.
+
+13. CONSTRAINTS
+
+- All surface forms must remain parseable with deterministic LL/LR-friendly grammar after tokenization.
+- The language core must be implementable by a production C++ frontend without symbolic theorem-proving.
+- The ownership checker must remain flow-sensitive but lexical, not arbitrary region-inference across opaque control graphs.
+- V1 must ship with stable formatting, linting, testing, and package resolution.
+
+14. TRADE-OFFS
+
+- Some expressiveness is intentionally sacrificed to preserve local reasoning and compiler tractability.
+- V1 excludes advanced metaprogramming to protect simplicity.
+- Explicit view types are more visible than hidden borrowing, but they reduce user confusion and eliminate lifetime syntax.
+
+End of control document.

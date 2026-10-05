@@ -1,0 +1,51 @@
+C@ Design Principles
+
+1. Design Decisions
+
+Principle 1: Visible cost
+Every allocation, clone, synchronization boundary, and ownership transfer must be visible in source or in a direct called API.
+
+Principle 2: One-way safety
+Safe code is fully checked. Unsafe behavior is quarantined behind explicit raw regions and foreign boundaries.
+
+Principle 3: Lexical reasoning
+Ownership, view scope, and destruction must be explainable from lexical program structure.
+
+Principle 4: Small core
+The language core favors fewer rules applied consistently over many special cases.
+
+Principle 5: Deterministic behavior
+Destruction, arithmetic, indexing, and error propagation all have defined semantics.
+
+Principle 6: Explicit boundaries
+Modules, packages, FFI, and unsafety boundaries must be easy to identify.
+
+Principle 7: Readable grammar
+Common code should read like structured instructions, not symbolic puzzles.
+
+2. Rationale
+
+FAST
+- Visible cost enables performance engineering without guesswork.
+- Deterministic lowering enables aggressive optimization without semantic uncertainty.
+
+SAFE
+- One-way safety prevents partial guarantees.
+- Lexical reasoning keeps ownership and lifetime checks explainable.
+
+SIMPLE
+- Small core and readable grammar reduce cognitive load.
+- Explicit boundaries reduce hidden language behavior.
+
+3. Constraints
+
+- No feature may require exceptions to the ownership model.
+- No feature may introduce context-sensitive interpretation of the same syntax.
+- No feature may depend on hidden compiler-inserted allocation.
+- Public API rules must remain stricter than local inference rules.
+
+4. Trade-offs
+
+- Some concise shorthand is rejected if it hides ownership or failure paths.
+- Dynamic features are limited to preserve predictability.
+- Library design carries more responsibility because the language core stays intentionally small.

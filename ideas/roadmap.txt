@@ -1,0 +1,109 @@
+C@ Delivery Roadmap
+
+1. Design Decisions
+
+Phase 0: Spec freeze
+- Freeze ideas.txt, desain-syntax.txt, semantic-model.txt, type-system.txt, memory-model.txt, and error-model.txt
+- Define edition 1 grammar and semantics test corpus
+- Establish diagnostic wording standards
+
+Phase 1: Frontend prototype
+- C++ lexer
+- parser
+- AST
+- semantic analysis
+- type checker
+- parser recovery
+- formatter prototype
+
+Exit criteria
+- Parses and checks core syntax
+- Emits stable AST snapshots
+- Produces deterministic diagnostics
+
+Phase 2: Ownership engine
+- move analysis
+- view scope inference
+- drop scheduling
+- exhaustiveness and definite-init integration
+- ownership diagnostics
+
+Exit criteria
+- Rejects all invalid alias and move cases in conformance suite
+- Accepts core safe patterns without lifetime annotations
+
+Phase 3: IR and LLVM backend
+- AIR
+- OIR
+- LIR
+- LLVM lowering
+- debug and release-safe modes
+- target triples for Linux x86_64 and aarch64 first
+
+Exit criteria
+- Produces working native binaries
+- Passes runtime safety suite
+- Generates debuggable stack traces
+
+Phase 4: Runtime and stdlib
+- allocator interface
+- defect handler
+- core containers
+- text, io, fs, path, process
+- test harness
+- package integration
+
+Exit criteria
+- Real applications compile and run
+- stdlib APIs obey ownership and error rules
+
+Phase 5: Toolchain polish
+- paw resolver
+- lockfile
+- registry integration
+- linter
+- language server
+- doc generator
+- benchmark tooling
+
+Exit criteria
+- Daily developer workflow supported
+- reproducible builds and CI support
+
+Phase 6: Interop and production hardening
+- C FFI
+- safe wrapper guidelines
+- sanitization modes for raw blocks
+- crash diagnostics
+- edition stability policy
+
+Exit criteria
+- System library interop viable
+- production deployment pilots complete
+
+2. Rationale
+
+FAST
+- The roadmap builds correctness before optimization.
+- Backend work starts only after ownership semantics are stable.
+
+SAFE
+- Ownership engine precedes IR stabilization.
+- Runtime and stdlib arrive with explicit safety contracts.
+
+SIMPLE
+- Phases are linear and enforce design discipline.
+- Each milestone has measurable exit criteria.
+
+3. Constraints
+
+- No backend stabilization before ownership conformance passes.
+- No package ecosystem launch before lockfile and audit support exist.
+- No public 1.0 before formatter, linter, tests, and docs are stable.
+- No syntax expansion until edition 1 core proves viable.
+
+4. Trade-offs
+
+- The roadmap is conservative.
+- Feature breadth is intentionally delayed to protect semantic correctness.
+- Shipping later is preferred over shipping a contradictory core.

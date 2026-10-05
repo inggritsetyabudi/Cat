@@ -1,0 +1,46 @@
+C@ Vision and Mission
+
+1. Design Decisions
+
+Vision
+C@ becomes the default choice for teams that need systems-level control without accepting unsafe defaults or high language complexity.
+
+Mission
+C@ delivers:
+- Native-speed execution
+- Deterministic memory management
+- Readable source code
+- Auditable safety boundaries
+- A production-grade compiler and toolchain
+
+Operational mission
+- Replace unsafe low-level code where memory safety is required.
+- Replace GC-based infrastructure components where latency and memory control matter.
+- Provide a simpler systems language for backend and platform teams.
+
+Success profile
+A C@ project should be understandable by a new engineer after reading a small language core, not after mastering advanced ownership notation.
+
+2. Rationale
+
+FAST
+- The mission targets services, runtime infrastructure, protocol stacks, storage engines, build tools, and OS-adjacent components where predictable performance matters.
+
+SAFE
+- Production systems cannot depend on “expert-only safe usage” of unsafe primitives.
+
+SIMPLE
+- The language must remain teachable to teams, not only to specialists.
+
+3. Constraints
+
+- The language may not depend on GC to achieve memory safety.
+- The language may not outsource safety to discipline or style guides.
+- The language may not require users to manually express lifetime graphs.
+- The mission does not include being the most feature-rich language.
+
+4. Trade-offs
+
+- Some advanced abstractions will arrive later than in larger ecosystems.
+- The language prioritizes reliability and clarity over novelty for its own sake.
+- V1 favors a narrow, stable core over maximal flexibility.

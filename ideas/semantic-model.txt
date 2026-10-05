@@ -1,0 +1,86 @@
+C@ Semantic Model
+
+1. Design Decisions
+
+1.1 Program model
+A C@ program is a set of realms containing declarations of shapes, choices, constants, and functions.
+Execution is statement-based and block-scoped.
+Scopes define visibility, ownership lifetime, and destruction order.
+
+1.2 Value categories
+Every runtime value belongs to one of three categories:
+- Plain value: copied by assignment and argument passing
+- Owned value: moved by assignment and argument passing unless explicitly cloned
+- View value: non-owning access into another value
+
+1.3 Storage model
+Bindings introduce storage or names:
+- `hold` binds an immutable name to a value
+- `slot` creates mutable storage that may be reassigned
+
+1.4 Control model
+Control flow is explicit:
+- Sequential execution
+- Branching via `when` and `pick`
+- Iteration via `loop` and `scan`
+- Function exit via `give`
+
+1.5 Function semantics
+Function parameters are evaluated left to right.
+Arguments to plain parameters copy if the type is plain.
+Arguments to owned parameters move if the type is non-plain.
+Arguments with view types create lexical views validated by the ownership checker.
+
+1.6 Deterministic destruction
+Owned values are destroyed:
+- At scope exit
+- At reassignment of an initialized `slot`
+- At path termination after control-flow join analysis
+- Never more than once
+
+Destruction order is reverse declaration order within a scope after control-flow normalization.
+
+1.7 Mutation model
+Mutation requires:
+- A mutable storage cell, or
+- An `edit` view into owned storage
+
+No mutation is allowed through `look` views.
+
+1.8 Null absence
+Safe code has no null reference values.
+Absence is modeled using `Maybe of T`.
+Failure is modeled using `Outcome of T, E`.
+
+1.9 Concurrency semantics
+Safe concurrent transfer requires sendable values.
+Shared read access across threads requires shareable types plus synchronization-safe wrappers.
+Unsynchronized shared mutable access is invalid in safe code.
+
+2. Rationale
+
+FAST
+- Clear value categories let the compiler emit direct move, copy, and destroy operations.
+- Deterministic destruction avoids collector overhead.
+
+SAFE
+- Lexical view semantics prevent dangling access.
+- Null is excluded from safe reference space.
+- Mutation requires explicit capability.
+
+SIMPLE
+- The model reduces to storage, value category, and scope.
+- Users reason about ownership through visible bindings and types.
+
+3. Constraints
+
+- No semantic rule may depend on hidden heap lifetime extension.
+- No view may outlive its source owner.
+- Control-flow joins must preserve definite initialization and single-destruction.
+- Public semantics must not depend on optimizer behavior.
+
+4. Trade-offs
+
+- Some patterns that rely on pervasive aliasing are rejected.
+- Closure-heavy or coroutine-heavy idioms are deferred in v1 to keep the model small.
+- The language prefers explicit data-flow to implicit capture magic.
