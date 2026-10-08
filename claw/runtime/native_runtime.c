@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct claw_slice {
     const unsigned char* ptr;
@@ -105,6 +106,7 @@ void claw_runtime_println_double(double value) __asm__(CLAW_RT_ASM(claw.runtime.
 void claw_runtime_println_ptr(void* value) __asm__(CLAW_RT_ASM(claw.runtime.println.ptr));
 void claw_runtime_println_slice(const claw_slice* value) __asm__(CLAW_RT_ASM(claw.runtime.println.slice));
 void claw_runtime_println_buffer(const claw_buffer* value) __asm__(CLAW_RT_ASM(claw.runtime.println.buffer));
+_Bool claw_runtime_str_eq(const claw_slice* a, const claw_slice* b) __asm__(CLAW_RT_ASM(claw.runtime.str.eq));
 
 void claw_runtime_print_i1(_Bool value) {
     fputs(value ? "true" : "false", stdout);
@@ -214,5 +216,14 @@ void claw_runtime_println_slice(const claw_slice* value) {
 void claw_runtime_println_buffer(const claw_buffer* value) {
     if (value) claw_write_bytes(value->ptr, value->len);
     claw_finish_print(true);
+}
+
+_Bool claw_runtime_str_eq(const claw_slice* a, const claw_slice* b) {
+    if (a == b) return true;
+    if (a == NULL || b == NULL) return false;
+    if (a->len != b->len) return false;
+    if (a->len == 0) return true;
+    if (a->ptr == b->ptr) return true;
+    return memcmp(a->ptr, b->ptr, (size_t)a->len) == 0;
 }
 

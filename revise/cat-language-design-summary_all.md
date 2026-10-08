@@ -198,9 +198,9 @@ import src.crypto.{ Hasher as H }
 
 ---
 
-## 7. Yang Tetap Dipertahankan dari PRD Asal [conflict]
+## 7. Yang Tetap Dipertahankan dari PRD Asal [sudah]
 
-> [conflict] Dua baris di tabel ini masih menyisakan syntax lama of. Syntax final mengikuti generic [] dan choice Name[T] sesuai keputusan revisi terbaru.
+> [sudah] Semua syntax legacy `of` sudah ditolak secara eksplisit oleh compiler. Generic dan choice murni menggunakan sintaks `[]` (`Vec[T]`, `Result[T, E]`).
 
 | Fitur | Syntax |
 |---|---|
@@ -212,10 +212,10 @@ import src.crypto.{ Hasher as H }
 | Iteration | `scan item over items { }` |
 | Loop control | `stop`, `skip` |
 | Shape | `shape Name { ... }` |
-| Choice / tagged union | [conflict] `choice Name of T { ... }`  gunakan `choice Name[T] { ... }`; baris ini sisa syntax lama |
+| Choice / tagged union | `choice Name[T] { ... }` |
 | Pattern match | `pick value { pattern { } }` |
 | Public field | `share field: Type` |
-| Generic syntax | [conflict] `of`  syntax final memakai `[]`; baris ini sisa transisi dari PRD lama |
+| Generic syntax | `[]` (contoh: `Vec[T]`) |
 | Raw region | `raw { ... }` |
 | Unsafe boundary | `foreign c { ... }` |
 
@@ -500,10 +500,7 @@ Lifetime inference bekerja untuk 95% kasus. Lima persen sisanya:
 
 `Anchor[T]` menyimpan nilai di heap dengan **alamat stabil** — nilai tidak bisa dipindah setelah dialokasi. Compiler tahu ref ke dalamnya aman selama pemilik `Anchor` hidup.
 
-> [!WARNING]
-> **[conflict] Desain Lama vs Baru:**
-> Desain lama perlu pointer syntax manual: `ref cache.stored.get()`.
-> **Final Form:** Method `anchor.get()` secara langsung mengembalikan tipe `ref T`. Ini lebih clean, mempermudah *method dispatch*, dan natural bagi borrow checker serta backend.
+> [sudah] **Final Form Anchor:** Method `anchor.get()` secara langsung mengembalikan tipe `ref T`. Syntax pointer manual desain lama telah ditinggalkan. Ini mempermudah *method dispatch* dan sangat natural bagi borrow checker serta IR backend.
 
 ```
 // MASALAH — compiler tidak bisa inferensi lifetime ref dalam struct

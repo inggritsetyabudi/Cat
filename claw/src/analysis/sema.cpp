@@ -2372,7 +2372,8 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             type = makeUnknownType();
         } else if (isComparison) {
             if (!leftType.isUnknown() && !rightType.isUnknown() &&
-                !canAssignType(rightType, leftType) && !canAssignType(leftType, rightType)) {
+                !canAssignType(rightType, leftType) && !canAssignType(leftType, rightType) &&
+                !canCompareTypes(leftType, rightType)) {
                 reportError(binary, "Incompatible comparison operands: " + leftType.describe() + " and " + rightType.describe());
             }
             type = makePlainType("Bool");

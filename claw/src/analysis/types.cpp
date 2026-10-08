@@ -541,6 +541,35 @@ bool canAssignType(const ResolvedType& from, const ResolvedType& to) {
     return false;
 }
 
+bool canCompareTypes(const ResolvedType& left, const ResolvedType& right) {
+    auto peelView = [](const ResolvedType& t) -> ResolvedType {
+        ResolvedType r = t;
+        r.viewKind.clear();
+        r.viewScope.clear();
+        if (r.category == TypeCategory::View) {
+            r.category = (isNumericTypeName(r.name) || r.name == "Bool" || r.name == "Char")
+                ? TypeCategory::Plain
+                : TypeCategory::Owned;
+        }
+        return r;
+    };
+    ResolvedType L = peelView(left);
+    ResolvedType R = peelView(right);
+
+    if (sameType(L, R)) {
+        return true;
+    }
+
+    if (isIntegerLiteralType(L) && isIntegerLikeTypeName(R.name)) {
+        return true;
+    }
+    if (isIntegerLiteralType(R) && isIntegerLikeTypeName(L.name)) {
+        return true;
+    }
+
+    return false;
+}
+
 ResolvedType adaptMemberType(const ResolvedType& baseType, const ResolvedType& fieldType) {
     if (!baseType.isView() || fieldType.isPlain() || fieldType.isView()) {
         return fieldType;

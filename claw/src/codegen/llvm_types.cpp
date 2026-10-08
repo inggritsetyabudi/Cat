@@ -160,6 +160,11 @@ std::string LlvmEmitter::emitStringGlobals() {
                 for (const auto& block : fn->blocks) {
                     for (const auto& inst : block.insts) {
                         std::visit(Overloaded{
+                            [&](const LirPhiInst& value) {
+                                for (const auto& in : value.inputs) {
+                                    collectLiteral(in.value);
+                                }
+                            },
                             [&](const LirStoreInst& value) {
                                 collectLiteral(value.value);
                             },
@@ -186,6 +191,12 @@ std::string LlvmEmitter::emitStringGlobals() {
                             [&](const LirIterNextInst& value) {
                                 collectLiteral(value.iterable);
                             },
+                            [&](const LirBranchInst& value) {
+                                collectLiteral(value.condition);
+                            },
+                            [&](const LirSwitchInst& value) {
+                                collectLiteral(value.value);
+                            },
                             [&](const LirLiftInst& value) {
                                 collectLiteral(value.value);
                             },
@@ -193,6 +204,13 @@ std::string LlvmEmitter::emitStringGlobals() {
                                 for (const auto& payload : value.payloads) {
                                     collectLiteral(payload);
                                 }
+                            },
+                            [&](const LirFieldInst& value) {
+                                collectLiteral(value.object);
+                            },
+                            [&](const LirBinaryInst& value) {
+                                collectLiteral(value.left);
+                                collectLiteral(value.right);
                             },
                             [&](const auto&) {}
                         }, inst);
