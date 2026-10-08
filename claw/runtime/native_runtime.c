@@ -48,12 +48,13 @@ static void claw_write_i128(__int128 value) {
 }
 
 #if defined(__APPLE__)
-void* claw_runtime_anchor_alloc(int64_t size) __asm__("_claw.runtime.anchor.alloc");
-void claw_runtime_anchor_free(void* ptr) __asm__("_claw.runtime.anchor.free");
+#define CLAW_RT_ASM(sym) "_" #sym
 #else
-void* claw_runtime_anchor_alloc(int64_t size) __asm__("claw.runtime.anchor.alloc");
-void claw_runtime_anchor_free(void* ptr) __asm__("claw.runtime.anchor.free");
+#define CLAW_RT_ASM(sym) #sym
 #endif
+
+void* claw_runtime_anchor_alloc(int64_t size) __asm__(CLAW_RT_ASM(claw.runtime.anchor.alloc));
+void claw_runtime_anchor_free(void* ptr) __asm__(CLAW_RT_ASM(claw.runtime.anchor.free));
 
 void* claw_runtime_anchor_alloc(int64_t size) {
     const size_t request = size <= 0 ? 1u : (size_t)size;
@@ -104,8 +105,6 @@ void claw_runtime_println_double(double value) __asm__(CLAW_RT_ASM(claw.runtime.
 void claw_runtime_println_ptr(void* value) __asm__(CLAW_RT_ASM(claw.runtime.println.ptr));
 void claw_runtime_println_slice(const claw_slice* value) __asm__(CLAW_RT_ASM(claw.runtime.println.slice));
 void claw_runtime_println_buffer(const claw_buffer* value) __asm__(CLAW_RT_ASM(claw.runtime.println.buffer));
-void* claw_runtime_anchor_alloc(int64_t size) __asm__(CLAW_RT_ASM(claw.runtime.anchor.alloc));
-void claw_runtime_anchor_free(void* ptr) __asm__(CLAW_RT_ASM(claw.runtime.anchor.free));
 
 void claw_runtime_print_i1(_Bool value) {
     fputs(value ? "true" : "false", stdout);

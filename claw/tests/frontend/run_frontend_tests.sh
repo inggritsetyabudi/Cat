@@ -90,6 +90,8 @@ run_check_fail "test_frontend/revise_bad_double_main.cat" "$FIXTURE_DIR/revise_b
 run_validate_fail "test_frontend/revise_bad_non_entry_main" "$FIXTURE_DIR/revise_bad_non_entry_main" '`fn main` is only allowed in root main.cat.'
 run_check_fail "test_frontend/revise_bad_call_main.cat" "$FIXTURE_DIR/revise_bad_call_main.cat" '`main` is the program entry point and cannot be called like a normal function.'
 
+run_check_pass "test_frontend/revise_builtin_methods.cat" "$FIXTURE_DIR/revise_builtin_methods.cat"
+
 run_check_pass "test_frontend/revise_error_handling.cat" "$FIXTURE_DIR/revise_error_handling.cat"
 echo "[air/pass] test_frontend/revise_error_handling.cat"
 revise_try_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_error_handling.cat")"

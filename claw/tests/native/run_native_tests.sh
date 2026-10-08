@@ -130,6 +130,18 @@ if [[ "$view_shape_stdout" != "hello" ]]; then
   exit 1
 fi
 
+echo "[build/pass] test_native/revise_builtin_methods.cat"
+builtin_methods_output="$ARTIFACT_DIR/revise_builtin_methods.exe"
+rm -f "$builtin_methods_output"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_builtin_methods.cat" "$builtin_methods_output" >/dev/null
+expect_generated_ll "$builtin_methods_output"
+"$builtin_methods_output" >/dev/null 2>&1 || exit_code="$?"
+exit_code="${exit_code:-0}"
+if [[ "$exit_code" != "0" ]]; then
+  echo "revised builtin-methods native build produced unexpected exit code: $exit_code" >&2
+  exit 1
+fi
+
 echo "[build/pass] test_native/revise_exit_code.cat"
 "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_exit_code.cat" "$exit_code_output" >/dev/null
 expect_generated_ll "$exit_code_output"

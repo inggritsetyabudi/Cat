@@ -2,6 +2,7 @@
 .DS_Store
 graphify-out
 claw/build
+claw/build-cmake
 claw/build-ucrt64
 ideas
 revise

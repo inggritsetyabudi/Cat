@@ -263,7 +263,7 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         return;
     }
 
-    if (builtinTag == "Str.len" || (baseType == "Str" && methodName == "len")) {
+    if (methodName == "len" && (baseType == "Str" || baseType == "Span" || baseType == "Vec")) {
         if (!value.result.has_value()) {
             return;
         }
@@ -274,13 +274,25 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         return;
     }
 
-    if (builtinTag == "Str.is_empty" || (baseType == "Str" && methodName == "is_empty")) {
+    if (methodName == "is_empty" && (baseType == "Str" || baseType == "Span" || baseType == "Vec")) {
         if (!value.result.has_value()) {
             return;
         }
         const std::string resultReg = localName(*value.result);
         const std::string lengthValue = extractLength(receiverValue, receiverType, state, lines);
         lines.push_back("  " + resultReg + " = icmp eq i64 " + lengthValue + ", 0");
+        storeResultType();
+        return;
+    }
+
+    if (methodName == "capacity" && baseType == "Vec") {
+        if (!value.result.has_value()) {
+            return;
+        }
+        const std::string resultReg = localName(*value.result);
+        const std::string capReg = state.temp("vec.cap");
+        lines.push_back("  " + capReg + " = extractvalue %claw.buffer " + receiverValue + ", 2");
+        lines.push_back("  " + resultReg + " = add i64 0, " + capReg);
         storeResultType();
         return;
     }
