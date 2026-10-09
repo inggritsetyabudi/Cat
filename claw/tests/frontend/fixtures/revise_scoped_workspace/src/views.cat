@@ -1,0 +1,16 @@
+share view shape PairView[s] {
+    first: ref[s] Str,
+    second: ref[s] Str,
+}
+
+share fn identity_pair(value: PairView[borrow]) -> PairView[borrow] {
+    return value
+}
+
+share fn identity_ref(value: ref[borrow] Str) -> ref[borrow] Str {
+    return value
+}
+
+share fn first_text(value: PairView[borrow]) -> ref[borrow] Str {
+    return value.first
+}

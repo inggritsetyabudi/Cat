@@ -1,0 +1,4 @@
+fn main() {
+    val text: Str = "cat"
+    text.contains(1)
+}

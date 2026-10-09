@@ -91,6 +91,9 @@ run_validate_fail "test_frontend/revise_bad_non_entry_main" "$FIXTURE_DIR/revise
 run_check_fail "test_frontend/revise_bad_call_main.cat" "$FIXTURE_DIR/revise_bad_call_main.cat" '`main` is the program entry point and cannot be called like a normal function.'
 
 run_check_pass "test_frontend/revise_builtin_methods.cat" "$FIXTURE_DIR/revise_builtin_methods.cat"
+run_check_pass "test_frontend/revise_str_search_methods.cat" "$FIXTURE_DIR/revise_str_search_methods.cat"
+run_check_fail "test_frontend/revise_bad_str_search_argument.cat" "$FIXTURE_DIR/revise_bad_str_search_argument.cat" 'Call argument type mismatch: expected ref Str, got integer literal'
+run_check_fail "test_frontend/revise_bad_str_search_receiver.cat" "$FIXTURE_DIR/revise_bad_str_search_receiver.cat" "Type 'Int32' does not provide method 'starts_with'."
 
 run_check_pass "test_frontend/revise_error_handling.cat" "$FIXTURE_DIR/revise_error_handling.cat"
 echo "[air/pass] test_frontend/revise_error_handling.cat"
@@ -120,6 +123,7 @@ fi
 
 run_check_pass "test_frontend/revise_anchor.cat" "$FIXTURE_DIR/revise_anchor.cat"
 run_check_fail "test_frontend/revise_bad_anchor_view_payload.cat" "$FIXTURE_DIR/revise_bad_anchor_view_payload.cat" 'Anchor.new(...) requires an owned payload'
+run_check_fail "test_frontend/revise_bad_anchor_scoped_aggregate.cat" "$FIXTURE_DIR/revise_bad_anchor_scoped_aggregate.cat" 'Anchor.new(...) requires an owned payload'
 run_check_fail "test_frontend/revise_bad_anchor_return_local.cat" "$FIXTURE_DIR/revise_bad_anchor_return_local.cat" "Returned ref value must come from one of the function's ref parameters."
 run_check_pass "test_frontend/revise_anchor_choice.cat" "$FIXTURE_DIR/revise_anchor_choice.cat"
 
@@ -136,6 +140,7 @@ run_check_fail "test_frontend/revise_bad_param_prefix_mutation.cat" "$FIXTURE_DI
 
 run_check_fail "test_frontend/revise_bad_shape_ref_field.cat" "$FIXTURE_DIR/revise_bad_shape_ref_field.cat" "cannot store borrowed field 'stored'"
 run_check_fail "test_frontend/revise_bad_shape_nested_ref_field.cat" "$FIXTURE_DIR/revise_bad_shape_nested_ref_field.cat" "cannot store borrowed field 'next'"
+run_check_fail "test_frontend/revise_bad_shape_scoped_aggregate_field.cat" "$FIXTURE_DIR/revise_bad_shape_scoped_aggregate_field.cat" "cannot store borrowed field 'value'"
 run_check_fail "test_frontend/revise_bad_choice_ref_payload.cat" "$FIXTURE_DIR/revise_bad_choice_ref_payload.cat" "Choice 'MaybeRef' cannot store"
 run_check_fail "test_frontend/revise_bad_return_local_ref.cat" "$FIXTURE_DIR/revise_bad_return_local_ref.cat" "Returned ref value must come from one of the function's ref parameters."
 
@@ -162,6 +167,22 @@ if [[ "$revise_view_shape_air_output" != *"air.view_shape Parser[s]"* ]] ||
 fi
 run_check_fail "test_frontend/revise_bad_view_shape_scope_field.cat" "$FIXTURE_DIR/revise_bad_view_shape_scope_field.cat" "must use the declared scope 's'"
 run_check_fail "test_frontend/revise_bad_view_shape_escape.cat" "$FIXTURE_DIR/revise_bad_view_shape_escape.cat" 'Cannot return value `Parser[s]` because it is bound to scope `s`.'
+
+run_check_pass "test_frontend/revise_scoped_type_propagation.cat" "$FIXTURE_DIR/revise_scoped_type_propagation.cat"
+run_check_pass "test_frontend/revise_scoped_workspace" "$FIXTURE_DIR/revise_scoped_workspace"
+run_check_fail "test_frontend/revise_bad_scoped_signature_mismatch.cat" "$FIXTURE_DIR/revise_bad_scoped_signature_mismatch.cat" "scope parameter 's' is bound to different active scopes"
+run_check_fail "test_frontend/revise_bad_scoped_aggregate_mismatch.cat" "$FIXTURE_DIR/revise_bad_scoped_aggregate_mismatch.cat" "scope parameter 'shared' is bound to different active scopes"
+run_check_fail "test_frontend/revise_bad_scoped_signature_unbound_argument.cat" "$FIXTURE_DIR/revise_bad_scoped_signature_unbound_argument.cat" "must carry a scope-bound value"
+run_check_fail "test_frontend/revise_bad_scoped_signature_escape.cat" "$FIXTURE_DIR/revise_bad_scoped_signature_escape.cat" "Return type mismatch in function 'wrong_scope'"
+run_check_fail "test_frontend/revise_bad_scoped_signature_short_lifetime.cat" "$FIXTURE_DIR/revise_bad_scoped_signature_short_lifetime.cat" 'does not live long enough for scope `s`'
+run_check_fail "test_frontend/revise_bad_scoped_signature_owned_parameter.cat" "$FIXTURE_DIR/revise_bad_scoped_signature_owned_parameter.cat" "is not tied to scope parameter 's'"
+run_check_fail "test_frontend/revise_bad_scoped_signature_unbound_return.cat" "$FIXTURE_DIR/revise_bad_scoped_signature_unbound_return.cat" "return scope parameter 's' is not bound by any function parameter"
+run_check_pass "test_frontend/revise_nested_scoped_generic.cat" "$FIXTURE_DIR/revise_nested_scoped_generic.cat"
+run_check_pass "test_frontend/revise_nested_scoped_workspace" "$FIXTURE_DIR/revise_nested_scoped_workspace"
+run_check_fail "test_frontend/revise_bad_nested_scoped_generic_mismatch.cat" "$FIXTURE_DIR/revise_bad_nested_scoped_generic_mismatch.cat" "scope parameter 'borrow' is bound to different active scopes"
+run_check_fail "test_frontend/revise_bad_nested_scoped_generic_field_mismatch.cat" "$FIXTURE_DIR/revise_bad_nested_scoped_generic_field_mismatch.cat" "Shape literal field type mismatch for 'value': expected Name[outer], got Name[inner]"
+run_check_fail "test_frontend/revise_bad_nested_scoped_generic_escape.cat" "$FIXTURE_DIR/revise_bad_nested_scoped_generic_escape.cat" "Return type mismatch in function 'leak': expected Box[Name[borrow]], got Box[Name[inner]]"
+run_check_fail "test_frontend/revise_bad_nested_scoped_generic_no_expected.cat" "$FIXTURE_DIR/revise_bad_nested_scoped_generic_no_expected.cat" "requires a concrete matching expected type"
 
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEMP_DIR"' EXIT

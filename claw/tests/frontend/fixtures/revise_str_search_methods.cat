@@ -1,0 +1,74 @@
+fn check_str_search(text: ref Str, empty: ref Str) -> Int32 {
+    if text.len() != 17 {
+        return 13
+    }
+    if text.is_empty() == true {
+        return 14
+    }
+    if empty.len() != 0 {
+        return 15
+    }
+    if empty.is_empty() == false {
+        return 16
+    }
+    if text.starts_with("C@") == false {
+        return 1
+    }
+    if text.starts_with("C@ language café extra") == true {
+        return 2
+    }
+    if text.ends_with("café") == false {
+        return 3
+    }
+    if text.ends_with("!café") == true {
+        return 4
+    }
+    if text.ends_with("C@ language café extra") == true {
+        return 17
+    }
+    if text.contains("language") == false {
+        return 5
+    }
+    if text.contains("é") == false {
+        return 6
+    }
+    if text.contains("missing") == true {
+        return 7
+    }
+    if text.contains("") == false {
+        return 8
+    }
+    if empty.starts_with("") == false {
+        return 9
+    }
+    if empty.ends_with("") == false {
+        return 10
+    }
+    if empty.contains("") == false {
+        return 11
+    }
+    if empty.contains("x") == true {
+        return 12
+    }
+    return 0
+}
+
+fn main() -> Int32 {
+    val text: Str = "C@ language café"
+    val empty: Str = ""
+    if text.starts_with("C@") == false {
+        return 18
+    }
+    if text.ends_with("café") == false {
+        return 19
+    }
+    if text.contains("language") == false {
+        return 20
+    }
+    val result = check_str_search(ref text, ref empty)
+    if result != 0 {
+        return result
+    }
+    println("str-search-ok")
+    return 0
+}

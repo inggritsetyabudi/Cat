@@ -84,11 +84,15 @@ TypeCatalog buildExportTypeCatalog(const LoadedUnit& unit) {
 
     for (const auto& binding : unit.importedBindings) {
         if (binding.kind == SymbolKind::Shape) {
-            catalog.registerShapeName(
-                binding.name,
-                binding.shapeInfo.has_value()
-                    ? std::optional<size_t>(binding.shapeInfo->typeParams.size())
-                    : std::nullopt);
+            if (binding.shapeInfo.has_value() && binding.shapeInfo->isViewShape) {
+                catalog.registerViewShapeName(binding.name, binding.shapeInfo->scopeParamName);
+            } else {
+                catalog.registerShapeName(
+                    binding.name,
+                    binding.shapeInfo.has_value()
+                        ? std::optional<size_t>(binding.shapeInfo->typeParams.size())
+                        : std::nullopt);
+            }
         } else if (binding.kind == SymbolKind::Choice) {
             catalog.registerChoiceName(
                 binding.name,
@@ -104,7 +108,11 @@ TypeCatalog buildExportTypeCatalog(const LoadedUnit& unit) {
 
     for (const auto& decl : unit.ast->declarations) {
         if (auto* shape = dynamic_cast<const ShapeDecl*>(decl.get())) {
-            catalog.registerShapeName(shape->name, shape->typeParams.size());
+            if (shape->isViewShape) {
+                catalog.registerViewShapeName(shape->name, shape->scopeParamName);
+            } else {
+                catalog.registerShapeName(shape->name, shape->typeParams.size());
+            }
         } else if (auto* choice = dynamic_cast<const ChoiceDecl*>(decl.get())) {
             catalog.registerChoiceName(choice->name, choice->typeParams.size());
         }
@@ -653,6 +661,7 @@ ProjectLoader::ExportSummary ProjectLoader::buildExportSummary(const LoadedUnit&
             signature.returnType = fn->returnType
                 ? catalog.resolveType(fn->returnType.get(), {}, &diagnostics)
                 : makePlainResolvedType("Unit");
+            populateFunctionScopeMetadata(signature);
             binding.functionSignature = std::move(signature);
             summary.sharedItems[fn->name] = std::move(binding);
             continue;
@@ -1019,7 +1028,6 @@ LoadedProject ProjectLoader::load(const std::filesystem::path& inputPath) {
 }
 
 } // namespace claw::workspace
-
 
 
 

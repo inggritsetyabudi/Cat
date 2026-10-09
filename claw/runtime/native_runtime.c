@@ -107,6 +107,9 @@ void claw_runtime_println_ptr(void* value) __asm__(CLAW_RT_ASM(claw.runtime.prin
 void claw_runtime_println_slice(const claw_slice* value) __asm__(CLAW_RT_ASM(claw.runtime.println.slice));
 void claw_runtime_println_buffer(const claw_buffer* value) __asm__(CLAW_RT_ASM(claw.runtime.println.buffer));
 _Bool claw_runtime_str_eq(const claw_slice* a, const claw_slice* b) __asm__(CLAW_RT_ASM(claw.runtime.str.eq));
+_Bool claw_runtime_str_starts_with(const claw_slice* text, const claw_slice* prefix) __asm__(CLAW_RT_ASM(claw.runtime.str.starts_with));
+_Bool claw_runtime_str_ends_with(const claw_slice* text, const claw_slice* suffix) __asm__(CLAW_RT_ASM(claw.runtime.str.ends_with));
+_Bool claw_runtime_str_contains(const claw_slice* text, const claw_slice* needle) __asm__(CLAW_RT_ASM(claw.runtime.str.contains));
 
 void claw_runtime_print_i1(_Bool value) {
     fputs(value ? "true" : "false", stdout);
@@ -227,3 +230,43 @@ _Bool claw_runtime_str_eq(const claw_slice* a, const claw_slice* b) {
     return memcmp(a->ptr, b->ptr, (size_t)a->len) == 0;
 }
 
+static _Bool claw_runtime_slice_is_valid(const claw_slice* value) {
+    return value != NULL && value->len >= 0 && (value->len == 0 || value->ptr != NULL);
+}
+
+_Bool claw_runtime_str_starts_with(const claw_slice* text, const claw_slice* prefix) {
+    if (!claw_runtime_slice_is_valid(text) || !claw_runtime_slice_is_valid(prefix) || prefix->len > text->len) {
+        return false;
+    }
+    return prefix->len == 0 || memcmp(text->ptr, prefix->ptr, (size_t)prefix->len) == 0;
+}
+
+_Bool claw_runtime_str_ends_with(const claw_slice* text, const claw_slice* suffix) {
+    if (!claw_runtime_slice_is_valid(text) || !claw_runtime_slice_is_valid(suffix) || suffix->len > text->len) {
+        return false;
+    }
+    if (suffix->len == 0) {
+        return true;
+    }
+    const int64_t offset = text->len - suffix->len;
+    return memcmp(text->ptr + offset, suffix->ptr, (size_t)suffix->len) == 0;
+}
+
+_Bool claw_runtime_str_contains(const claw_slice* text, const claw_slice* needle) {
+    if (!claw_runtime_slice_is_valid(text) || !claw_runtime_slice_is_valid(needle)) {
+        return false;
+    }
+    if (needle->len == 0) {
+        return true;
+    }
+    if (needle->len > text->len) {
+        return false;
+    }
+    const int64_t last_start = text->len - needle->len;
+    for (int64_t start = 0; start <= last_start; ++start) {
+        if (memcmp(text->ptr + start, needle->ptr, (size_t)needle->len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}

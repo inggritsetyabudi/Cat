@@ -1,0 +1,9 @@
+view shape PairView[s] {
+    first: ref[s] Str,
+}
+
+shape UnsafeHolder {
+    value: PairView[s],
+}
+
+fn main() {}

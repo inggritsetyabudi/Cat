@@ -31,5 +31,15 @@ add_executable(claw
 )
 target_link_libraries(claw PRIVATE claw_frontend)
 
+set(CLAW_NATIVE_RUNTIME_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/runtime/native_runtime.c")
+set_property(TARGET claw APPEND PROPERTY LINK_DEPENDS "${CLAW_NATIVE_RUNTIME_SOURCE}")
+add_custom_command(TARGET claw POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:claw>/runtime"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CLAW_NATIVE_RUNTIME_SOURCE}"
+            "$<TARGET_FILE_DIR:claw>/runtime/native_runtime.c"
+    COMMENT "Bundling Claw native runtime"
+    VERBATIM
+)
 
 

@@ -419,6 +419,8 @@ private:
     std::unordered_map<std::string, const LirShape*> shapesByName;
     std::unordered_map<std::string, const LirChoice*> choicesByName;
     std::unordered_map<std::string, std::unordered_map<std::string, size_t>> shapeFieldIndices;
+    mutable std::unordered_map<std::string, TypeLayoutInfo> concreteShapeLayouts;
+    mutable std::unordered_set<std::string> concreteShapeLayoutsInProgress;
     std::string currentEntrySymbol;
     std::unordered_map<std::string, StringConstantInfo> stringPool;
     std::vector<std::string> runtimeDecls;
@@ -441,6 +443,7 @@ private:
     std::string externalSymbol(const LirCallInst& call);
     std::string emitDeclarations();
     std::optional<AbiLayout> abiLayoutForType(std::string_view typeText) const;
+    const TypeLayoutInfo* resolveShapeLayout(std::string_view typeText) const;
     std::optional<ConcreteChoiceInfo> resolveChoiceType(std::string_view typeText) const;
     bool usesIndirectAbi(std::string_view typeText, AbiPassKind passKind) const;
     bool usesBorrowPointerAbi(std::string_view typeText, AbiPassKind passKind) const;
@@ -527,7 +530,6 @@ private:
 std::string llvmFunctionLinkage(const SymbolLinkInfo& linkage);
 
 } // namespace claw::codegen
-
 
 
 

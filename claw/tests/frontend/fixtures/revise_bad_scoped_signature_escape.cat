@@ -1,0 +1,5 @@
+fn wrong_scope(value: ref[source] Str) -> ref[target] Str {
+    return value
+}
+
+fn main() {}

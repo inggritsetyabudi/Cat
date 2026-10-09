@@ -1,0 +1,9 @@
+fn too_short(input: ref[s] Str) -> ref[s] Str {
+    if true {
+        val local = "temporary"
+        return ref[s] local
+    }
+    return input
+}
+
+fn main() {}

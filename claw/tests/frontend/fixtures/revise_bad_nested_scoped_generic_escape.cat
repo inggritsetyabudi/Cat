@@ -1,0 +1,17 @@
+view shape Name[s] {
+    text: ref[s] Str,
+}
+shape Box[T] {
+    value: T,
+    guard: Int128,
+}
+fn leak(seed: Box[Name[borrow]]) -> Box[Name[borrow]] {
+    val source = "inner"
+    scope inner {
+        val inner_name: Name[inner] = Name { text: ref[inner] source }
+        val inner_box: Box[Name[inner]] = Box { value: inner_name, guard: 7 }
+        return inner_box
+    }
+}
+fn main() {
+}

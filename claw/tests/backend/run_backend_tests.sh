@@ -45,7 +45,11 @@ scope_ll="$ARTIFACT_DIR/revise_scope_refs.ll"
 anchor_ll="$ARTIFACT_DIR/revise_anchor.ll"
 anchor_choice_ll="$ARTIFACT_DIR/revise_anchor_choice.ll"
 view_shape_ll="$ARTIFACT_DIR/revise_view_shape_scope.ll"
-rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll"
+scoped_type_ll="$ARTIFACT_DIR/revise_scoped_type_propagation.ll"
+nested_scoped_ll="$ARTIFACT_DIR/revise_nested_scoped_generic.ll"
+nested_scoped_workspace_ll="$ARTIFACT_DIR/revise_nested_scoped_workspace.ll"
+str_search_ll="$ARTIFACT_DIR/revise_str_search_methods.ll"
+rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll"
 
 run_llvm "test_backend/revise_result_llvm.cat" "$BACKEND_FIXTURE_DIR/revise_result_llvm.cat" "$result_ll"
 llvm_output="$(tr -d '\r' < "$result_ll")"
@@ -92,5 +96,37 @@ view_shape_output="$(tr -d '\r' < "$view_shape_ll")"
 if [[ "$view_shape_output" != *'define internal void @"revise_view_shape_scope::main"'* ]] ||
    [[ "$view_shape_output" != *'@"claw.runtime.println.slice"'* ]]; then
   echo "revised view-shape LLVM output did not include the expected lowering markers" >&2
+  exit 1
+fi
+
+run_llvm "test_frontend/revise_scoped_type_propagation.cat" "$FRONTEND_FIXTURE_DIR/revise_scoped_type_propagation.cat" "$scoped_type_ll"
+scoped_type_output="$(tr -d '\r' < "$scoped_type_ll")"
+if [[ "$scoped_type_output" != *'call %claw.slice @"revise_scoped_type_propagation::identity_ref"('* ]] ||
+   [[ "$scoped_type_output" != *'call %"revise_scoped_type_propagation::PairView" @"revise_scoped_type_propagation::identity_pair"('* ]] ||
+   [[ "$scoped_type_output" != *'call %claw.slice @"revise_scoped_type_propagation::first_text"('* ]] ||
+   [[ "$scoped_type_output" != *'@"claw.runtime.println.slice"'* ]]; then
+  echo "scoped-type LLVM output did not include signature propagation markers" >&2
+  exit 1
+fi
+
+run_llvm "test_frontend/revise_nested_scoped_generic.cat" "$FRONTEND_FIXTURE_DIR/revise_nested_scoped_generic.cat" "$nested_scoped_ll"
+nested_scoped_output="$(tr -d '\r' < "$nested_scoped_ll")"
+if [[ "$nested_scoped_output" != *'define internal void @"revise_nested_scoped_generic::identity_box"(ptr %ret.slot, ptr %arg.value.addr)'* ]] ||
+   [[ "$nested_scoped_output" != *'call void @"revise_nested_scoped_generic::identity_box"(ptr '* ]] ||
+   [[ "$nested_scoped_output" != *'call %claw.slice @"revise_nested_scoped_generic::first_text"(ptr '* ]] ||
+   [[ "$nested_scoped_output" != *'alloca { %"revise_nested_scoped_generic::Name", i128 }, align 16'* ]] ||
+   [[ "$nested_scoped_output" != *'getelementptr inbounds { %"revise_nested_scoped_generic::Name", i128 }'* ]]; then
+  echo "nested scoped generic LLVM output did not include instantiated layout, indirect ABI, calls, and field-lowering markers" >&2
+  exit 1
+fi
+
+run_llvm "test_frontend/revise_nested_scoped_workspace" "$FRONTEND_FIXTURE_DIR/revise_nested_scoped_workspace" "$nested_scoped_workspace_ll"
+
+run_llvm "test_frontend/revise_str_search_methods.cat" "$FRONTEND_FIXTURE_DIR/revise_str_search_methods.cat" "$str_search_ll"
+str_search_output="$(tr -d '\r' < "$str_search_ll")"
+if [[ "$str_search_output" != *'call i1 @"claw.runtime.str.starts_with"(ptr '* ]] ||
+   [[ "$str_search_output" != *'call i1 @"claw.runtime.str.ends_with"(ptr '* ]] ||
+   [[ "$str_search_output" != *'call i1 @"claw.runtime.str.contains"(ptr '* ]]; then
+  echo "Str search LLVM output did not include receiver-first runtime calls" >&2
   exit 1
 fi

@@ -73,9 +73,33 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
     }
 
     const auto shapeIt = shapesByName.find(base);
-    if (shapeIt != shapesByName.end() && shapeIt->second->layout.has_value() && !shapeIt->second->layout->isTemplate &&
-        shapeIt->second->typeParams.empty()) {
-        return quoteType(shapeIt->second->linkage.symbol);
+    if (shapeIt != shapesByName.end()) {
+        const LirShape& shape = *shapeIt->second;
+        if (shape.typeParams.empty() && shape.layout.has_value() && !shape.layout->isTemplate) {
+            return quoteType(shape.linkage.symbol);
+        }
+        if (!shape.typeParams.empty()) {
+            const ParsedTypeName parsed = parseTypeName(stripped);
+            if (parsed.args.size() != shape.typeParams.size()) {
+                throw std::runtime_error(
+                    "LLVM lowering expected " + std::to_string(shape.typeParams.size()) +
+                    " type argument(s) for shape '" + base + "', got " + std::to_string(parsed.args.size()) + ".");
+            }
+            std::unordered_map<std::string, std::string> bindings;
+            for (size_t i = 0; i < shape.typeParams.size(); ++i) {
+                bindings[shape.typeParams[i]] = parsed.args[i];
+            }
+            std::ostringstream concreteType;
+            concreteType << "{ ";
+            for (size_t i = 0; i < shape.fields.size(); ++i) {
+                if (i > 0) {
+                    concreteType << ", ";
+                }
+                concreteType << llvmType(substituteTypeText(shape.fields[i].type, bindings));
+            }
+            concreteType << " }";
+            return concreteType.str();
+        }
     }
     if (const auto choice = resolveChoiceType(typeText); choice.has_value()) {
         return choice->llvmTypeText;
@@ -348,10 +372,10 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
         return AbiLayout{8, 8};
     }
 
-    const auto shapeIt = shapesByName.find(base);
-    if (shapeIt != shapesByName.end() && shapeIt->second->layout.has_value() && !shapeIt->second->layout->isTemplate &&
-        shapeIt->second->typeParams.empty()) {
-        return AbiLayout{shapeIt->second->layout->sizeBytes, shapeIt->second->layout->alignBytes};
+    if (shapesByName.contains(base)) {
+        if (const TypeLayoutInfo* layout = resolveShapeLayout(typeText)) {
+            return AbiLayout{layout->sizeBytes, layout->alignBytes};
+        }
     }
 
     if (const auto choice = resolveChoiceType(typeText); choice.has_value()) {
@@ -359,6 +383,66 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
     }
 
     return std::nullopt;
+}
+
+const TypeLayoutInfo* LlvmEmitter::resolveShapeLayout(std::string_view typeText) const {
+    const ParsedTypeName parsed = parseTypeName(typeText);
+    const auto shapeIt = shapesByName.find(parsed.base);
+    if (shapeIt == shapesByName.end()) {
+        return nullptr;
+    }
+
+    const LirShape& shape = *shapeIt->second;
+    if (shape.typeParams.empty()) {
+        return shape.layout.has_value() && !shape.layout->isTemplate ? &*shape.layout : nullptr;
+    }
+    if (parsed.args.size() != shape.typeParams.size()) {
+        return nullptr;
+    }
+
+    const std::string key = parsed.base + "[" + joinTypeArgs(parsed.args) + "]";
+    if (const auto found = concreteShapeLayouts.find(key); found != concreteShapeLayouts.end()) {
+        return &found->second;
+    }
+    if (!concreteShapeLayoutsInProgress.insert(key).second) {
+        return nullptr;
+    }
+
+    std::unordered_map<std::string, std::string> bindings;
+    for (size_t i = 0; i < shape.typeParams.size(); ++i) {
+        bindings[shape.typeParams[i]] = parsed.args[i];
+    }
+
+    TypeLayoutInfo layout;
+    layout.typeName = std::string(typeText);
+    layout.repr = "claw-internal";
+    layout.abi = "claw";
+    layout.kind = TypeLayoutKind::Aggregate;
+    layout.ffiStable = false;
+    layout.alignBytes = 1;
+    for (const auto& field : shape.fields) {
+        const std::string fieldType = substituteTypeText(field.type, bindings);
+        const auto fieldLayout = abiLayoutForType(fieldType);
+        if (!fieldLayout.has_value()) {
+            concreteShapeLayoutsInProgress.erase(key);
+            return nullptr;
+        }
+        const size_t offset = roundUpTo(layout.sizeBytes, fieldLayout->align);
+        layout.fields.push_back(LayoutFieldInfo{
+            field.name,
+            ResolvedType{},
+            offset,
+            fieldLayout->size,
+            fieldLayout->align,
+        });
+        layout.sizeBytes = offset + fieldLayout->size;
+        layout.alignBytes = std::max(layout.alignBytes, fieldLayout->align);
+    }
+    layout.sizeBytes = roundUpTo(layout.sizeBytes, layout.alignBytes);
+
+    concreteShapeLayoutsInProgress.erase(key);
+    const auto [stored, _] = concreteShapeLayouts.emplace(key, std::move(layout));
+    return &stored->second;
 }
 
 std::optional<ConcreteChoiceInfo> LlvmEmitter::resolveChoiceType(std::string_view typeText) const {
@@ -496,7 +580,6 @@ const LirFunction* LlvmEmitter::lookupDirectFunction(std::string_view callee) co
 }
 
 } // namespace claw::codegen
-
 
 
 

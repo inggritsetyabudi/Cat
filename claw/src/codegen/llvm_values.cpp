@@ -275,12 +275,11 @@ std::string LlvmEmitter::ensureAddress(
 }
 
 const LayoutFieldInfo* LlvmEmitter::findShapeFieldLayout(std::string_view typeText, std::string_view field) const {
-    const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(typeText)));
-    const auto shapeIt = shapesByName.find(baseType);
-    if (shapeIt == shapesByName.end() || !shapeIt->second->layout.has_value()) {
+    const TypeLayoutInfo* layout = resolveShapeLayout(typeText);
+    if (layout == nullptr) {
         return nullptr;
     }
-    for (const auto& item : shapeIt->second->layout->fields) {
+    for (const auto& item : layout->fields) {
         if (item.name == field) {
             return &item;
         }

@@ -1,0 +1,23 @@
+view shape Name[s] {
+    text: ref[s] Str,
+}
+shape Box[T] {
+    value: T,
+    guard: Int128,
+}
+fn choose_box(left: Box[Name[borrow]], right: Box[Name[borrow]]) -> Box[Name[borrow]] {
+    return left
+}
+fn main() {
+    val outer_source = "outer"
+    val inner_source = "inner"
+    scope outer {
+        val outer_name: Name[outer] = Name { text: ref[outer] outer_source }
+        val outer_box: Box[Name[outer]] = Box { value: outer_name, guard: 1 }
+        scope inner {
+            val inner_name: Name[inner] = Name { text: ref[inner] inner_source }
+            val inner_box: Box[Name[inner]] = Box { value: inner_name, guard: 2 }
+            val mismatch = choose_box(outer_box, inner_box)
+        }
+    }
+}

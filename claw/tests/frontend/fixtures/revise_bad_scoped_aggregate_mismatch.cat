@@ -1,0 +1,20 @@
+view shape PairView[shape_scope] {
+    first: ref[shape_scope] Str,
+}
+
+fn choose(left: PairView[shared], right: PairView[shared]) -> PairView[shared] {
+    return left
+}
+
+fn main() {
+    val first = "first"
+    val second = "second"
+    scope outer {
+        val left: PairView[outer] = PairView { first: ref[outer] first }
+        scope inner {
+            val right: PairView[inner] = PairView { first: ref[inner] second }
+            val mismatch: PairView[outer] = choose(left, right)
+            println(mismatch.first)
+        }
+    }
+}

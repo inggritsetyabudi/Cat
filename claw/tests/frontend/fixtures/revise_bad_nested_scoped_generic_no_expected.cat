@@ -1,0 +1,6 @@
+shape Box[T] {
+    value: T,
+}
+fn main() {
+    val box = Box { value: 7 }
+}

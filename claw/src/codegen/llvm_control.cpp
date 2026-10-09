@@ -357,6 +357,25 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         return;
     }
 
+    if (baseType == "Str" &&
+        (methodName == "starts_with" || methodName == "ends_with" || methodName == "contains")) {
+        if (value.args.size() != 1) {
+            throw std::runtime_error("LLVM lowering expected one argument for Str." + methodName + ".");
+        }
+        if (!value.result.has_value()) {
+            return;
+        }
+        const std::string receiverAddress = ensureAddress(LirValue{receiverName, receiverType, false}, state, lines);
+        const std::string argumentAddress = ensureAddress(value.args.front(), state, lines);
+        const std::string symbol = quoteGlobal("claw.runtime.str." + methodName);
+        addRuntimeDecl("declare i1 " + symbol + "(ptr, ptr)");
+        lines.push_back(
+            "  " + localName(*value.result) + " = call i1 " + symbol +
+            "(ptr " + receiverAddress + ", ptr " + argumentAddress + ")");
+        storeResultType();
+        return;
+    }
+
     throw std::runtime_error("LLVM lowering does not yet support builtin method '" + builtinTag + "'.");
 }
 } // namespace claw::codegen

@@ -622,6 +622,45 @@ ResolvedType substituteType(
     return substituted;
 }
 
+void collectNamedScopeNames(const ResolvedType& type, std::vector<std::string>& names) {
+    auto add = [&](const std::string& name) {
+        if (!name.empty() && std::find(names.begin(), names.end(), name) == names.end()) {
+            names.push_back(name);
+        }
+    };
+    add(type.scopeName);
+    add(type.viewScope);
+    for (const auto& param : type.params) {
+        collectNamedScopeNames(param, names);
+    }
+}
+
+void populateFunctionScopeMetadata(FunctionSignature& signature) {
+    signature.scopeParams.clear();
+    std::vector<std::string> returnScopes;
+    collectNamedScopeNames(signature.returnType, returnScopes);
+    for (const auto& param : signature.paramTypes) {
+        collectNamedScopeNames(param, signature.scopeParams);
+    }
+    for (const auto& scopeName : returnScopes) {
+        if (std::find(signature.scopeParams.begin(), signature.scopeParams.end(), scopeName) == signature.scopeParams.end()) {
+            signature.scopeParams.push_back(scopeName);
+        }
+    }
+
+    signature.scopeReturnSourceParam.reset();
+    for (size_t i = 0; i < signature.paramTypes.size(); ++i) {
+        std::vector<std::string> paramScopes;
+        collectNamedScopeNames(signature.paramTypes[i], paramScopes);
+        if (std::any_of(returnScopes.begin(), returnScopes.end(), [&](const std::string& scopeName) {
+                return std::find(paramScopes.begin(), paramScopes.end(), scopeName) != paramScopes.end();
+            })) {
+            signature.scopeReturnSourceParam = i;
+            break;
+        }
+    }
+}
+
 TypeCatalog::TypeCatalog()
     : builtinPlainTypes{
           "Bool", "Char", "Int8", "Int16", "Int32", "Int64", "Int128",
@@ -660,9 +699,16 @@ std::optional<size_t> TypeCatalog::lookupKnownTypeArity(const std::string& name)
 
 void TypeCatalog::registerShapeName(const std::string& name, std::optional<size_t> arity) {
     shapeNames.insert(name);
+    viewShapeScopeParams.erase(name);
     if (arity.has_value()) {
         registerKnownTypeArity(name, *arity);
     }
+}
+
+void TypeCatalog::registerViewShapeName(const std::string& name, const std::string& scopeParamName) {
+    shapeNames.insert(name);
+    viewShapeScopeParams[name] = scopeParamName;
+    registerKnownTypeArity(name, 0);
 }
 
 void TypeCatalog::registerChoiceName(const std::string& name, std::optional<size_t> arity) {
@@ -693,6 +739,9 @@ ResolvedType TypeCatalog::resolveType(
     type.viewScope = node->viewScope;
 
     std::optional<size_t> expectedArity;
+    const auto viewShapeIt = viewShapeScopeParams.find(type.name);
+    const bool isViewShape = viewShapeIt != viewShapeScopeParams.end() && !contains(localTypeParams, node->name);
+    bool viewShapeScopeArgument = false;
 
     if (contains(localTypeParams, node->name)) {
         type.category = node->viewKind.empty() ? TypeCategory::Owned : TypeCategory::View;
@@ -704,6 +753,14 @@ ResolvedType TypeCatalog::resolveType(
     } else if (contains(builtinOwnedTypes, type.name) || contains(shapeNames, type.name) || contains(choiceNames, type.name)) {
         type.category = node->viewKind.empty() ? TypeCategory::Owned : TypeCategory::View;
         expectedArity = lookupKnownTypeArity(type.name);
+        if (isViewShape && node->params.size() == 1) {
+            const TypeNode* scopeArg = node->params.front().get();
+            if (scopeArg && scopeArg->viewKind.empty() && scopeArg->viewScope.empty() &&
+                scopeArg->scopeName.empty() && scopeArg->params.empty()) {
+                type.scopeName = scopeArg->name;
+                viewShapeScopeArgument = true;
+            }
+        }
     } else {
         type = makeUnknownType(type.name);
         if (diagnostics) {
@@ -711,7 +768,13 @@ ResolvedType TypeCatalog::resolveType(
         }
     }
 
-    if (expectedArity.has_value() && node->params.size() != *expectedArity && diagnostics) {
+    if (isViewShape && !viewShapeScopeArgument && diagnostics) {
+        diagnostics->push_back(Diagnostic{
+            "semantic",
+            "View shape '" + node->name + "' requires a named scope argument like '" + node->name + "[" +
+                viewShapeIt->second + "]'.",
+            node->span});
+    } else if (!isViewShape && expectedArity.has_value() && node->params.size() != *expectedArity && diagnostics) {
         diagnostics->push_back(Diagnostic{
             "semantic",
             "Type '" + node->name + "' expects " + std::to_string(*expectedArity) +
@@ -719,8 +782,10 @@ ResolvedType TypeCatalog::resolveType(
             node->span});
     }
 
-    for (const auto& param : node->params) {
-        type.params.push_back(resolveType(param.get(), localTypeParams, diagnostics));
+    if (!isViewShape) {
+        for (const auto& param : node->params) {
+            type.params.push_back(resolveType(param.get(), localTypeParams, diagnostics));
+        }
     }
 
     return type;
@@ -773,6 +838,3 @@ std::string describeLinkageKind(LinkageKind kind) {
 }
 
 } // namespace claw::frontend
-
-
-
