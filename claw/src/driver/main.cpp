@@ -24,6 +24,7 @@
 namespace {
 
 std::string maybeConvertMsysPath(std::string_view rawPath) {
+#if defined(_WIN32)
     if (rawPath.size() < 4 || rawPath[0] != '/' || rawPath[2] != '/' ||
         !std::isalpha(static_cast<unsigned char>(rawPath[1]))) {
         return {};
@@ -39,6 +40,9 @@ std::string maybeConvertMsysPath(std::string_view rawPath) {
     }
 
     return converted;
+#else
+    return {};
+#endif
 }
 
 std::filesystem::path resolveOutputPath(std::string_view rawPath) {

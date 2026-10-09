@@ -241,6 +241,7 @@ bool isNumericTypeName(const std::string& name);
 bool isIntegerLikeTypeName(const std::string& name);
 bool isIntegerLiteralType(const ResolvedType& type);
 bool canAssignType(const ResolvedType& from, const ResolvedType& to);
+bool canCompareTypes(const ResolvedType& left, const ResolvedType& right);
 TargetSpec defaultTargetSpec();
 std::optional<TypeLayoutInfo> computeTypeLayout(
     const ResolvedType& type,

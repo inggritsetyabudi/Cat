@@ -549,15 +549,6 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         return;
     }
 
-    if (auto* scope = dynamic_cast<ScopeStmt*>(stmt)) {
-        enterScope(scope->body.get(), ScopeKind::Normal);
-        for (auto& stmtInBlock : scope->body->statements) {
-            checkStmt(stmtInBlock.get());
-        }
-        exitScope();
-        return;
-    }
-
     if (auto* stop = dynamic_cast<StopStmt*>(stmt)) {
         for (const auto& drop : collectUnwindDrops(ScopeKind::LoopBoundary)) {
             recordDropBeforeStmt(stop, drop.name, drop.type);

@@ -101,6 +101,7 @@ bool Parser::isNameToken(TokenKind kind) const {
     switch (kind) {
     case TokenKind::Identifier:
     case TokenKind::KwFail:
+    case TokenKind::KwView:
 
     case TokenKind::KwRef:
     case TokenKind::KwMut:
@@ -292,7 +293,8 @@ std::unique_ptr<RealmDecl> Parser::parseFile() {
 
 std::unique_ptr<Decl> Parser::parseDeclaration() {
     bool isShared = match(TokenKind::KwShare);
-    const bool isViewShape = check(TokenKind::Identifier) && peek().text == "view" && checkAhead(1, TokenKind::KwShape);
+    const bool isViewShape = (check(TokenKind::KwView) || (check(TokenKind::Identifier) && peek().text == "view")) &&
+                             checkAhead(1, TokenKind::KwShape);
     if (isViewShape) {
         advance();
     }
@@ -699,9 +701,21 @@ std::unique_ptr<Expr> Parser::parseComparison() {
 }
 
 std::unique_ptr<Expr> Parser::parseBinary() {
+    auto left = parseFactor();
+    while (match(TokenKind::Plus) || match(TokenKind::Minus)) {
+        auto expr = std::make_unique<BinaryExpr>();
+        expr->span = left->span;
+        expr->op = previous().text;
+        expr->left = std::move(left);
+        expr->right = parseFactor();
+        left = std::move(expr);
+    }
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::parseFactor() {
     auto left = parseUnary();
-    while (match(TokenKind::Plus) || match(TokenKind::Minus) ||
-           match(TokenKind::Star) || match(TokenKind::Slash)) {
+    while (match(TokenKind::Star) || match(TokenKind::Slash)) {
         auto expr = std::make_unique<BinaryExpr>();
         expr->span = left->span;
         expr->op = previous().text;
@@ -850,7 +864,7 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         expr->value = previous().text;
         return expr;
     }
-    if (match(TokenKind::Identifier) || match(TokenKind::KwSelf)) {
+    if (match(TokenKind::Identifier) || match(TokenKind::KwSelf) || match(TokenKind::KwView)) {
         auto expr = std::make_unique<IdentExpr>();
         expr->span = spanFromToken(previous());
         expr->name = previous().text;

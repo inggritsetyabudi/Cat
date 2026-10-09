@@ -1,0 +1,124 @@
+C@ IR Design
+
+1. Design Decisions
+
+1.1 IR placement rule
+IR design is subordinate to:
+- semantic-model.txt
+- type-system.txt
+- memory-model.txt
+
+No IR decision may define language behavior that those files did not already define.
+
+1.2 IR stack
+C@ uses three internal IR layers after AST:
+
+AIR: Analyzed IR
+- produced after semantic analysis and type checking
+- fully name-resolved
+- fully typed
+- still source-oriented
+- no ownership lowering yet
+
+OIR: Ownership IR
+- produced after ownership checking
+- explicit move operations
+- explicit borrow/view regions
+- explicit drop points
+- explicit control-flow edges for `lift` and `pick`
+
+LIR: Lowering IR
+- SSA-oriented
+- memory-layout aware
+- target-independent but backend-friendly
+- ready for LLVM lowering
+
+1.3 AIR requirements
+AIR must contain:
+- typed locals
+- typed calls
+- monomorphized or deferred generic instance handles
+- explicit realm references
+- structured control constructs still preserved where useful
+
+AIR must not contain:
+- implicit ownership semantics
+- unresolved overload-like ambiguity
+- parser-only constructs
+
+1.4 OIR requirements
+OIR is the semantic ownership truth.
+OIR introduces:
+- move(value)
+- copy(value) only for plain types
+- view_open(kind, source, region)
+- view_close(id)
+- drop(value)
+- branch_join ownership state merge
+- lift_success / lift_fail split edges
+
+Rules
+- Every owned value use is classified as move, view, or consume-in-place.
+- Every view has a precise lexical region.
+- Every drop is explicit and dominance-correct.
+
+1.5 LIR requirements
+LIR converts structured semantics into CFG + SSA:
+- basic blocks
+- phi-like joins
+- typed memory objects
+- explicit bounds-check or proven-safe annotation
+- defect edges
+- foreign-call nodes
+- allocator and runtime hooks
+
+1.6 LLVM lowering
+LLVM lowering consumes LIR only.
+Mappings:
+- shapes to LLVM structs with target layout rules
+- choices to tagged layouts with explicit discriminants
+- bounds checks to branch + defect call or eliminated proof
+- `look` views to non-owning pointer + metadata where needed
+- `edit` views to exclusive mutable pointer + metadata where needed
+
+1.7 Optimization boundary
+LLVM may optimize:
+- dead drops
+- redundant bounds checks
+- move elision
+- stack promotion
+- inlining
+- vectorization
+- branch simplification
+
+LLVM may not:
+- alter observable safety semantics
+- erase required defects when the safety proof is absent
+- duplicate side-effecting drops
+
+2. Rationale
+
+FAST
+- Multi-stage IR lets the compiler preserve ownership precision while still generating efficient SSA.
+- LLVM receives a low-ambiguity program.
+
+SAFE
+- OIR makes ownership explicit before optimization.
+- Defect edges and drop points are preserved semantically.
+
+SIMPLE
+- AIR, OIR, and LIR each have one clear purpose.
+- Ownership is not smeared across every pass.
+
+3. Constraints
+
+- No pass after OIR may invent ownership behavior.
+- AIR must remain close enough to source for diagnostics.
+- OIR must be serializable for debugging and compiler tests.
+- LIR must be deterministic for reproducible builds.
+
+4. Trade-offs
+
+- Multiple IRs add implementation cost.
+- Ownership-explicit IR is larger than a naive typed AST.
+- The separation is necessary to keep correctness visible and testable.

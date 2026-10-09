@@ -1,0 +1,15 @@
+fn check_str(text: ref Str) -> USize {
+    val l = text.len()
+    val e = text.is_empty()
+    return l
+}
+
+fn check_span(s: Span[Int32]) -> USize {
+    return s.len()
+}
+
+fn main() {
+    val greeting: Str = "hello world"
+    val l = check_str(ref greeting)
+    println(l)
+}

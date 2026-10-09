@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct claw_slice {
     const unsigned char* ptr;
@@ -47,8 +48,14 @@ static void claw_write_i128(__int128 value) {
     }
 }
 
-void* claw_runtime_anchor_alloc(int64_t size) __asm__("claw.runtime.anchor.alloc");
-void claw_runtime_anchor_free(void* ptr) __asm__("claw.runtime.anchor.free");
+#if defined(__APPLE__)
+#define CLAW_RT_ASM(sym) "_" #sym
+#else
+#define CLAW_RT_ASM(sym) #sym
+#endif
+
+void* claw_runtime_anchor_alloc(int64_t size) __asm__(CLAW_RT_ASM(claw.runtime.anchor.alloc));
+void claw_runtime_anchor_free(void* ptr) __asm__(CLAW_RT_ASM(claw.runtime.anchor.free));
 
 void* claw_runtime_anchor_alloc(int64_t size) {
     const size_t request = size <= 0 ? 1u : (size_t)size;
@@ -70,31 +77,36 @@ static void claw_finish_print(bool newline) {
     fflush(stdout);
 }
 
-void claw_runtime_print_i1(_Bool value) __asm__("claw.runtime.print.i1");
-void claw_runtime_print_i8(int8_t value) __asm__("claw.runtime.print.i8");
-void claw_runtime_print_i16(int16_t value) __asm__("claw.runtime.print.i16");
-void claw_runtime_print_i32(int32_t value) __asm__("claw.runtime.print.i32");
-void claw_runtime_print_i64(int64_t value) __asm__("claw.runtime.print.i64");
-void claw_runtime_print_i128(__int128 value) __asm__("claw.runtime.print.i128");
-void claw_runtime_print_float(float value) __asm__("claw.runtime.print.float");
-void claw_runtime_print_double(double value) __asm__("claw.runtime.print.double");
-void claw_runtime_print_ptr(void* value) __asm__("claw.runtime.print.ptr");
-void claw_runtime_print_slice(claw_slice value) __asm__("claw.runtime.print.slice");
-void claw_runtime_print_buffer(claw_buffer value) __asm__("claw.runtime.print.buffer");
+#if defined(__APPLE__)
+#define CLAW_RT_ASM(sym) "_" #sym
+#else
+#define CLAW_RT_ASM(sym) #sym
+#endif
 
-void claw_runtime_println_i1(_Bool value) __asm__("claw.runtime.println.i1");
-void claw_runtime_println_i8(int8_t value) __asm__("claw.runtime.println.i8");
-void claw_runtime_println_i16(int16_t value) __asm__("claw.runtime.println.i16");
-void claw_runtime_println_i32(int32_t value) __asm__("claw.runtime.println.i32");
-void claw_runtime_println_i64(int64_t value) __asm__("claw.runtime.println.i64");
-void claw_runtime_println_i128(__int128 value) __asm__("claw.runtime.println.i128");
-void claw_runtime_println_float(float value) __asm__("claw.runtime.println.float");
-void claw_runtime_println_double(double value) __asm__("claw.runtime.println.double");
-void claw_runtime_println_ptr(void* value) __asm__("claw.runtime.println.ptr");
-void claw_runtime_println_slice(claw_slice value) __asm__("claw.runtime.println.slice");
-void claw_runtime_println_buffer(claw_buffer value) __asm__("claw.runtime.println.buffer");
-void* claw_runtime_anchor_alloc(int64_t size) __asm__("claw.runtime.anchor.alloc");
-void claw_runtime_anchor_free(void* ptr) __asm__("claw.runtime.anchor.free");
+void claw_runtime_print_i1(_Bool value) __asm__(CLAW_RT_ASM(claw.runtime.print.i1));
+void claw_runtime_print_i8(int8_t value) __asm__(CLAW_RT_ASM(claw.runtime.print.i8));
+void claw_runtime_print_i16(int16_t value) __asm__(CLAW_RT_ASM(claw.runtime.print.i16));
+void claw_runtime_print_i32(int32_t value) __asm__(CLAW_RT_ASM(claw.runtime.print.i32));
+void claw_runtime_print_i64(int64_t value) __asm__(CLAW_RT_ASM(claw.runtime.print.i64));
+void claw_runtime_print_i128(__int128 value) __asm__(CLAW_RT_ASM(claw.runtime.print.i128));
+void claw_runtime_print_float(float value) __asm__(CLAW_RT_ASM(claw.runtime.print.float));
+void claw_runtime_print_double(double value) __asm__(CLAW_RT_ASM(claw.runtime.print.double));
+void claw_runtime_print_ptr(void* value) __asm__(CLAW_RT_ASM(claw.runtime.print.ptr));
+void claw_runtime_print_slice(const claw_slice* value) __asm__(CLAW_RT_ASM(claw.runtime.print.slice));
+void claw_runtime_print_buffer(const claw_buffer* value) __asm__(CLAW_RT_ASM(claw.runtime.print.buffer));
+
+void claw_runtime_println_i1(_Bool value) __asm__(CLAW_RT_ASM(claw.runtime.println.i1));
+void claw_runtime_println_i8(int8_t value) __asm__(CLAW_RT_ASM(claw.runtime.println.i8));
+void claw_runtime_println_i16(int16_t value) __asm__(CLAW_RT_ASM(claw.runtime.println.i16));
+void claw_runtime_println_i32(int32_t value) __asm__(CLAW_RT_ASM(claw.runtime.println.i32));
+void claw_runtime_println_i64(int64_t value) __asm__(CLAW_RT_ASM(claw.runtime.println.i64));
+void claw_runtime_println_i128(__int128 value) __asm__(CLAW_RT_ASM(claw.runtime.println.i128));
+void claw_runtime_println_float(float value) __asm__(CLAW_RT_ASM(claw.runtime.println.float));
+void claw_runtime_println_double(double value) __asm__(CLAW_RT_ASM(claw.runtime.println.double));
+void claw_runtime_println_ptr(void* value) __asm__(CLAW_RT_ASM(claw.runtime.println.ptr));
+void claw_runtime_println_slice(const claw_slice* value) __asm__(CLAW_RT_ASM(claw.runtime.println.slice));
+void claw_runtime_println_buffer(const claw_buffer* value) __asm__(CLAW_RT_ASM(claw.runtime.println.buffer));
+_Bool claw_runtime_str_eq(const claw_slice* a, const claw_slice* b) __asm__(CLAW_RT_ASM(claw.runtime.str.eq));
 
 void claw_runtime_print_i1(_Bool value) {
     fputs(value ? "true" : "false", stdout);
@@ -141,13 +153,13 @@ void claw_runtime_print_ptr(void* value) {
     claw_finish_print(false);
 }
 
-void claw_runtime_print_slice(claw_slice value) {
-    claw_write_bytes(value.ptr, value.len);
+void claw_runtime_print_slice(const claw_slice* value) {
+    if (value) claw_write_bytes(value->ptr, value->len);
     claw_finish_print(false);
 }
 
-void claw_runtime_print_buffer(claw_buffer value) {
-    claw_write_bytes(value.ptr, value.len);
+void claw_runtime_print_buffer(const claw_buffer* value) {
+    if (value) claw_write_bytes(value->ptr, value->len);
     claw_finish_print(false);
 }
 
@@ -196,13 +208,22 @@ void claw_runtime_println_ptr(void* value) {
     fflush(stdout);
 }
 
-void claw_runtime_println_slice(claw_slice value) {
-    claw_write_bytes(value.ptr, value.len);
+void claw_runtime_println_slice(const claw_slice* value) {
+    if (value) claw_write_bytes(value->ptr, value->len);
     claw_finish_print(true);
 }
 
-void claw_runtime_println_buffer(claw_buffer value) {
-    claw_write_bytes(value.ptr, value.len);
+void claw_runtime_println_buffer(const claw_buffer* value) {
+    if (value) claw_write_bytes(value->ptr, value->len);
     claw_finish_print(true);
+}
+
+_Bool claw_runtime_str_eq(const claw_slice* a, const claw_slice* b) {
+    if (a == b) return true;
+    if (a == NULL || b == NULL) return false;
+    if (a->len != b->len) return false;
+    if (a->len == 0) return true;
+    if (a->ptr == b->ptr) return true;
+    return memcmp(a->ptr, b->ptr, (size_t)a->len) == 0;
 }
 

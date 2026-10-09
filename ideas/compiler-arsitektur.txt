@@ -1,0 +1,135 @@
+C@ Compiler Architecture
+
+1. Design Decisions
+
+1.1 Toolchain roles
+- `paw`: package, build, test, format, lint, dependency, and workflow manager
+- `claw`: C@ compiler driver and code generation tool
+
+1.2 Implementation languages
+Frontend
+- Must be implemented in C++
+- Responsibilities:
+  - tokenization
+  - parsing
+  - AST construction
+  - name resolution
+  - semantic analysis
+  - type checking
+  - ownership checking
+  - diagnostics
+  - incremental dependency graph management
+
+Backend
+- Must use LLVM
+- Responsibilities:
+  - LLVM IR lowering from ownership-resolved IR
+  - target lowering
+  - optimization
+  - code generation
+  - debug info emission
+
+1.3 Mandatory pipeline
+The compiler pipeline is fixed:
+1. Tokenization
+2. Parsing
+3. AST
+4. Semantic analysis
+5. Type checking
+6. Ownership checking
+7. IR
+8. LLVM lowering
+9. Optimization
+10. Codegen
+
+1.4 Frontend phases
+
+Tokenizer
+- UTF-8 source decoding
+- token stream generation
+- exact span tracking
+- indentation ignored for semantics
+
+Parser
+- deterministic grammar parser
+- error recovery by block and declaration boundary
+- syntax tree with preserved source structure
+
+AST
+- faithful representation of surface syntax
+- no ownership semantics inserted yet
+- preserves generic declarations, realm items, statements, and expressions
+
+Semantic analysis
+- name resolution
+- scope graph construction
+- symbol table population
+- realm import validation
+- visibility checks
+- declaration cycle checks
+
+Type checking
+- type inference for locals
+- generic instantiation
+- ability derivation
+- conversion validation
+- exhaustiveness checking for `pick`
+
+Ownership checking
+- move analysis
+- definite initialization after moves
+- view scope inference
+- alias exclusivity validation
+- destructor schedule creation
+- raw boundary validation
+
+1.5 Diagnostics architecture
+- Every error must include primary span, secondary spans, and one direct corrective suggestion where possible.
+- Ownership diagnostics must report:
+  - source owner
+  - move point
+  - conflicting use
+  - inferred view scope
+
+1.6 Incremental compilation
+- Realm-level dependency graph
+- content-hash cache keys
+- typed metadata cache
+- ownership-checked summary cache
+- invalidation by public API or ability layout change
+
+1.7 Code generation modes
+- debug
+- release-safe
+- release-fast
+
+Rules
+- `release-fast` may alter optimization intensity, not semantics.
+- No mode may introduce undefined behavior into safe code.
+
+2. Rationale
+
+FAST
+- C++ frontend gives precise control over memory, performance, and LLVM integration.
+- Staged ownership checking before IR lowering simplifies backend assumptions.
+
+SAFE
+- The frontend enforces language guarantees before backend optimization.
+- Diagnostics make ownership understandable and actionable.
+
+SIMPLE
+- Pipeline responsibilities are strict and non-overlapping.
+- Users and compiler engineers can map each failure to one stage.
+
+3. Constraints
+
+- Backend may not reinterpret language semantics.
+- Parser may not encode semantic ownership guesses.
+- Ownership checking must finish before IR freezing.
+- Incremental compilation must preserve exact semantics.
+
+4. Trade-offs
+
+- A strong frontend performs more work up front, but backend logic becomes simpler and safer.
+- Strict stage separation increases implementation effort, but prevents architectural drift.
+- Rich diagnostics cost compiler complexity, but are mandatory for a production language.

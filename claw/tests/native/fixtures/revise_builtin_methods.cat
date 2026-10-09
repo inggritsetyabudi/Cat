@@ -1,0 +1,19 @@
+fn main() -> Int32 {
+    val text: Str = "C@"
+    val l = text.len()
+    if l != 2 {
+        return 1
+    }
+
+    val empty_str: Str = ""
+    if empty_str.is_empty() == false {
+        return 2
+    }
+
+    val non_empty: Str = "hello"
+    if non_empty.is_empty() == true {
+        return 3
+    }
+
+    return 0
+}

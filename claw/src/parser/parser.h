@@ -63,6 +63,7 @@ private:
     std::unique_ptr<Expr> parseExpression();
     std::unique_ptr<Expr> parseComparison();
     std::unique_ptr<Expr> parseBinary();
+    std::unique_ptr<Expr> parseFactor();
     std::unique_ptr<Expr> parseUnary();
     std::unique_ptr<Expr> parsePostfix();
     std::unique_ptr<Expr> parsePrimary();

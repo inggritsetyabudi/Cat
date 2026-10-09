@@ -1,0 +1,532 @@
+C@ Surface Syntax Specification
+
+1. DESIGN PRINCIPLES
+
+1.1 Definition of Ã¢â‚¬Å“simpleÃ¢â‚¬Â in measurable terms
+C@ syntax is simple only if it satisfies all metrics below:
+
+Keyword budget
+- Core statement/control keyword set is capped at 18:
+  fn, hold, slot, give, when, otherwise, loop, scan, stop, skip, shape, choice, realm, import, share, pick, lift, raw
+- Advanced domains may add contextual forms outside the core, but core programs must not depend on them.
+
+Symbol budget
+- Local declaration uses at most one keyword, one colon, and one equals sign.
+- Blocks always use `[` and `]`.
+- No mandatory semicolon.
+- No user-written lifetime markers.
+- No ownership sigils attached to variable names.
+
+Line readability
+- A common statement should fit a single line without backtracking.
+- Conditionals and loops place the condition before one block, not split across multiple punctuation layers.
+- Public function headers must show name, parameters, and return type in one contiguous form.
+
+Cognitive load
+- Mutability is explicit in the binding keyword.
+- Ownership transfer is represented by type category and value movement, not by symbolic annotations on every use.
+- Error flow is explicit and typed.
+
+1.2 Definition of Ã¢â‚¬Å“readableÃ¢â‚¬Â
+Human parsing rules
+- A reader should identify the kind of statement from the first keyword.
+- A reader should identify block boundaries without scanning for matching mixed delimiters.
+- A reader should identify data declarations, control flow, and failure handling from distinct surface forms.
+
+Compiler parsing rules
+- The grammar remains deterministic after tokenization.
+- Newline separates statements inside blocks; semicolon is accepted but unnecessary.
+- print and println are prelude builtins and do not require explicit import.
+
+Visual structure
+- Square brackets delimit all blocks.
+- Parentheses are reserved for calls, tuple-like grouping, and precedence.
+- The colon always introduces a type annotation.
+- The arrow only introduces a function return type or function type result.
+
+1.3 Harmful syntax patterns
+The following patterns are forbidden:
+- Ritual prefix chains for mutability, ownership, and borrowing
+- Symbol overloading where the same mark implies unrelated rules
+- Hidden control transfer
+- Mandatory punctuation noise
+- Multiple block syntaxes
+- Implicit allocation syntax
+- Implicit propagation syntax with invisible branch behavior
+
+2. SYNTAX RULES
+
+2.1 Binding and assignment
+
+Immutable binding
+hold name: Type = value
+
+Mutable storage cell
+slot name: Type = value
+
+Type inference for locals
+hold name = value
+slot name = value
+
+Assignment
+name = value
+
+Rules
+- `hold` introduces an immutable binding.
+- `slot` introduces a mutable storage location.
+- Assignment targets only mutable storage or fields reached through an `edit` view.
+- A moved-out `slot` cannot be read again until reinitialized.
+
+Examples
+hold port: Int32 = 8080
+slot total: Int32 = 0
+total = total + 1
+
+2.2 Functions
+
+Function declaration
+fn name[param1: Type, param2: Type] -> ReturnType [
+    body
+]
+
+No return value
+fn name[param1: Type] [
+    body
+]
+
+Return
+give value
+give
+
+Rules
+- `fn` is mandatory.
+- Parameters are declared in square brackets after the function name.
+- Return type is optional only for `Unit`.
+- Public functions must declare all parameter and return types explicitly.
+- Anonymous functions are excluded from v1 core syntax.
+
+Examples
+fn add[left: Int32, right: Int32] -> Int32 [
+    give left + right
+]
+
+fn log_line[text: look Text] [
+    print(text)
+]
+
+2.3 Conditionals
+
+when condition [
+    block
+] otherwise [
+    block
+]
+
+Rules
+- `when` is the only conditional header.
+- `otherwise` is the only alternative branch keyword.
+- Nested `when` blocks are allowed.
+- Conditionals are statement forms in v1.
+
+Example
+when size > 0 [
+    give ok(size)
+] otherwise [
+    give fail(Empty)
+]
+
+2.4 Loops
+
+Conditional loop
+loop condition [
+    block
+]
+
+Infinite loop
+loop [
+    block
+]
+
+Element iteration
+scan item over items [
+    block
+]
+
+Loop control
+stop
+skip
+
+Rules
+- `loop condition` is the while-form.
+- `loop` with no condition is infinite.
+- `scan` iterates over iterable views or plain ranges.
+- `stop` exits the nearest loop.
+- `skip` advances to the next iteration.
+
+Examples
+loop index < limit [
+    index = index + 1
+]
+
+scan byte over bytes [
+    sum = sum + byte
+]
+
+2.5 Shape definitions
+
+shape Name [
+    field1: Type
+    field2: Type
+]
+
+Shared fields
+shape Point [
+    share x: Int32
+    share y: Int32
+]
+
+Rules
+- `shape` defines a nominal record type.
+- Fields are realm-private unless marked `share`.
+- Field order is part of layout only when the shape is marked foreign-compatible in FFI context.
+- Field mutability is governed by the view used to access the shape, not by separate field mutability keywords.
+
+Example
+shape Config [
+    share host: Text
+    share port: Int32
+]
+
+2.6 Choices (tagged unions)
+
+choice Name [
+    case1
+    case2
+]
+
+Choice with payloads
+choice Outcome of T, E [
+    ok(value: T)
+    fail(cause: E)
+]
+
+Rules
+- `choice` defines a nominal tagged union.
+- Each variant has a unique tag.
+- Payload names are local to branch patterns and constructors.
+- Layout is compiler-defined unless foreign-compatible representation is explicitly requested.
+
+Examples
+choice Maybe of T [
+    none
+    some(value: T)
+]
+
+choice Token [
+    word(text: Text)
+    number(value: Int64)
+    end
+]
+
+Numeric literal examples
+- `1`
+- `1.5`
+- `42_UInt16`
+- `1.5_Float32`
+
+2.7 Branching on tagged values
+
+pick value [
+    pattern1 [
+        block
+    ]
+    pattern2 [
+        block
+    ]
+]
+
+Pattern forms
+tag
+tag(name)
+tag(field1, field2)
+
+Example
+pick result [
+    ok(file) [
+        println("opened")
+        give file
+    ]
+    fail(issue) [
+        give fail(issue)
+    ]
+]
+
+Rules
+- `pick` is the only variant-dispatch construct.
+- Branch patterns are linear and non-overlapping.
+- Exhaustiveness is mandatory for closed choices.
+
+2.8 Modules and imports
+
+Module declaration
+realm net.http
+
+Import
+import std.fs
+import app.runtime.{banner}
+import super.{util}
+
+Workspace root
+main.cat
+claw.toml
+[project]
+name = "TICTACTOE"
+version = "0.1.0"
+edition = "2025"
+
+[dependencies]
+term = "1.0.0"
+
+Non-root directory index
+src/modules.cat
+pub modules {runtime, game}
+
+Shared items
+share fn serve[config: Config] -> Outcome of Unit, NetFault [
+    ...
+]
+
+Rules
+- Same-folder sibling imports use `import super.{name}`.
+- The root workspace directory does not need `modules.cat`; `main.cat` is the fixed entry source.
+- Cross-folder resolution requires `modules.cat` only in non-root target folders and explicit `pub modules { ... }` declarations.
+- `import realm.path.{Item}` imports shared items from a module file.
+- Declared dependency roots from workspace config are used by import resolution for external packages.
+- Source file path must match its `realm` inside a structured workspace.
+- Unshared items are private to the defining realm.
+
+2.9 Error handling
+
+Recoverable failure uses `Outcome of T, E`.
+
+Explicit lift form
+lift expression as value fail issue [
+    failure-block
+]
+
+Meaning
+- Evaluate `expression`.
+- If result is `ok(v)`, bind `value = v` and continue.
+- If result is `fail(e)`, bind `issue = e`, execute the failure block, and then control must leave the current path.
+
+Examples
+lift fs.open(path) as file fail issue [
+    give fail(issue)
+]
+
+lift parser.next() as token fail issue [
+    logger.note(issue)
+    give fail(issue)
+]
+
+Rules
+- `lift` is statement-only.
+- The failure block must terminate the current control path using `give`, `stop`, or an equivalent terminating construct.
+- There is no hidden propagation operator.
+
+2.10 Type annotation strategy
+
+Rules
+- Parameters, returns, shape fields, choice payloads, and shared items require explicit types.
+- Local bindings may omit types if inference is unique.
+- Inference never crosses public API boundaries.
+- Generic application uses `of`.
+
+Examples
+hold user_count = 42
+hold result: Outcome of Int32, ParseFault = parse(text)
+shape Pair of A, B [
+    share left: A
+    share right: B
+]
+
+2.11 Raw regions
+
+raw [
+    unchecked operations
+]
+
+Rules
+- `raw` is the only surface form that permits unchecked dereference, foreign layout reinterpretation, or other verifier bypass.
+- `raw` code is not safe code.
+- Public shared APIs must wrap raw behavior in checked safe functions.
+
+3. CODE EXAMPLES
+
+3.1 Basic function
+fn area[width: Int32, height: Int32] -> Int32 [
+    give width * height
+]
+
+3.2 Mutation
+fn count_nonzero[data: look Span of Int32] -> Int32 [
+    slot count: Int32 = 0
+    scan item over data [
+        when item != 0 [
+            count = count + 1
+        ]
+    ]
+    give count
+]
+
+3.3 Shape and choice
+shape User [
+    share id: UInt64
+    share name: Text
+]
+
+choice Auth of T [
+    guest
+    user(value: T)
+]
+
+fn show_auth[state: Auth of User] [
+    pick state [
+        guest [
+            println("guest")
+        ]
+        user(person) [
+            print(person.name)
+        ]
+    ]
+]
+
+3.4 Error handling
+fn load_text[path: look Text] -> Outcome of Text, IoFault [
+    lift fs.open_text(path) as file fail issue [
+        give fail(issue)
+    ]
+    give ok(fs.read_all(file))
+]
+
+4. BEFORE vs AFTER
+
+4.1 Local binding
+Old Rust-like form
+let mut total: i32 = 0;
+
+C@ form
+slot total: Int32 = 0
+
+Reason
+- Removes symbolic ceremony around mutability.
+- Keeps mutability in one plain word.
+
+4.2 Function with mutable access
+Old Rust-like form
+fn push(buf: &mut Buffer, value: Byte) -> Result<(), Fault> { ... }
+
+C@ form
+fn push[buf: edit Buffer, value: Byte] -> Outcome of Unit, Fault [
+    ...
+]
+
+Reason
+- Replaces symbolic borrowing syntax with named view types.
+- Keeps the header readable left to right.
+
+4.3 Match-like branching
+Old Rust-like form
+match result {
+    Ok(v) => v,
+    Err(e) => return Err(e),
+}
+
+C@ form
+pick result [
+    ok(v) [
+        give v
+    ]
+    fail(e) [
+        give fail(e)
+    ]
+]
+
+Reason
+- Uses one branching keyword and one block system.
+- Branch shape is visually uniform.
+
+4.4 Error propagation shorthand
+Old Rust-like form
+let file = open(path)?;
+
+C@ form
+lift open(path) as file fail issue [
+    give fail(issue)
+]
+
+Reason
+- No hidden branch.
+- Failure path is visible and typed.
+
+5. JUSTIFICATION (FAST / SAFE / SIMPLE)
+
+FAST
+- The syntax maps directly to deterministic semantic constructs.
+- No syntax form implies hidden allocation or exception machinery.
+- Explicit `lift` and `pick` lower cleanly into control-flow blocks.
+
+SAFE
+- View types are visible at the type level.
+- `raw` is explicit and auditable.
+- Error flow is typed and never hidden behind punctuation.
+
+SIMPLE
+- Core keyword count is small.
+- One block syntax reduces parser and reader burden.
+- `hold` and `slot` separate immutability from mutability with plain language.
+- `when`, `loop`, `scan`, and `pick` are visually distinct and predictable.
+
+6. WHY THIS IS NOT DERIVED FROM EXISTING LANGUAGES
+
+The syntax is intentionally not a reskin of Rust, Python, Go, Zig, or C++.
+
+It differs structurally in these ways:
+- Blocks use square brackets uniformly instead of braces or indentation.
+- Function declarations place parameters in square brackets after the name.
+- Mutability is expressed with binding nouns (`hold`, `slot`) instead of borrowed symbolic modifiers.
+- Borrowing is not encoded with sigils; it is encoded with named view types (`look`, `edit`).
+- Conditional branching uses `when` / `otherwise`, not `if` / `else`.
+- Variant branching uses `pick`, not `match` / `switch`.
+- Error propagation uses explicit `lift ... fail ... [ ]`, not hidden suffix operators.
+- Generic application uses `of`, producing readable type phrases.
+
+Design Decisions
+- Square-bracket blocks are mandatory.
+- `fn`, `hold`, `slot`, `when`, `loop`, `scan`, `pick`, and `lift` form the core executable grammar.
+- The language rejects symbolic ownership notation in favor of readable type terms.
+
+Rationale
+FAST
+- Direct lowering from syntax to CFG-friendly constructs.
+
+SAFE
+- Ownership and failure are explicit without lifetime syntax.
+
+SIMPLE
+- Common code reads as structured text rather than punctuation choreography.
+
+Constraints
+- No second block syntax.
+- No implicit propagation operator.
+- No lifetime syntax.
+- No syntax feature may require hidden semantic exceptions.
+
+Trade-offs
+- `lift` is longer than symbolic propagation shorthand.
+- `pick` is more verbose than compressed expression-style branching.
+- The syntax is intentionally distinct, which costs some immediate familiarity but gains long-term clarity.
+
+
+
+

@@ -350,14 +350,6 @@ std::string AirEmitter::emitExprValue(const Expr* expr) const {
         out << "}";
     } else if (auto* member = dynamic_cast<const MemberExpr*>(expr)) {
         out << emitExprValue(member->object.get()) << "." << member->member;
-    } else if (auto* borrow = dynamic_cast<const BorrowExpr*>(expr)) {
-        out << "ref";
-        if (!borrow->scopeName.empty()) {
-            out << "[" << borrow->scopeName << "]";
-        } else if (borrow->isMutable) {
-            out << " mut";
-        }
-        out << " " << emitExprValue(borrow->target.get());
     } else {
         out << "<expr>";
     }

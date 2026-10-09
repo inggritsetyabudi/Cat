@@ -1164,7 +1164,7 @@ bool SemanticAnalyzer::validateOwnedLayoutDependency(
     if (type.name == "Str" || type.name == "Span" || type.name == "CStr" ||
         type.name == "OwnedCStr" || type.name == "Vec" || type.name == "Map" || type.name == "Set" ||
         type.name == "Queue" || type.name == "Arena" || type.name == "Anchor" ||
-        type.name == "Anchor" || type.name == "Addr" || type.name == "RawPtr" || type.name == "RawMut" ||
+        type.name == "Addr" || type.name == "RawPtr" || type.name == "RawMut" ||
         type.name == "Fn") {
         return false;
     }
@@ -1289,17 +1289,6 @@ std::optional<MethodSignature> SemanticAnalyzer::lookupMethodSignature(
         ResolvedType spanType = makeOwnedType("Span");
         spanType.params.push_back(receiverType.params.front());
         signature.function.returnType = std::move(spanType);
-        signature.function.isExternal = true;
-        signature.viewReturnFromReceiver = true;
-        signature.isBuiltin = true;
-        return signature;
-    }
-
-    if (methodName == "get" && receiverType.name == "Anchor" && receiverType.params.size() == 1) {
-        MethodSignature signature;
-        signature.name = methodName;
-        signature.receiverType = asViewType(receiverType, "look");
-        signature.function.returnType = asViewType(receiverType.params.front(), "look");
         signature.function.isExternal = true;
         signature.viewReturnFromReceiver = true;
         signature.isBuiltin = true;
@@ -2383,7 +2372,8 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             type = makeUnknownType();
         } else if (isComparison) {
             if (!leftType.isUnknown() && !rightType.isUnknown() &&
-                !canAssignType(rightType, leftType) && !canAssignType(leftType, rightType)) {
+                !canAssignType(rightType, leftType) && !canAssignType(leftType, rightType) &&
+                !canCompareTypes(leftType, rightType)) {
                 reportError(binary, "Incompatible comparison operands: " + leftType.describe() + " and " + rightType.describe());
             }
             type = makePlainType("Bool");

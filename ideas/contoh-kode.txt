@@ -1,0 +1,187 @@
+C@ Example Code
+
+1. Design Decisions
+
+All examples use only the approved syntax and semantics of this specification.
+Examples are normative demonstrations, not alternate designs.
+
+2. Examples
+
+2.1 Hello world
+realm app.main
+
+fn main[] -> Int32 [
+    println("hello from C@")
+    give 0
+]
+
+2.2 Immutable and mutable bindings
+realm demo.bindings
+
+fn run[] [
+    hold host = "127.0.0.1"
+    slot port: Int32 = 8080
+    port = port + 1
+]
+
+2.3 Shape and public fields
+realm demo.config
+
+shape Config [
+    share host: Text
+    share port: Int32
+]
+
+fn default_config[] -> Config [
+    give Config(host: "127.0.0.1", port: 8080)
+]
+
+2.4 Choice and branching
+realm demo.choice
+
+choice Maybe of T [
+    none
+    some(value: T)
+]
+
+fn show[value: Maybe of Int32] [
+    pick value [
+        none [
+            println("empty")
+        ]
+        some(v) [
+            print(v)
+        ]
+    ]
+]
+
+2.5 Outcome and lift
+realm demo.fs
+
+import std.fs
+
+choice ReadFault [
+    missing
+    denied
+    broken
+]
+
+fn read_text[path: look Text] -> Outcome of Text, ReadFault [
+    lift fs.open_text(path) as file fail issue [
+        give fail(map_fault(issue))
+    ]
+    give ok(fs.read_all(file))
+]
+
+2.6 View-based mutation
+realm demo.buffer
+
+shape Buffer [
+    data: Vec of Byte
+]
+
+fn clear[buf: edit Buffer] [
+    vec.clear(buf.data)
+]
+
+fn len[buf: look Buffer] -> USize [
+    give vec.len(buf.data)
+]
+
+2.7 Iteration
+realm demo.loop
+
+fn sum[data: look Span of Int32] -> Int32 [
+    slot total: Int32 = 0
+    scan item over data [
+        total = total + item
+    ]
+    give total
+]
+
+2.8 Conditional loop
+realm demo.parse
+
+fn skip_spaces[text: look Text, start: USize] -> USize [
+    slot i = start
+    loop i < text.len() [
+        when text.byte_at(i) != ' ' [
+            stop
+        ]
+        i = i + 1
+    ]
+    give i
+]
+
+2.9 Module use
+realm demo.app
+
+import demo.config.{default_config}
+
+fn boot[] [
+    hold cfg = default_config()
+    print(cfg.host)
+]
+
+2.10 Raw wrapper
+realm demo.raw
+
+foreign c [
+    fn getenv[name: RawPtr of Byte] -> RawPtr of Byte
+]
+
+fn env_lookup[name: look CStr] -> Maybe of Text [
+    raw [
+        hold p = getenv(cstr.raw_ptr(name))
+        when p == addr.null() [
+            give none
+        ]
+        give some(cstr.to_text_view(p).to_text())
+    ]
+]
+
+2.11 Workspace layout
+main.cat
+claw.toml
+
+src/modules.cat
+pub modules {api, runtime}
+
+claw.toml
+[project]
+name = "TICTACTOE"
+version = "0.1.0"
+edition = "2025"
+
+[dependencies]
+term = "1.0.0"
+
+3. Rationale
+
+FAST
+- Examples show direct control flow and explicit ownership.
+- No hidden allocation syntax appears.
+
+SAFE
+- Mutation uses `edit`.
+- FFI is isolated inside `raw`.
+- Failure is typed.
+
+SIMPLE
+- The examples use a small keyword set and one block syntax.
+- Public contracts are explicit.
+
+4. Constraints
+
+- Examples must remain consistent with all prior files.
+- No example may introduce undeclared syntax.
+- No example may hide unsafety outside `raw`.
+
+5. Trade-offs
+
+- Some examples are more explicit than comparable code in languages with hidden propagation or implicit borrowing.
+- The benefit is local, auditable behavior.
+
+
+
+

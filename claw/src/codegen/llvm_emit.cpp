@@ -284,6 +284,28 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                             line << (isSignedIntegerType(baseType) ? "sdiv " : "udiv ") << resultType;
                         }
                     } else if (value.op == "eq" || value.op == "neq" || value.op == "lt" || value.op == "lte" || value.op == "gt" || value.op == "gte") {
+                        if (baseType == "Str" || baseType == "Span") {
+                            if (value.op == "eq" || value.op == "neq") {
+                                const std::string equalSymbol = quoteGlobal("claw.runtime.str.eq");
+                                addRuntimeDecl("declare i1 " + equalSymbol + "(ptr, ptr)");
+                                const std::string addrLeft = state.temp("str.eq.left.addr");
+                                const std::string addrRight = state.temp("str.eq.right.addr");
+                                blockLines.push_back("  " + addrLeft + " = alloca %claw.slice, align 8");
+                                blockLines.push_back("  store %claw.slice " + left + ", ptr " + addrLeft + ", align 8");
+                                blockLines.push_back("  " + addrRight + " = alloca %claw.slice, align 8");
+                                blockLines.push_back("  store %claw.slice " + right + ", ptr " + addrRight + ", align 8");
+                                const std::string eqReg = (value.op == "eq") ? localName(value.result) : state.temp("str.eq.raw");
+                                blockLines.push_back("  " + eqReg + " = call i1 " + equalSymbol + "(ptr " + addrLeft + ", ptr " + addrRight + ")");
+                                if (value.op == "neq") {
+                                    blockLines.push_back("  " + localName(value.result) + " = xor i1 " + eqReg + ", true");
+                                }
+                                state.valueTypes[value.result] = value.type;
+                                state.namedValues[value.result] = localName(value.result);
+                                return;
+                            }
+                            throw std::runtime_error("LLVM lowering does not yet support order comparison for Str/Span.");
+                        }
+
                         if (isFloatingType(baseType)) {
                             line << "fcmp ";
                             if (value.op == "eq") line << "oeq ";
@@ -433,7 +455,23 @@ std::string LlvmEmitter::emitNativeEntryWrapper() const {
 std::string LlvmEmitter::emit() {
     std::ostringstream out;
     out << "; ModuleID = 'claw'\n";
+#if defined(__APPLE__)
+#if defined(__aarch64__)
+    out << "target triple = \"aarch64-apple-darwin\"\n\n";
+#else
+    out << "target triple = \"x86_64-apple-darwin\"\n\n";
+#endif
+#elif defined(_WIN32)
     out << "target triple = \"x86_64-w64-windows-gnu\"\n\n";
+#elif defined(__linux__)
+#if defined(__aarch64__)
+    out << "target triple = \"aarch64-unknown-linux-gnu\"\n\n";
+#else
+    out << "target triple = \"x86_64-unknown-linux-gnu\"\n\n";
+#endif
+#else
+    out << "target triple = \"x86_64-unknown-unknown\"\n\n";
+#endif
     out << "%claw.slice = type { ptr, i64 }\n";
     out << "%claw.buffer = type { ptr, i64, i64 }\n";
 

@@ -1,0 +1,75 @@
+C@ Error Model
+
+1. Design Decisions
+
+1.1 Failure classes
+C@ has exactly two failure classes:
+
+Recoverable failure
+- Represented in types using `Outcome of T, E`
+- Must be handled explicitly
+
+Defect
+- Represents violated runtime safety or program contract
+- Examples: index out of range, invalid cast, arithmetic overflow on `Int*`, failed assertion, exhausted allocator contract when configured to defect, impossible internal invariant breach
+
+1.2 No exceptions
+C@ has no hidden exception mechanism in safe code.
+No function may secretly throw across call boundaries.
+
+1.3 Recoverable failure handling
+Standard recoverable form:
+choice Outcome of T, E [
+    ok(value: T)
+    fail(cause: E)
+]
+
+Handling mechanisms:
+- `lift`
+- `pick`
+- direct return of `fail(...)`
+
+1.4 Defect behavior
+Defects are defined behavior.
+The implementation may run in one of two runtime modes:
+- abort mode: immediate process termination with defect record
+- unwind mode: stack unwinding with deterministic destructor execution, then defect handoff
+
+Mode is build-configured and part of the artifact contract.
+
+1.5 Assertions
+Assertions are explicit standard library calls.
+A failed assertion raises a defect.
+Assertions are not recoverable failures.
+
+1.6 Error domain design
+Error types must be nominal and specific.
+String-only error channels are discouraged for public APIs.
+Public APIs should prefer closed choices for predictable matching.
+
+2. Rationale
+
+FAST
+- Typed outcomes compile to direct control flow.
+- No hidden exception tables in the core model.
+
+SAFE
+- Every failure path is defined.
+- Defects stop invalid execution rather than continuing in corrupted state.
+
+SIMPLE
+- Two failure classes are enough for production reasoning.
+- Routine failures are part of function types; defects are not.
+
+3. Constraints
+
+- No hidden propagation syntax.
+- No mixing of recoverable failure and defects in one mechanism.
+- Public APIs must document which outcomes are recoverable.
+- Defects must always produce stable diagnostics.
+
+4. Trade-offs
+
+- Explicit outcomes are longer than exception-style code.
+- Some APIs become more verbose, but control flow stays visible and auditable.
+- Build mode selection between abort and unwind adds deployment choice but preserves defined semantics.
