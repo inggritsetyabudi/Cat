@@ -70,6 +70,95 @@ void* claw_runtime_anchor_alloc(int64_t size) {
 void claw_runtime_anchor_free(void* ptr) {
     free(ptr);
 }
+
+// Arena Runtime Support
+typedef struct claw_arena {
+    unsigned char* start;
+    unsigned char* current;
+    unsigned char* end;
+    struct claw_arena* next;
+} claw_arena;
+
+#define CLAW_ARENA_BLOCK_SIZE 65536
+
+static claw_arena* claw_arena_allocate_block(size_t min_size) {
+    size_t request = min_size > CLAW_ARENA_BLOCK_SIZE ? min_size : CLAW_ARENA_BLOCK_SIZE;
+    // We allocate the header plus the space in one go
+    claw_arena* block = (claw_arena*)malloc(sizeof(claw_arena) + request);
+    if (!block) {
+        fputs("fatal: Arena memory allocation failed\n", stderr);
+        abort();
+    }
+    block->start = (unsigned char*)(block + 1);
+    block->current = block->start;
+    block->end = block->start + request;
+    block->next = NULL;
+    return block;
+}
+
+void* claw_runtime_arena_new(void) __asm__(CLAW_RT_ASM(claw.runtime.arena.new));
+void claw_runtime_arena_free(void* ptr) __asm__(CLAW_RT_ASM(claw.runtime.arena.free));
+void* claw_runtime_arena_alloc(void* arena_ptr, int64_t size, int64_t alignment) __asm__(CLAW_RT_ASM(claw.runtime.arena.alloc));
+void claw_runtime_arena_reset(void* arena_ptr) __asm__(CLAW_RT_ASM(claw.runtime.arena.reset));
+
+void* claw_runtime_arena_new(void) {
+    return claw_arena_allocate_block(CLAW_ARENA_BLOCK_SIZE);
+}
+
+void claw_runtime_arena_free(void* ptr) {
+    claw_arena* current = (claw_arena*)ptr;
+    while (current != NULL) {
+        claw_arena* next = current->next;
+        free(current);
+        current = next;
+    }
+}
+
+void* claw_runtime_arena_alloc(void* arena_ptr, int64_t size, int64_t alignment) {
+    claw_arena* head = (claw_arena*)arena_ptr;
+    if (size <= 0) size = 1;
+    if (alignment <= 0) alignment = 1;
+    
+    // Find the first block that can satisfy the allocation
+    claw_arena* current = head;
+    while (current != NULL) {
+        uintptr_t current_addr = (uintptr_t)current->current;
+        uintptr_t offset = current_addr % (uintptr_t)alignment;
+        uintptr_t padding = offset == 0 ? 0 : (uintptr_t)alignment - offset;
+        
+        if ((size_t)(current->end - current->current) >= padding + (size_t)size) {
+            void* result = current->current + padding;
+            current->current += padding + (size_t)size;
+            return result;
+        }
+        
+        if (current->next == NULL) {
+            break; // No more blocks, 'current' is the tail
+        }
+        current = current->next;
+    }
+    
+    // Need a new block
+    claw_arena* new_block = claw_arena_allocate_block(size + alignment);
+    current->next = new_block;
+    
+    uintptr_t current_addr = (uintptr_t)new_block->current;
+    uintptr_t offset = current_addr % (uintptr_t)alignment;
+    uintptr_t padding = offset == 0 ? 0 : (uintptr_t)alignment - offset;
+    
+    void* result = new_block->current + padding;
+    new_block->current += padding + (size_t)size;
+    return result;
+}
+
+void claw_runtime_arena_reset(void* arena_ptr) {
+    claw_arena* current = (claw_arena*)arena_ptr;
+    while (current != NULL) {
+        current->current = current->start;
+        current = current->next;
+    }
+}
+
 static void claw_finish_print(bool newline) {
     if (newline) {
         fputc('\n', stdout);

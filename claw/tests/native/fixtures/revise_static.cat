@@ -1,0 +1,29 @@
+shape Config {
+    host: Str
+    port: Int32
+}
+
+static VERSION: Str = "1.0.0"
+static MAX_CONN: Int32 = 1024
+static ENABLED: Bool = true
+
+implements Config {
+    fn new(host: Str, port: Int32) -> Config {
+        return Config { host: host, port: port }
+    }
+
+    fn describe(self: ref) -> ref Str {
+        return self.host
+    }
+}
+
+fn get_version() -> ref Str {
+    return ref VERSION
+}
+
+fn main() -> Int32 {
+    val cfg = Config.new(VERSION, MAX_CONN)
+    println(cfg.describe())
+    println(ENABLED)
+    return 0
+}

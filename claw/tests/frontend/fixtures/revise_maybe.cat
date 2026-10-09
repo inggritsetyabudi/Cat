@@ -1,7 +1,3 @@
-choice Maybe[T] {
-    None
-    Some(value: T)
-}
 
 fn greet(name: Maybe[Str]) -> Str {
     pick name {

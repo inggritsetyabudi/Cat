@@ -34,6 +34,7 @@ enum class SymbolKind {
     Function,
     Shape,
     Choice,
+    Contract,
     Module,
 };
 
@@ -101,6 +102,39 @@ struct ChoiceInfo {
     std::vector<std::string> variantOrder;
 };
 
+
+
+struct SymbolLinkInfo {
+    std::string symbol;
+    std::string abi = "claw";
+    LinkageKind linkage = LinkageKind::Internal;
+    bool ffiStable = false;
+};
+
+struct ExternalCallableInfo {
+    std::string dependencyRoot;
+    std::string abi = "unknown";
+    std::string linkageName;
+    bool rawOnly = true;
+};
+
+struct FunctionSignature {
+    std::optional<ResolvedType> receiverType;
+    std::vector<ResolvedType> paramTypes;
+    ResolvedType returnType;
+    std::optional<size_t> viewReturnSourceParam;
+    std::vector<std::string> scopeParams;
+    std::optional<size_t> scopeReturnSourceParam;
+    bool isExternal = false;
+    std::optional<ExternalCallableInfo> externalInfo;
+};
+
+struct ContractInfo {
+    std::string name;
+    std::vector<std::string> typeParams;
+    std::unordered_map<std::string, FunctionSignature> methods;
+};
+
 struct LayoutFieldInfo {
     std::string name;
     ResolvedType type;
@@ -134,29 +168,7 @@ struct TypeLayoutInfo {
     std::vector<LayoutVariantInfo> variants;
 };
 
-struct SymbolLinkInfo {
-    std::string symbol;
-    std::string abi = "claw";
-    LinkageKind linkage = LinkageKind::Internal;
-    bool ffiStable = false;
-};
 
-struct ExternalCallableInfo {
-    std::string dependencyRoot;
-    std::string abi = "unknown";
-    std::string linkageName;
-    bool rawOnly = true;
-};
-
-struct FunctionSignature {
-    std::vector<ResolvedType> paramTypes;
-    ResolvedType returnType;
-    std::optional<size_t> viewReturnSourceParam;
-    std::vector<std::string> scopeParams;
-    std::optional<size_t> scopeReturnSourceParam;
-    bool isExternal = false;
-    std::optional<ExternalCallableInfo> externalInfo;
-};
 
 struct MethodSignature {
     std::string name;
@@ -203,6 +215,9 @@ struct AnalysisResult {
     std::unordered_map<std::string, FunctionSignature> functionsByName;
     std::unordered_map<std::string, ShapeInfo> shapesByName;
     std::unordered_map<std::string, ChoiceInfo> choicesByName;
+    std::unordered_map<std::string, ContractInfo> contractsByName;
+    std::unordered_map<std::string, FunctionSignature> contractMethods;
+    std::unordered_map<std::string, std::vector<std::string>> shapeContracts;
 };
 
 class TypeCatalog {

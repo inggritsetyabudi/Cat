@@ -1,0 +1,5 @@
+var static MAX: Int32 = 100
+
+fn main() {
+    static READY: Bool = false
+}

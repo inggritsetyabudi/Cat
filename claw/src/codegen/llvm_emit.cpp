@@ -234,6 +234,11 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                         addRuntimeDecl("declare void " + freeSymbol + "(ptr)");
                         const std::string operand = ensureValue(LirValue{value.name, value.type, false}, state, blockLines);
                         blockLines.push_back("  call void " + freeSymbol + "(ptr " + operand + ")");
+                    } else if (baseType == "Arena") {
+                        const std::string freeSymbol = quoteGlobal("claw.runtime.arena.free");
+                        addRuntimeDecl("declare void " + freeSymbol + "(ptr)");
+                        const std::string operand = ensureValue(LirValue{value.name, value.type, false}, state, blockLines);
+                        blockLines.push_back("  call void " + freeSymbol + "(ptr " + operand + ")");
                     } else {
                         blockLines.push_back("  ; drop " + value.name + " : " + value.type);
                     }
@@ -478,6 +483,10 @@ std::string LlvmEmitter::emit() {
     const auto typeDecls = emitTypeDecls();
     if (!typeDecls.empty()) {
         out << typeDecls << "\n";
+    }
+    const auto staticGlobals = emitStaticGlobals();
+    if (!staticGlobals.empty()) {
+        out << staticGlobals << "\n";
     }
     const auto globals = emitStringGlobals();
     if (!globals.empty()) {

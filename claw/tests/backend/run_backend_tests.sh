@@ -49,7 +49,8 @@ scoped_type_ll="$ARTIFACT_DIR/revise_scoped_type_propagation.ll"
 nested_scoped_ll="$ARTIFACT_DIR/revise_nested_scoped_generic.ll"
 nested_scoped_workspace_ll="$ARTIFACT_DIR/revise_nested_scoped_workspace.ll"
 str_search_ll="$ARTIFACT_DIR/revise_str_search_methods.ll"
-rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll"
+implements_ll="$ARTIFACT_DIR/revise_implements.ll"
+rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll"
 
 run_llvm "test_backend/revise_result_llvm.cat" "$BACKEND_FIXTURE_DIR/revise_result_llvm.cat" "$result_ll"
 llvm_output="$(tr -d '\r' < "$result_ll")"
@@ -130,3 +131,22 @@ if [[ "$str_search_output" != *'call i1 @"claw.runtime.str.starts_with"(ptr '* ]
   echo "Str search LLVM output did not include receiver-first runtime calls" >&2
   exit 1
 fi
+
+run_llvm "test_native/revise_implements.cat" "$SCRIPT_DIR/../native/fixtures/revise_implements.cat" "$implements_ll"
+
+static_ll="$ARTIFACT_DIR/revise_static.ll"
+rm -f "$static_ll"
+run_llvm "test_native/revise_static.cat" "$SCRIPT_DIR/../native/fixtures/revise_static.cat" "$static_ll"
+
+contract_ll="$ARTIFACT_DIR/revise_contract.ll"
+rm -f "$contract_ll"
+run_llvm "test_native/revise_contract.cat" "$SCRIPT_DIR/../native/fixtures/revise_contract.cat" "$contract_ll"
+
+arena_ll="$ARTIFACT_DIR/revise_arena.ll"
+rm -f "$arena_ll"
+run_llvm "test_native/revise_arena.cat" "$SCRIPT_DIR/../native/fixtures/revise_arena.cat" "$arena_ll"
+
+op_ll="$ARTIFACT_DIR/revise_operator_overload.ll"
+rm -f "$op_ll"
+run_llvm "test_native/revise_operator_overload.cat" "$SCRIPT_DIR/../native/fixtures/revise_operator_overload.cat" "$op_ll"
+

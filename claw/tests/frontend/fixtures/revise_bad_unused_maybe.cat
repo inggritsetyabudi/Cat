@@ -1,7 +1,3 @@
-choice Maybe[T] {
-    None
-    Some(value: T)
-}
 
 fn pick_num(flag: Bool) -> Maybe[Int32] {
     if flag {

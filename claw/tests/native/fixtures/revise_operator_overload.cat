@@ -1,0 +1,55 @@
+shape Vector2 {
+    x: Int32
+    y: Int32
+}
+
+contract Add {
+    fn add(self: ref, other: ref Vector2) -> Vector2
+}
+
+contract Equal {
+    fn equal(self: ref, other: ref Vector2) -> Bool
+}
+
+implements Vector2 with Add {
+    fn add(self: ref, other: ref Vector2) -> Vector2 {
+        return Vector2 { x: self.x + other.x, y: self.y + other.y }
+    }
+}
+
+implements Vector2 with Equal {
+    fn equal(self: ref, other: ref Vector2) -> Bool {
+        if self.x == other.x {
+            if self.y == other.y {
+                return true
+            }
+        }
+        return false
+    }
+}
+
+fn main() -> Int32 {
+    val v1 = Vector2 { x: 10, y: 20 }
+    val v2 = Vector2 { x: 5, y: 15 }
+    
+    // Test overloaded +
+    val v3 = v1 + v2
+    println(v3.x) // 15
+    println(v3.y) // 35
+
+    // Test overloaded ==
+    val is_eq = v1 == v2
+    println(is_eq) // false
+
+    val v4 = Vector2 { x: 10, y: 20 }
+    val is_same = v1 == v4
+    println(is_same) // true
+
+    // Test chaining + (v1 + v2) + v3
+    val v5 = Vector2 { x: 2, y: 3 }
+    val v6 = (v1 + v2) + v5
+    println(v6.x) // 17
+    println(v6.y) // 38
+
+    return 0
+}

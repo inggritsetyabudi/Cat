@@ -202,6 +202,72 @@ if [[ "$str_search_stdout" != "str-search-ok" ]]; then
   exit 1
 fi
 
+echo "[build/pass] test_native/revise_implements.cat"
+implements_output="$ARTIFACT_DIR/revise_implements.exe"
+rm -f "$implements_output" "${implements_output%.exe}.ll"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_implements.cat" "$implements_output" >/dev/null
+expect_generated_ll "$implements_output"
+implements_stdout="$(normalize_stdout "$implements_output")"
+if [[ "$implements_stdout" != "localhost" ]]; then
+  echo "revised implements native output was unexpected: $implements_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_implements_advanced.cat"
+implements_adv_output="$ARTIFACT_DIR/revise_implements_advanced.exe"
+rm -f "$implements_adv_output" "${implements_adv_output%.exe}.ll"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_implements_advanced.cat" "$implements_adv_output" >/dev/null
+expect_generated_ll "$implements_adv_output"
+implements_adv_stdout="$(normalize_stdout "$implements_adv_output")"
+if [[ "$implements_adv_stdout" != "24" ]]; then
+  echo "revised implements advanced native output was unexpected: $implements_adv_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_static.cat"
+static_output="$ARTIFACT_DIR/revise_static.exe"
+rm -f "$static_output" "${static_output%.exe}.ll"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_static.cat" "$static_output" >/dev/null
+expect_generated_ll "$static_output"
+static_stdout="$(normalize_stdout "$static_output")"
+if [[ "$static_stdout" != $'1.0.0\ntrue' ]]; then
+  echo "revised static native output was unexpected: $static_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_contract.cat"
+contract_output="$ARTIFACT_DIR/revise_contract.exe"
+rm -f "$contract_output" "${contract_output%.exe}.ll"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_contract.cat" "$contract_output" >/dev/null
+expect_generated_ll "$contract_output"
+contract_stdout="$(normalize_stdout "$contract_output")"
+if [[ "$contract_stdout" != $'30\n40' ]]; then
+  echo "revised contract native output was unexpected: $contract_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_arena.cat"
+arena_output="$ARTIFACT_DIR/revise_arena.exe"
+rm -f "$arena_output" "${arena_output%.exe}.ll"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_arena.cat" "$arena_output" >/dev/null
+expect_generated_ll "$arena_output"
+arena_stdout="$(normalize_stdout "$arena_output")"
+if [[ "$arena_stdout" != $'100\n200\n300' ]]; then
+  echo "revised arena native output was unexpected: $arena_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_operator_overload.cat"
+op_output="$ARTIFACT_DIR/revise_operator_overload.exe"
+rm -f "$op_output" "${op_output%.exe}.ll"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_operator_overload.cat" "$op_output" >/dev/null
+expect_generated_ll "$op_output"
+op_stdout="$(normalize_stdout "$op_output")"
+if [[ "$op_stdout" != $'15\n35\nfalse\ntrue\n17\n38' ]]; then
+  echo "revised operator overload native output was unexpected: $op_stdout" >&2
+  exit 1
+fi
+
 echo "[build/pass] compiler locates bundled runtime outside repository working directory"
 (
   cd -- "$CWD_TEST_DIR"

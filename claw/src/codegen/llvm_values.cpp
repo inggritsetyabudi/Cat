@@ -247,6 +247,9 @@ std::optional<std::string> LlvmEmitter::tryAddressOfValue(
     if (const auto it = state.namedAddresses.find(value.text); it != state.namedAddresses.end()) {
         return it->second;
     }
+    if (const auto it = staticsByName.find(value.text); it != staticsByName.end()) {
+        return quoteGlobal(it->second->link.symbol);
+    }
     return std::nullopt;
 }
 
@@ -415,6 +418,10 @@ std::string LlvmEmitter::ensureValue(const LirValue& value, FunctionState& state
 
     if (const auto it = state.namedAddresses.find(value.text); it != state.namedAddresses.end()) {
         return loadValueFromAddress(it->second, value.type, align, state, lines);
+    }
+
+    if (const auto statIt = staticsByName.find(value.text); statIt != staticsByName.end()) {
+        return loadValueFromAddress(quoteGlobal(statIt->second->link.symbol), value.type, align, state, lines);
     }
 
     if (const auto it = state.params.find(value.text); it != state.params.end()) {

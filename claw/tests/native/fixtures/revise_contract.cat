@@ -1,0 +1,37 @@
+shape Point {
+    x: Int32
+    y: Int32
+}
+
+contract Drawable {
+    fn draw(self: ref)
+}
+
+implements Point {
+    fn new(x: Int32, y: Int32) -> Point {
+        return Point { x: x, y: y }
+    }
+
+    fn move_by(self: ref mut, dx: Int32, dy: Int32) {
+        self.x = self.x + dx
+        self.y = self.y + dy
+    }
+
+    fn describe(self: ref) -> Int32 {
+        return self.x + self.y
+    }
+}
+
+implements Point with Drawable {
+    fn draw(self: ref) {
+        println(self.x + self.y)
+    }
+}
+
+fn main() -> Int32 {
+    var p = Point.new(10, 20)
+    println(p.describe())
+    p.move_by(5, 5)
+    p.draw()
+    return 0
+}

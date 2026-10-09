@@ -4,6 +4,7 @@
 
 #include <string_view>
 #include <vector>
+#include <optional>
 
 namespace claw::frontend {
 
@@ -47,6 +48,8 @@ private:
     std::unique_ptr<FnDecl> parseFnDeclaration();
     std::unique_ptr<ShapeDecl> parseShapeDeclaration(bool isViewShape = false);
     std::unique_ptr<ChoiceDecl> parseChoiceDeclaration();
+    std::unique_ptr<ImplementsDecl> parseImplementsDeclaration();
+    std::unique_ptr<ContractDecl> parseContractDeclaration();
     std::unique_ptr<TypeNode> parseType();
 
     std::unique_ptr<BlockStmt> parseBlock();

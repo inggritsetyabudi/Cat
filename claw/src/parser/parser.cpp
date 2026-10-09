@@ -323,6 +323,26 @@ std::unique_ptr<Decl> Parser::parseDeclaration() {
     if (isViewShape) {
         failAt(previous(), "Expected 'shape' after 'view'.");
     }
+    if (match(TokenKind::KwImplements)) {
+        return parseImplementsDeclaration();
+    }
+    if (match(TokenKind::KwContract)) {
+        return parseContractDeclaration();
+    }
+    if (match(TokenKind::KwStatic)) {
+        if (isShared) {
+            failAt(previous(), "`static` cannot be combined with `share`.");
+        }
+        auto stat = std::make_unique<StaticDecl>();
+        stat->span = spanFromToken(previous());
+        consumeNameToken("Expected static name");
+        stat->name = previous().text;
+        consume(TokenKind::Colon, "Expected ':' after static name");
+        stat->type = parseType();
+        consume(TokenKind::Equal, "Expected '=' for static initializer");
+        stat->init = parseExpression();
+        return stat;
+    }
     if (match(TokenKind::KwRealm)) {
         failAt(previous(), legacySyntaxMessage(TokenKind::KwRealm));
     }
@@ -341,11 +361,33 @@ std::unique_ptr<FnDecl> Parser::parseFnDeclaration() {
     if (!check(TokenKind::RParen)) {
         do {
             FnParam param;
-            consumeNameToken("Expected parameter name");
-            param.span = spanFromToken(previous());
-            param.name = previous().text;
-            consume(TokenKind::Colon, "Expected ':' after param name");
-            param.type = parseType();
+            if (match(TokenKind::KwSelf)) {
+                param.span = spanFromToken(previous());
+                param.name = "self";
+                param.isSelf = true;
+                if (match(TokenKind::Colon)) {
+                    if (match(TokenKind::KwRef)) {
+                        auto selfType = std::make_unique<TypeNode>();
+                        selfType->span = spanFromToken(previous());
+                        selfType->viewKind = match(TokenKind::KwMut) ? "edit" : "look";
+                        selfType->name = "Self";
+                        param.type = std::move(selfType);
+                    } else {
+                        param.type = parseType();
+                    }
+                } else {
+                    auto selfType = std::make_unique<TypeNode>();
+                    selfType->span = param.span;
+                    selfType->name = "Self";
+                    param.type = std::move(selfType);
+                }
+            } else {
+                consumeNameToken("Expected parameter name");
+                param.span = spanFromToken(previous());
+                param.name = previous().text;
+                consume(TokenKind::Colon, "Expected ':' after param name");
+                param.type = parseType();
+            }
             fn->params.push_back(std::move(param));
         } while (match(TokenKind::Comma));
     }
@@ -355,7 +397,9 @@ std::unique_ptr<FnDecl> Parser::parseFnDeclaration() {
         fn->returnType = parseType();
     }
 
-    fn->body = parseBlock();
+    if (check(TokenKind::LBrace)) {
+        fn->body = parseBlock();
+    }
     return fn;
 }
 
@@ -389,6 +433,54 @@ std::unique_ptr<ShapeDecl> Parser::parseShapeDeclaration(bool isViewShape) {
     }
     consume(TokenKind::RBrace, "Expected '}' to end shape body");
     return shape;
+}
+
+std::unique_ptr<ImplementsDecl> Parser::parseImplementsDeclaration() {
+    auto impl = std::make_unique<ImplementsDecl>();
+    impl->span = spanFromToken(previous());
+
+    consumeNameToken("Expected shape name after 'implements'");
+    impl->typeName = previous().text;
+    parseTypeParameterList(&impl->typeParams);
+
+    if (match(TokenKind::KwWith)) {
+        consumeNameToken("Expected contract name after 'with'");
+        impl->contractName = previous().text;
+    }
+
+    consume(TokenKind::LBrace, "Expected '{' to start implements body");
+    while (!check(TokenKind::RBrace) && !isAtEnd()) {
+        if (!match(TokenKind::KwFn)) {
+            failAtCurrent("Expected 'fn' inside 'implements' block");
+        }
+        auto fn = parseFnDeclaration();
+        impl->methods.push_back(std::move(fn));
+    }
+    consume(TokenKind::RBrace, "Expected '}' to end implements body");
+    return impl;
+}
+
+std::unique_ptr<ContractDecl> Parser::parseContractDeclaration() {
+    auto contract = std::make_unique<ContractDecl>();
+    contract->span = spanFromToken(previous());
+
+    consumeNameToken("Expected contract name");
+    contract->name = previous().text;
+    parseTypeParameterList(&contract->typeParams);
+
+    consume(TokenKind::LBrace, "Expected '{' to start contract body");
+    while (!check(TokenKind::RBrace) && !isAtEnd()) {
+        if (!match(TokenKind::KwFn)) {
+            failAtCurrent("Expected 'fn' inside 'contract' block");
+        }
+        auto fn = parseFnDeclaration();
+        // In contracts, methods usually have no body. 
+        // parseFnDeclaration() parses an optional block if '{' is present, otherwise expects no block.
+        // If there's no block, fn->body will be null, which is correct for contract interfaces.
+        contract->methods.push_back(std::move(fn));
+    }
+    consume(TokenKind::RBrace, "Expected '}' to end contract body");
+    return contract;
 }
 
 std::unique_ptr<ChoiceDecl> Parser::parseChoiceDeclaration() {

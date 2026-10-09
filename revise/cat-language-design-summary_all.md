@@ -479,7 +479,9 @@ Ini yang membuat `raw {}` berbahaya dan harus seminimal mungkin.
 
 ---
 
-## 11. Solusi Edge Cases — `Anchor`, `scope`, Arena [conflict]
+## 11. Solusi Edge Cases — `Anchor`, `scope`, Arena [sudah]
+
+> [sudah] `Arena` memory pool khusus self-referential telah diintegrasikan di compiler, semantic type-checker (mendukung track bounds parameter asal), dan block chunked allocator (bump pointer tanpa GC) di runtime. `Anchor` dan `scope` juga telah berfungsi.
 
 > [sudah] Compiler sekarang sudah mendukung `scope s {}`, `ref[s]`, propagasi scoped ref melalui call/return, dan error escape/source lifetime yang informatif.
 >
@@ -722,7 +724,9 @@ arena.reset()      // ERROR: ada ref aktif ke dalam arena
 
 ---
 
-## 12. String Literal dan `static`
+## 12. String Literal dan `static` [sudah]
+
+> [sudah] String literal (`Str`) teralokasi di read-only data segment. `static` keyword telah diimplementasikan end-to-end sebagai immutable global compile-time constant seumur program.
 
 ### String Literal — Langsung `""`
 
@@ -959,7 +963,9 @@ fn main() -> Int32 {
 
 ---
 
-## 14. `implements` dan `contract`
+## 14. `implements` dan `contract` [sudah]
+
+> [sudah] Receiver-first method dispatch (`implements Shape`), deklarasi interface (`contract Name`), dan implementasi terikat (`implements Shape with Contract`) selesai end-to-end dengan validasi kelengkapan signature method, pengecekan `Self`, serta penolakan duplikasi.
 
 ### `implements` — Method pada Shape
 
@@ -1191,7 +1197,9 @@ fn main() -> Int32 {
 
 ---
 
-## 15. Operator Overloading
+## 15. Operator Overloading [sudah]
+
+> [sudah] Kontrak operator (`Add[T]`, `Sub[T]`, `Equal`, `Order`, dll.) kini diterjemahkan secara natif. Sema mendeteksi tipe `Shape` dan OIR menurunkan ekspresi `v1 + v2` menjadi panggilan method contract (`Shape.add(v1, v2)`). Test end-to-end chaining operator (`(v1 + v2) + v5`) pass secara mulus di native code.
 
 Operator overloading dilakukan lewat `contract` — tidak ada magic syntax terpisah.
 

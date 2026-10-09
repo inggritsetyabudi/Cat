@@ -2,10 +2,6 @@ shape Box[T] {
     value: T
 }
 
-choice Maybe[T] {
-    Some(value: T)
-    None
-}
 
 fn echo(text: ref Str) -> ref Str {
     if true {

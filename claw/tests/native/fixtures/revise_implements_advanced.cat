@@ -1,0 +1,50 @@
+shape Counter {
+    count: Int32
+}
+
+shape Point {
+    x: Int32
+    y: Int32
+}
+
+implements Counter {
+    fn new(start: Int32) -> Counter {
+        return Counter { count: start }
+    }
+
+    fn get(self: ref) -> Int32 {
+        return self.count
+    }
+
+    fn inc(self: ref mut) {
+        self.count = self.count + 1
+    }
+
+    fn consume_val(self) -> Int32 {
+        return self.count
+    }
+}
+
+implements Point {
+    fn origin() -> Point {
+        return Point { x: 0, y: 0 }
+    }
+
+    fn sum(self: ref) -> Int32 {
+        return self.x + self.y
+    }
+}
+
+fn main() -> Int32 {
+    var c = Counter.new(10)
+    c.inc()
+    c.inc()
+    val val_after_inc = c.get()
+
+    val p = Point.origin()
+    val p_sum = p.sum()
+
+    val final_count = c.consume_val()
+    println(val_after_inc + p_sum + final_count)
+    return 0
+}

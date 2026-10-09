@@ -162,6 +162,10 @@ std::optional<std::string> builtinCallTag(const SemanticAnalyzer& sema, const Ca
         return std::string("Anchor.new");
     }
 
+    if (objectIdent->name == "Arena" && member->member == "new") {
+        return std::string("Arena.new");
+    }
+
     return std::nullopt;
 }
 
@@ -417,6 +421,30 @@ OirValue lowerExpr(
         return lowered;
     }
     if (auto* binary = dynamic_cast<const BinaryExpr*>(expr)) {
+        auto getOpMethod = [](const std::string& op) -> std::string {
+            if (op == "+") return "add";
+            if (op == "-") return "sub";
+            if (op == "*") return "mul";
+            if (op == "/") return "div";
+            if (op == "==" || op == "!=") return "equal";
+            if (op == "<" || op == ">" || op == "<=" || op == ">=") return "compare";
+            return "";
+        };
+
+        std::string opMethod = getOpMethod(binary->op);
+        std::string leftTypeName = exprType(sema, binary->left.get());
+        std::string fullMethodName = leftTypeName + "." + opMethod;
+
+        if (!opMethod.empty() && sema.lookupFunctionSignature(fullMethodName)) {
+            const OirValue left = lowerExpr(sema, binary->left.get(), context, blockIndex);
+            const OirValue right = lowerExpr(sema, binary->right.get(), context, blockIndex);
+            const std::string result = context.tempName();
+            const std::string type = exprType(sema, expr);
+            std::vector<OirValue> args{left, right};
+            appendInst(context, blockIndex, OirCallInst{result, fullMethodName, std::move(args), type});
+            return OirValue{result, type, false};
+        }
+
         const OirValue left = lowerExpr(sema, binary->left.get(), context, blockIndex);
         const OirValue right = lowerExpr(sema, binary->right.get(), context, blockIndex);
         const std::string result = context.tempName();
@@ -453,12 +481,19 @@ OirValue lowerExpr(
             return OirValue{result, exprType(sema, expr), false};
         }
 
+        const auto callBuiltinTag = builtinCallTag(sema, call);
         std::string callee;
+        std::vector<OirValue> args;
         if (auto* memberCallee = dynamic_cast<const MemberExpr*>(call->callee.get())) {
-            if (sema.lookupMethodSignature(call->callee.get()).has_value() &&
-                !dynamic_cast<const IdentExpr*>(memberCallee->object.get())) {
+            const auto methodSig = sema.lookupMethodSignature(call->callee.get());
+            if (methodSig.has_value()) {
                 const OirValue receiver = lowerExpr(sema, memberCallee->object.get(), context, blockIndex);
-                callee = receiver.text + "." + memberCallee->member;
+                if (callBuiltinTag.has_value()) {
+                    callee = receiver.text + "." + memberCallee->member;
+                } else {
+                    callee = methodSig->receiverType.name + "." + memberCallee->member;
+                    args.push_back(receiver);
+                }
             } else {
                 callee = calleeText(call->callee.get());
             }
@@ -466,14 +501,12 @@ OirValue lowerExpr(
             callee = calleeText(call->callee.get());
         }
 
-        std::vector<OirValue> args;
-        args.reserve(call->args.size());
+        args.reserve(args.size() + call->args.size());
         for (const auto& arg : call->args) {
             args.push_back(lowerExpr(sema, arg.get(), context, blockIndex));
         }
 
         const std::string type = exprType(sema, expr);
-        const auto callBuiltinTag = builtinCallTag(sema, call);
         const auto callExternalInfo = externalCallInfo(sema, call, callee, type);
         if (type == "Unit") {
             appendInst(context, blockIndex, OirCallInst{std::nullopt, callee, std::move(args), type, callBuiltinTag, callExternalInfo});
@@ -913,6 +946,11 @@ std::string formatDecl(const OirDecl& decl) {
                 out << "\n";
             }
             return out.str();
+        },
+        [&](const OirStatic& stat) {
+            std::ostringstream out;
+            out << "oir.static " << stat.name << ": " << stat.type << " = " << stat.value << "\n";
+            return out.str();
         }
     }, decl);
 }
@@ -979,6 +1017,12 @@ OirRealm OirEmitter::lowerRealm(const RealmDecl* realm) const {
         if (auto loweredDecl = lowerDecl(decl.get(), lowered.name)) {
             lowered.decls.push_back(std::move(*loweredDecl));
         }
+        if (auto* impl = dynamic_cast<const ImplementsDecl*>(decl.get())) {
+            for (const auto& method : impl->methods) {
+                std::string fullMethodName = impl->typeName + "." + method->name;
+                lowered.decls.push_back(OirDecl{lowerFn(method.get(), lowered.name, fullMethodName)});
+            }
+        }
     }
     return lowered;
 }
@@ -997,20 +1041,31 @@ std::optional<OirDecl> OirEmitter::lowerDecl(const Decl* decl, std::string_view 
     if (auto* choice = dynamic_cast<const ChoiceDecl*>(decl)) {
         return OirDecl{lowerChoice(choice, realmName)};
     }
+    if (auto* stat = dynamic_cast<const StaticDecl*>(decl)) {
+        return OirDecl{lowerStatic(stat, realmName)};
+    }
     return std::nullopt;
 }
 
-OirFunction OirEmitter::lowerFn(const FnDecl* fn, std::string_view realmName) const {
+OirFunction OirEmitter::lowerFn(const FnDecl* fn, std::string_view realmName, std::string_view overrideName) const {
     FunctionLoweringContext context{sema, ownership};
-    context.function.name = fn ? fn->name : std::string("<unknown>");
+    context.function.name = !overrideName.empty() ? std::string(overrideName) : (fn ? fn->name : std::string("<unknown>"));
     context.function.linkage = localLinkInfo(realmName, context.function.name, fn && fn->isShared);
 
-    const auto* signature = sema.lookupFunctionSignature(fn);
+    const auto* signature = !overrideName.empty() ? sema.lookupFunctionSignature(std::string(overrideName)) : sema.lookupFunctionSignature(fn);
     if (fn) {
+        size_t nonSelfParamIdx = 0;
         for (size_t i = 0; i < fn->params.size(); ++i) {
-            const ResolvedType paramType = signature && i < signature->paramTypes.size()
-                ? signature->paramTypes[i]
-                : makeUnknownType();
+            ResolvedType paramType;
+            if (fn->params[i].isSelf) {
+                paramType = signature && signature->receiverType.has_value() 
+                    ? signature->receiverType.value() 
+                    : makeUnknownType();
+            } else {
+                paramType = signature && nonSelfParamIdx < signature->paramTypes.size()
+                    ? signature->paramTypes[nonSelfParamIdx++]
+                    : makeUnknownType();
+            }
             const auto layout = computeTypeLayout(paramType, sema.result(), sema.targetSpec());
             context.function.params.push_back(OirParam{
                 fn->params[i].name,
@@ -1119,6 +1174,32 @@ OirChoice OirEmitter::lowerChoice(const ChoiceDecl* choice, std::string_view rea
         }
         lowered.cases.push_back(std::move(item));
     }
+    return lowered;
+}
+
+OirStatic OirEmitter::lowerStatic(const StaticDecl* stat, std::string_view realmName) const {
+    OirStatic lowered;
+    lowered.name = stat ? stat->name : std::string("<unknown>");
+    lowered.link = localLinkInfo(realmName, lowered.name, false);
+    
+    if (stat && stat->init) {
+        lowered.type = exprType(sema, stat->init.get());
+        if (auto* intLit = dynamic_cast<IntExpr*>(stat->init.get())) {
+            lowered.value = intLit->value;
+        } else if (auto* floatLit = dynamic_cast<FloatExpr*>(stat->init.get())) {
+            lowered.value = floatLit->value;
+        } else if (auto* strLit = dynamic_cast<StringExpr*>(stat->init.get())) {
+            lowered.value = strLit->value;
+        } else if (auto* boolLit = dynamic_cast<BoolExpr*>(stat->init.get())) {
+            lowered.value = boolLit->value ? "true" : "false";
+        } else {
+            lowered.value = "<unknown_init>";
+        }
+    } else {
+        lowered.type = "<unknown>";
+        lowered.value = "<unknown_init>";
+    }
+    
     return lowered;
 }
 

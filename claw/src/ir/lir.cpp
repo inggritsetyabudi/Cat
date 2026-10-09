@@ -222,10 +222,6 @@ LirCallKind classifyCallKind(const OirCallInst& call, const std::unordered_set<s
     }
 
     const std::string tail = tailSegment(call.callee);
-    if (call.callee.find('.') != std::string::npos && isKnownBuiltinMethod(tail)) {
-        return LirCallKind::Builtin;
-    }
-
     if (call.externalInfo.has_value() || isOpaqueExternalType(call.type)) {
         return LirCallKind::External;
     }
@@ -846,6 +842,11 @@ std::string formatDecl(const LirDecl& decl) {
                 out << "\n";
             }
             return out.str();
+        },
+        [&](const LirStatic& stat) {
+            std::ostringstream out;
+            out << "lir.static " << stat.name << ": " << stat.type << " = " << stat.value << "\n";
+            return out.str();
         }
     }, decl);
 }
@@ -893,6 +894,15 @@ LirProgram buildLirProgram(const OirProgram& program) {
                         loweredChoice.cases.push_back(LirChoiceCase{item.name, item.payloadTypes});
                     }
                     loweredRealm.decls.push_back(std::move(loweredChoice));
+                },
+                [&](const OirStatic& stat) {
+                    LirStatic loweredStatic;
+                    loweredStatic.name = stat.name;
+                    loweredStatic.type = stat.type;
+                    loweredStatic.value = stat.value;
+                    loweredStatic.passKind = stat.passKind;
+                    loweredStatic.link = stat.link;
+                    loweredRealm.decls.push_back(std::move(loweredStatic));
                 }
             }, decl);
         }

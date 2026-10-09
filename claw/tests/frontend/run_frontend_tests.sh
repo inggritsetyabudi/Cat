@@ -114,9 +114,8 @@ run_check_pass "test_frontend/revise_ignore_must_use.cat" "$FIXTURE_DIR/revise_i
 run_check_pass "test_frontend/revise_maybe.cat" "$FIXTURE_DIR/revise_maybe.cat"
 echo "[air/pass] test_frontend/revise_maybe.cat"
 revise_maybe_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_maybe.cat")"
-if [[ "$revise_maybe_air_output" != *"choice Maybe"* ]] ||
-   [[ "$revise_maybe_air_output" != *"Some("* ]] ||
-   [[ "$revise_maybe_air_output" != *"None"* ]]; then
+if [[ "$revise_maybe_air_output" != *"add_one("* ]] ||
+   [[ "$revise_maybe_air_output" != *"greet("* ]]; then
   echo "revised Maybe AIR did not reflect the Maybe[T] surface" >&2
   exit 1
 fi
@@ -183,6 +182,14 @@ run_check_fail "test_frontend/revise_bad_nested_scoped_generic_mismatch.cat" "$F
 run_check_fail "test_frontend/revise_bad_nested_scoped_generic_field_mismatch.cat" "$FIXTURE_DIR/revise_bad_nested_scoped_generic_field_mismatch.cat" "Shape literal field type mismatch for 'value': expected Name[outer], got Name[inner]"
 run_check_fail "test_frontend/revise_bad_nested_scoped_generic_escape.cat" "$FIXTURE_DIR/revise_bad_nested_scoped_generic_escape.cat" "Return type mismatch in function 'leak': expected Box[Name[borrow]], got Box[Name[inner]]"
 run_check_fail "test_frontend/revise_bad_nested_scoped_generic_no_expected.cat" "$FIXTURE_DIR/revise_bad_nested_scoped_generic_no_expected.cat" "requires a concrete matching expected type"
+run_check_fail "test_frontend/revise_bad_implements_mut_on_val.cat" "$FIXTURE_DIR/revise_bad_implements_mut_on_val.cat" "Method receiver type mismatch: expected ref mut Buffer, got Buffer"
+run_check_pass "test_native/revise_static.cat" "$SCRIPT_DIR/../native/fixtures/revise_static.cat"
+run_check_fail "test_frontend/revise_bad_static.cat" "$FIXTURE_DIR/revise_bad_static.cat" "error[parse]"
+run_check_pass "test_native/revise_contract.cat" "$SCRIPT_DIR/../native/fixtures/revise_contract.cat"
+run_check_pass "test_native/revise_arena.cat" "$SCRIPT_DIR/../native/fixtures/revise_arena.cat"
+run_check_pass "test_native/revise_operator_overload.cat" "$SCRIPT_DIR/../native/fixtures/revise_operator_overload.cat"
+run_check_fail "test_frontend/revise_bad_contract.cat" "$FIXTURE_DIR/revise_bad_contract.cat" "receiver type does not match contract"
+
 
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEMP_DIR"' EXIT
