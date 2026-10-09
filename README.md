@@ -220,10 +220,11 @@ Current implementation status:
 
 - `Anchor.new(value)` is implemented for owned payloads with stable ownership.
 - `anchor.get()` yields `ref T`.
-- `scope` and scoped refs are implemented in the current compiler wave.
-- local borrowed aggregate carriers via `view shape Name[s] { ... }` are implemented, including scope-bound construction and escape checks.
+- `scope`, `ref[s]`, and local borrowed aggregate carriers via `view shape Name[s] { ... }` are implemented, including scope-bound construction and escape checks.
+- Direct scoped types (`Name[s]`) and nested generic forms such as `Box[Name[s]]` have validated frontend, LLVM, and native paths for the tested cases, including function parameters/returns/calls, field access, and shared/imported workspace use.
+- Generic shape literals in these nested forms require an expected concrete type; the compiler does not perform general lifetime inference.
 - `Arena` is still part of the design direction and is not yet fully implemented.
-- broader scoped-type propagation in arbitrary signatures and more advanced lifetime helpers are still being hardened.
+- broader lifetime inference and scoped-type patterns beyond the validated cases are still being hardened.
 
 ## Example Program
 
@@ -302,7 +303,7 @@ Broadly, the current compiler already covers:
 - borrow checking for path-based field overlap and `Vec` to `Span` rules
 - rejection of borrowed fields in normal `shape` declarations
 - must-use enforcement for `Result[T, E]` and `Maybe[T]` statement values
-- scoped references and `Anchor`
+- direct scoped references and nested scoped generics in the validated subset, plus `Anchor`
 - LLVM IR emission for the supported subset
 - native `.exe` generation for the supported subset
 
@@ -313,6 +314,7 @@ Major areas still being matured include:
 - the remaining type-surface cleanup against the revised PRDs
 - broader builtin method dispatch in receiver-first form
 - `Arena` and other advanced ownership helpers
+- general lifetime inference and scoped-type patterns beyond currently validated direct/nested cases
 - deeper borrow-checker maturity for more complex escape and aggregate scenarios
 - broader native/backend coverage beyond the current supported subset
 - ongoing documentation and ergonomics refinement

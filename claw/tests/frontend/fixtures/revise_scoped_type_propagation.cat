@@ -1,0 +1,37 @@
+view shape PairView[s] {
+    first: ref[s] Str,
+    second: ref[s] Str,
+}
+
+fn identity_ref(value: ref[borrow] Str) -> ref[borrow] Str {
+    return value
+}
+
+fn choose_first(left: ref[borrow] Str, right: ref[borrow] Str) -> ref[borrow] Str {
+    return left
+}
+
+fn identity_pair(value: PairView[borrow]) -> PairView[borrow] {
+    return value
+}
+
+fn first_text(value: PairView[borrow]) -> ref[borrow] Str {
+    return value.first
+}
+
+fn main() {
+    val first = "alpha"
+    val second = "beta"
+    scope s {
+        val view: ref[s] Str = ref[s] first
+        val same_view: ref[s] Str = identity_ref(view)
+        val pair: PairView[s] = PairView {
+            first: same_view,
+            second: ref[s] second,
+        }
+        val same_pair: PairView[s] = identity_pair(pair)
+        val first_view: ref[s] Str = first_text(same_pair)
+        val selected: ref[s] Str = choose_first(first_view, ref[s] second)
+        println(selected)
+    }
+}

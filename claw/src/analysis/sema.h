@@ -29,6 +29,7 @@ struct NamedBorrowScope {
     std::string name;
     SourceSpan span;
     int lexicalDepth = 0;
+    bool isFormalParameter = false;
 };
 
 class SemanticAnalyzer {
@@ -70,7 +71,7 @@ private:
     void reportError(const AstNode* node, const std::string& msg);
     void enterSemanticScope();
     void exitSemanticScope();
-    bool enterNamedBorrowScope(const std::string& name, const SourceSpan& span);
+    bool enterNamedBorrowScope(const std::string& name, const SourceSpan& span, bool isFormalParameter = false);
     void exitNamedBorrowScope();
     const NamedBorrowScope* lookupNamedBorrowScope(const std::string& name) const;
     bool validateScopedViewType(const ResolvedType& type, const AstNode* node, std::string_view context);
@@ -116,6 +117,15 @@ private:
     bool isNamedScopeActive(std::string_view scopeName) const;
     bool symbolCanStoreNamedScope(const Symbol& symbol, std::string_view scopeName) const;
     ResolvedType bindFormalScopeName(const ResolvedType& type, std::string_view formalScope, std::string_view actualScope) const;
+    bool bindSignatureScopes(
+        const ResolvedType& expected,
+        const ResolvedType& actual,
+        const FunctionSignature& signature,
+        std::unordered_map<std::string, std::string>& bindings,
+        const AstNode* node);
+    ResolvedType instantiateSignatureType(
+        const ResolvedType& type,
+        const std::unordered_map<std::string, std::string>& bindings) const;
 
     std::shared_ptr<Symbol> lookupSymbol(const std::string& name) const;
     void defineVariable(
@@ -132,4 +142,3 @@ private:
 };
 
 } // namespace claw::frontend
-

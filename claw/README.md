@@ -31,6 +31,9 @@ The compiler still keeps the deeper frontend and backend pipeline in place:
 - AIR / OIR / LIR
 - LLVM IR emission
 - initial native executable generation
+- scoped refs and borrowed view-shapes, including tested direct `Name[s]` and nested `Box[Name[s]]` propagation
+
+The scoped-type support is bounded to the validated cases: nested generic shape literals need an expected concrete type, and general lifetime inference is not implemented.
 
 ## What Is Verified Right Now
 
@@ -64,10 +67,11 @@ Currently green:
 - simple revised workspaces with root `main.cat`
 - runtime `println(...)`
 - direct arithmetic and direct calls in the current subset
+- the tested direct/nested scoped-type fixtures, including native single-file and workspace execution
 
 Not claimed yet:
 - full revised imported workspace native coverage
-- richer aggregate construction paths
+- aggregate construction beyond the individually validated paths
 - the full revised collection and builtin surface
 - broader raw / FFI lowering beyond the current typed subset
 
@@ -148,10 +152,10 @@ bash tests/run_all_tests.sh
 
 ## Next Wave
 
-The next wave is still about finishing the revised language surface cleanly before widening backend claims again.
+The next workstream is receiver-first built-in method dispatch, on a dedicated branch and with an end-to-end, deliberately bounded receiver family. The broader revised collection and builtin surface remains incomplete.
 
 Immediate order:
-1. finish the revised type and collection surface migration
-2. keep replacing remaining old surface terminology in sema, IR text, and docs
-3. prepare receiver-first builtin method dispatch for the revised collection model
-4. then continue widening LLVM and native coverage on top of that cleaner surface
+1. audit the builtin-method catalog against the PRDs, semantic analysis, ownership checks, LLVM lowering, and existing tests
+2. choose one bounded family and complete its semantic, LLVM, native, positive, and negative coverage
+3. keep the unimplemented catalog entries explicitly marked as planned until they pass end-to-end validation
+4. return to broader type/collection migration and LLVM/native coverage after this slice

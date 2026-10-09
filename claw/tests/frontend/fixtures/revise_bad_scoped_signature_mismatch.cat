@@ -1,0 +1,16 @@
+fn select(left: ref[s] Str, right: ref[s] Str) -> ref[s] Str {
+    return left
+}
+
+fn main() {
+    val first = "first"
+    val second = "second"
+    scope outer {
+        val left: ref[outer] Str = ref[outer] first
+        scope inner {
+            val right: ref[inner] Str = ref[inner] second
+            val result: ref[outer] Str = select(left, right)
+            println(result)
+        }
+    }
+}

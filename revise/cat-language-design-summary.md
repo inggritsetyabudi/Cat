@@ -484,7 +484,9 @@ Ini yang membuat `raw {}` berbahaya dan harus seminimal mungkin.
 >
 > [sudah] Compiler sekarang sudah mendukung `view shape Name[s] { ... }`, konstruksi lokal `Name { ... }` di dalam `scope s`, dan penolakan escape untuk nilai scoped aggregate.
 >
-> [conflict] Scoped type propagation yang lebih luas masih belum final. Bentuk lokal `view shape[s]` sudah hidup, tetapi pemakaian `Name[s]` di semua posisi tipe dan seluruh signature interprocedural masih perlu dimatangkan agar tidak overclaim.
+> [sudah] Propagasi scoped type langsung tervalidasi: `Name[s]` dan `ref[s]` dapat dipakai pada binding, field view-shape, parameter/return, call lintas fungsi, serta signature shared/imported. Scope pada signature adalah binder formal yang dipetakan ke scope aktif pemanggil; binder berulang harus konsisten. Return yang tidak terikat ke parameter, mismatch, escape, dan sumber berumur terlalu pendek ditolak; frontend, LLVM, dan native workspace diuji.
+>
+> [sudah] Nested scoped generic `Box[Name[s]]` kini didukung end-to-end untuk literal generic yang memiliki expected concrete type: binder nested dipropagasikan rekursif, concrete layout dan LLVM ABI parameter/return/call dilower, serta akses field dan signature shared/imported lintas modul tervalidasi. Binder/field mismatch, return escape, dan literal tanpa expected type ditolak; frontend, verifikasi LLVM IR, dan native execution single-file/workspace lulus. Lifetime inference umum tetap tidak diperluas.
 
 ### Kasus yang Tidak Bisa Diinferensi Otomatis
 
@@ -550,7 +552,9 @@ fn good() -> Str {
 
 > [sudah] Compiler saat ini sudah mendukung `scope`, `ref[s]`, dan `view shape Name[s]` sebagai carrier aggregate lokal untuk beberapa borrow yang hidup bersamaan.
 >
-> [conflict] Pemakaian `Name[s]` sebagai scoped type di seluruh posisi tipe belum final. Fokus implementasi saat ini adalah carrier lokal yang aman dan dapat diverifikasi, bukan general scoped type system penuh.
+> [sudah] View-shape `Name[s]` kini juga tervalidasi langsung di binding/field view-shape, function parameter/return, call, dan shared/imported signature. Binder scope dipetakan ke scope aktual secara konsisten dan tetap tunduk pada pemeriksaan escape/lifetime.
+>
+> [sudah] Pembungkusan scoped view-shape di generic lain (`Box[Name[s]]`) didukung end-to-end, termasuk layout/ABI indirect yang diuji dan workspace lintas modul. Konstruksi generic memerlukan expected concrete type; inferensi lifetime umum tetap di luar cakupan milestone ini.
 
 Untuk kasus di mana beberapa ref dari sumber berbeda harus hidup dalam rentang waktu yang sama. Programmer deklarasi satu scope eksplisit, semua ref terikat ke scope itu.
 

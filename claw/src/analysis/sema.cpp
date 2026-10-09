@@ -270,12 +270,16 @@ bool isAnchorStaticConstructorCall(const Expr* callee) {
 }
 
 bool isAnchorPayloadTypeAllowed(const ResolvedType& type) {
-    if (type.isUnknown() || type.isOpaqueExternal() || type.isView()) {
+    if (type.isUnknown() || type.isOpaqueExternal() || type.isView() ||
+        !type.scopeName.empty() || !type.viewScope.empty()) {
         return false;
     }
 
     const std::string base = canonicalTypeName(type.name);
-    return base != "Span" && base != "CStr" && !isRawAddressTypeName(base);
+    if (base == "Span" || base == "CStr" || isRawAddressTypeName(base)) {
+        return false;
+    }
+    return std::all_of(type.params.begin(), type.params.end(), isAnchorPayloadTypeAllowed);
 }
 
 std::string anchorPayloadTypeError(const ResolvedType& type) {
@@ -593,7 +597,7 @@ void SemanticAnalyzer::reportError(const AstNode* node, const std::string& msg) 
 }
 
 bool SemanticAnalyzer::typeContainsBorrowedStorage(const ResolvedType& type) const {
-    if (type.isView()) {
+    if (type.isView() || !type.scopeName.empty() || !type.viewScope.empty()) {
         return true;
     }
 
@@ -612,14 +616,18 @@ bool SemanticAnalyzer::typeContainsBorrowedStorage(const ResolvedType& type) con
 
 bool SemanticAnalyzer::typeUsesOnlyNamedScope(const ResolvedType& type, std::string_view scopeName) const {
     if (type.isView()) {
-        return !type.viewScope.empty() && type.viewScope == scopeName;
+        if (type.viewScope.empty() || type.viewScope != scopeName) {
+            return false;
+        }
     }
     if (!type.scopeName.empty()) {
-        return type.scopeName == scopeName;
+        if (type.scopeName != scopeName) {
+            return false;
+        }
     }
 
     const std::string base = canonicalTypeName(type.name);
-    if (base == "Span") {
+    if (base == "Span" && !type.isView()) {
         return false;
     }
 
@@ -632,7 +640,7 @@ bool SemanticAnalyzer::typeUsesOnlyNamedScope(const ResolvedType& type, std::str
 }
 
 bool SemanticAnalyzer::typeContainsScopeName(const ResolvedType& type) const {
-    if (!type.scopeName.empty()) {
+    if (!type.scopeName.empty() || !type.viewScope.empty()) {
         return true;
     }
     for (const auto& param : type.params) {
@@ -682,6 +690,63 @@ ResolvedType SemanticAnalyzer::bindFormalScopeName(
     return bound;
 }
 
+bool SemanticAnalyzer::bindSignatureScopes(
+    const ResolvedType& expected,
+    const ResolvedType& actual,
+    const FunctionSignature& signature,
+    std::unordered_map<std::string, std::string>& bindings,
+    const AstNode* node) {
+    auto bindOne = [&](const std::string& formal, const std::string& concrete) {
+        if (formal.empty() || std::find(signature.scopeParams.begin(), signature.scopeParams.end(), formal) == signature.scopeParams.end()) {
+            return true;
+        }
+        if (concrete.empty()) {
+            reportError(node, "Argument for scope parameter '" + formal + "' must carry a scope-bound value.");
+            return false;
+        }
+        const auto existing = bindings.find(formal);
+        if (existing != bindings.end() && existing->second != concrete) {
+            reportError(
+                node,
+                "scope parameter '" + formal + "' is bound to different active scopes ('" + existing->second + "' and '" + concrete + "').");
+            return false;
+        }
+        if (!isNamedScopeActive(concrete)) {
+            reportError(node, "Argument scope '" + concrete + "' for scope parameter '" + formal + "' is not active here.");
+            return false;
+        }
+        bindings[formal] = concrete;
+        return true;
+    };
+
+    bool valid = bindOne(expected.scopeName, actual.scopeName);
+    valid = bindOne(expected.viewScope, actual.viewScope) && valid;
+    const size_t count = std::min(expected.params.size(), actual.params.size());
+    for (size_t i = 0; i < count; ++i) {
+        valid = bindSignatureScopes(expected.params[i], actual.params[i], signature, bindings, node) && valid;
+    }
+    return valid;
+}
+
+ResolvedType SemanticAnalyzer::instantiateSignatureType(
+    const ResolvedType& type,
+    const std::unordered_map<std::string, std::string>& bindings) const {
+    ResolvedType instantiated = type;
+    const auto scopeName = bindings.find(instantiated.scopeName);
+    if (scopeName != bindings.end()) {
+        instantiated.scopeName = scopeName->second;
+    }
+    const auto viewScope = bindings.find(instantiated.viewScope);
+    if (viewScope != bindings.end()) {
+        instantiated.viewScope = viewScope->second;
+    }
+    instantiated.params.clear();
+    for (const auto& param : type.params) {
+        instantiated.params.push_back(instantiateSignatureType(param, bindings));
+    }
+    return instantiated;
+}
+
 void SemanticAnalyzer::enterSemanticScope() {
     scopes.enterScope();
     ++lexicalScopeDepth;
@@ -694,13 +759,13 @@ void SemanticAnalyzer::exitSemanticScope() {
     scopes.exitScope();
 }
 
-bool SemanticAnalyzer::enterNamedBorrowScope(const std::string& name, const SourceSpan& span) {
+bool SemanticAnalyzer::enterNamedBorrowScope(const std::string& name, const SourceSpan& span, bool isFormalParameter) {
     if (lookupNamedBorrowScope(name)) {
         reportError(span, "Borrow scope '" + name + "' is already active. Choose a different scope name.");
         return false;
     }
 
-    namedBorrowScopes.push_back(NamedBorrowScope{name, span, lexicalScopeDepth});
+    namedBorrowScopes.push_back(NamedBorrowScope{name, span, lexicalScopeDepth, isFormalParameter});
     return true;
 }
 
@@ -753,6 +818,13 @@ bool SemanticAnalyzer::validateAnchorPayloadType(const ResolvedType& type, const
         if (current.isView()) {
             reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
                 " because Anchor[T] requires an owned payload. Store an owned value instead of `" + current.describe() + "`.");
+            return false;
+        }
+        if (!current.scopeName.empty() || !current.viewScope.empty()) {
+            const std::string scopeName = !current.scopeName.empty() ? current.scopeName : current.viewScope;
+            reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
+                " because Anchor[T] cannot hold scoped type `" + current.describe() +
+                "` bound to scope `" + scopeName + "`.");
             return false;
         }
         if (current.name == "Span") {
@@ -830,6 +902,12 @@ const Symbol* SemanticAnalyzer::resolveBorrowSourceSymbol(const Expr* expr) cons
                 return resolveBorrowSourceSymbol(call->args[sourceIndex].get());
             }
         }
+        if (signature && typeContainsScopeName(signature->returnType) && signature->scopeReturnSourceParam.has_value()) {
+            const size_t sourceIndex = *signature->scopeReturnSourceParam;
+            if (sourceIndex < call->args.size()) {
+                return resolveBorrowSourceSymbol(call->args[sourceIndex].get());
+            }
+        }
     }
 
     return nullptr;
@@ -868,6 +946,18 @@ bool SemanticAnalyzer::validateScopedBorrowSource(
             "Source value for `" + targetType.describe() + "` does not live long enough for scope `" +
                 targetType.viewScope + "`. Move the source binding outside the inner block or keep the ref in a shorter scope.");
         return false;
+    }
+
+    if (namedScope->isFormalParameter) {
+        std::vector<std::string> sourceScopes;
+        collectNamedScopeNames(sourceSymbol->type, sourceScopes);
+        if (std::find(sourceScopes.begin(), sourceScopes.end(), targetType.viewScope) == sourceScopes.end()) {
+            reportError(
+                node,
+                "Source value for `" + targetType.describe() + "` is not tied to scope parameter '" +
+                    targetType.viewScope + "'. Borrow from a parameter that carries the same scope.");
+            return false;
+        }
     }
 
     if (sourceSymbol->type.isView() && !sourceSymbol->type.viewScope.empty() &&
@@ -980,11 +1070,15 @@ void SemanticAnalyzer::registerImports(const RealmDecl* realm) {
                 analysisResult.choicesByName[binding.name] = *binding.choiceInfo;
             }
         } else {
-            typeCatalog.registerShapeName(
-                binding.name,
-                binding.shapeInfo.has_value()
-                    ? std::optional<size_t>(binding.shapeInfo->typeParams.size())
-                    : std::nullopt);
+            if (binding.shapeInfo.has_value() && binding.shapeInfo->isViewShape) {
+                typeCatalog.registerViewShapeName(binding.name, binding.shapeInfo->scopeParamName);
+            } else {
+                typeCatalog.registerShapeName(
+                    binding.name,
+                    binding.shapeInfo.has_value()
+                        ? std::optional<size_t>(binding.shapeInfo->typeParams.size())
+                        : std::nullopt);
+            }
             if (binding.shapeInfo.has_value()) {
                 analysisResult.shapesByName[binding.name] = *binding.shapeInfo;
             }
@@ -1048,7 +1142,11 @@ void SemanticAnalyzer::registerImports(const RealmDecl* realm) {
 void SemanticAnalyzer::declareTopLevel(const RealmDecl* realm) {
     for (const auto& decl : realm->declarations) {
         if (auto* shape = dynamic_cast<ShapeDecl*>(decl.get())) {
-            typeCatalog.registerShapeName(shape->name, shape->typeParams.size());
+            if (shape->isViewShape) {
+                typeCatalog.registerViewShapeName(shape->name, shape->scopeParamName);
+            } else {
+                typeCatalog.registerShapeName(shape->name, shape->typeParams.size());
+            }
         } else if (auto* choice = dynamic_cast<ChoiceDecl*>(decl.get())) {
             typeCatalog.registerChoiceName(choice->name, choice->typeParams.size());
         }
@@ -1088,7 +1186,11 @@ void SemanticAnalyzer::resolveTopLevelTypes(const RealmDecl* realm) {
             analyzeShapeDecl(shape);
         } else if (auto* choice = dynamic_cast<ChoiceDecl*>(decl.get())) {
             analyzeChoiceDecl(choice);
-        } else if (auto* fn = dynamic_cast<FnDecl*>(decl.get())) {
+        }
+    }
+
+    for (const auto& decl : realm->declarations) {
+        if (auto* fn = dynamic_cast<FnDecl*>(decl.get())) {
             FunctionSignature signature;
             std::unordered_set<std::string> typeParams;
 
@@ -1099,6 +1201,7 @@ void SemanticAnalyzer::resolveTopLevelTypes(const RealmDecl* realm) {
             signature.returnType = fn->returnType
                 ? resolveTypeNode(fn->returnType.get(), typeParams)
                 : makePlainType("Unit");
+            populateFunctionScopeMetadata(signature);
 
             analysisResult.functionSignatures[fn] = signature;
             analysisResult.functionsByName[fn->name] = signature;
@@ -1330,6 +1433,8 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
     const auto previousViewReturnSourceParam = currentViewReturnSourceParam;
     const bool previousViewReturnSeen = currentViewReturnSeen;
     const int previousRawDepth = rawDepth;
+    const size_t previousNamedScopeCount = namedBorrowScopes.size();
+    const size_t previousActiveNamedScopeCount = activeNamedScopes.size();
     currentFunction = fn;
     currentSignature = lookupFunctionSignature(fn);
     implicitTailExpr = nullptr;
@@ -1341,22 +1446,32 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
         if (currentSignature->returnType.viewKind == "edit") {
             reportError(fn, "Safe functions cannot return ref mut views. Return an owned value or a ref view derived from a parameter.");
         }
-        if (!currentSignature->returnType.viewScope.empty()) {
-            reportError(fn, "Function signatures cannot use scoped refs like `" + currentSignature->returnType.describe() + "`. Keep scoped refs inside `scope ... {}` blocks.");
+        std::vector<std::string> returnScopes;
+        collectNamedScopeNames(currentSignature->returnType, returnScopes);
+        std::vector<std::string> parameterScopes;
+        for (const auto& paramType : currentSignature->paramTypes) {
+            collectNamedScopeNames(paramType, parameterScopes);
+        }
+        for (const auto& scopeName : returnScopes) {
+            if (std::find(parameterScopes.begin(), parameterScopes.end(), scopeName) == parameterScopes.end()) {
+                reportError(
+                    fn,
+                    "Function '" + fn->name + "' return scope parameter '" + scopeName +
+                        "' is not bound by any function parameter.");
+            }
         }
         for (size_t i = 0; i < fn->params.size() && i < currentSignature->paramTypes.size(); ++i) {
             if (isRawAddressType(currentSignature->paramTypes[i])) {
                 reportError(fn->params[i].span, "Raw address types are not allowed in safe function parameters.");
             }
-            if (!currentSignature->paramTypes[i].viewScope.empty()) {
-                reportError(
-                    fn->params[i].span,
-                    "Function parameters cannot use scoped refs like `" + currentSignature->paramTypes[i].describe() +
-                        "`. Keep scoped refs inside `scope ... {}` blocks.");
-            }
         }
         if (isRawAddressType(currentSignature->returnType)) {
             reportError(fn, "Raw address types are not allowed in safe function return types.");
+        }
+        for (const auto& scopeName : currentSignature->scopeParams) {
+            if (enterNamedBorrowScope(scopeName, fn->span, true)) {
+                activeNamedScopes.push_back(scopeName);
+            }
         }
     }
 
@@ -1370,7 +1485,9 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
             false,
             "Duplicate parameter name: " + fn->params[i].name,
             fn->params[i].span,
-            (type.isView() || type.name == "Span") ? std::optional<size_t>(i) : std::nullopt);
+            (type.isView() || type.name == "Span" || typeContainsScopeName(type))
+                ? std::optional<size_t>(i)
+                : std::nullopt);
     }
 
     bool hasImplicitTailReturn = false;
@@ -1389,11 +1506,27 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
 
                 if (valueType.isOpaqueExternal()) {
                     reportError(tailExprStmt->expr.get(), opaqueExternalValueUseMessage(valueType, "implicit return value"));
-                } else if (!valueType.viewScope.empty()) {
-                    reportError(
-                        tailExprStmt,
-                        "Scoped ref `" + valueType.describe() + "` cannot leave `scope " + valueType.viewScope +
-                            "`. Return an owned value instead or keep the borrow inside that scope.");
+                } else if (typeContainsScopeName(valueType) &&
+                           !typeContainsScopeName(currentSignature ? currentSignature->returnType : makeUnknownType())) {
+                    std::vector<std::string> valueScopes;
+                    collectNamedScopeNames(valueType, valueScopes);
+                    const std::string scopeName = valueScopes.empty() ? std::string{} : valueScopes.front();
+                    if (!valueType.viewScope.empty()) {
+                        reportError(
+                            tailExprStmt,
+                            "Scoped ref `" + valueType.describe() + "` cannot leave `scope " + valueType.viewScope +
+                                "`. Return an owned value instead or keep the borrow inside that scope.");
+                    } else if (!valueType.scopeName.empty()) {
+                        reportError(
+                            tailExprStmt,
+                            "Implicit return cannot let value `" + valueType.describe() +
+                                "` escape scope `" + valueType.scopeName + "`. Return an owned value, use Anchor[T], or keep the borrow inside the scope.");
+                    } else {
+                        reportError(
+                            tailExprStmt,
+                            "Implicit return cannot let value `" + valueType.describe() +
+                                "` escape because it contains borrowed storage bound to scope `" + scopeName + "`.");
+                    }
                 } else if (currentSignature && currentSignature->returnType.isView()) {
                     if (!canBorrowAsView(valueType, currentSignature->returnType)) {
                         reportError(
@@ -1422,13 +1555,6 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
                 if (rawDepth == 0 && isRawAddressType(valueType)) {
                     reportError(tailExprStmt, "Raw address values may only appear inside raw blocks.");
                 }
-                if (!valueType.scopeName.empty()) {
-                    reportError(
-                        tailExprStmt,
-                        "Implicit return cannot let value `" + valueType.describe() +
-                            "` escape scope `" + valueType.scopeName +
-                            "`. Return an owned value, use Anchor[T], or keep the borrow inside the scope.");
-                }
             }
         }
     }
@@ -1453,6 +1579,10 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
                 currentSignature->returnType.describe() + " or use explicit return.");
     }
 
+    while (namedBorrowScopes.size() > previousNamedScopeCount) {
+        namedBorrowScopes.pop_back();
+    }
+    activeNamedScopes.resize(previousActiveNamedScopeCount);
     currentFunction = previousFunction;
     currentSignature = previousSignature;
     implicitTailExpr = previousImplicitTailExpr;
@@ -1622,14 +1752,23 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                     "'. Keep it inside `scope " + valueType.viewScope + "` or store an owned value instead.");
         }
 
-        if (!finalType.scopeName.empty() && !isNamedScopeActive(finalType.scopeName)) {
-            reportError(bind, "Type " + finalType.describe() + " is bound to scope `" + finalType.scopeName + "`, but that scope is not active here.");
+        std::vector<std::string> finalScopes;
+        collectNamedScopeNames(finalType, finalScopes);
+        for (const auto& scopeName : finalScopes) {
+            if (!isNamedScopeActive(scopeName)) {
+                reportError(bind, "Type " + finalType.describe() + " is bound to scope `" + scopeName + "`, but that scope is not active here.");
+            }
         }
-        if (!valueType.scopeName.empty() && !isNamedScopeActive(valueType.scopeName)) {
-            reportError(bind, "Initializer value for '" + bind->name + "' carries scoped borrow `" + valueType.scopeName + "` outside its active scope.");
+        std::vector<std::string> valueScopes;
+        collectNamedScopeNames(valueType, valueScopes);
+        for (const auto& scopeName : valueScopes) {
+            if (!isNamedScopeActive(scopeName)) {
+                reportError(bind, "Initializer value for '" + bind->name + "' carries scoped borrow `" + scopeName + "` outside its active scope.");
+            }
         }
 
-        const std::optional<size_t> viewSourceParamIndex = ((finalType.isView() || finalType.name == "Span") && bind->value)
+        const std::optional<size_t> viewSourceParamIndex =
+            ((finalType.isView() || finalType.name == "Span" || typeContainsScopeName(finalType)) && bind->value)
             ? resolveViewSourceParam(bind->value.get())
             : std::nullopt;
 
@@ -1762,12 +1901,16 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                         assign->value.get(),
                         opaqueExternalValueUseMessage(valueType, "assignment to '" + ident->name + "'"));
                 } else {
-                    if (!valueType.scopeName.empty() && !symbolCanStoreNamedScope(*sym, valueType.scopeName)) {
-                        reportError(
-                            assign,
-                            "Cannot store value bound to scope `" + valueType.scopeName +
-                                "` in binding '" + ident->name +
-                                "' declared outside that scope. Move the binding inside the scope or return an owned value.");
+                    std::vector<std::string> valueScopes;
+                    collectNamedScopeNames(valueType, valueScopes);
+                    for (const auto& scopeName : valueScopes) {
+                        if (!symbolCanStoreNamedScope(*sym, scopeName)) {
+                            reportError(
+                                assign,
+                                "Cannot store value bound to scope `" + scopeName +
+                                    "` in binding '" + ident->name +
+                                    "' declared outside that scope. Move the binding inside the scope or return an owned value.");
+                        }
                     }
 
                     if (sym->type.isUnknown()) {
@@ -1780,7 +1923,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                             if (isNumericLiteralType(valueType)) {
                                 analysisResult.exprTypes[assign->value.get()] = inferredType;
                             }
-                            if (inferredType.isView()) {
+                            if (inferredType.isView() || typeContainsScopeName(inferredType)) {
                                 sym->viewSourceParamIndex = resolveViewSourceParam(assign->value.get());
                             } else {
                                 sym->viewSourceParamIndex.reset();
@@ -1808,7 +1951,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                                 "`. Keep it inside `scope " + valueType.viewScope + "` or store an owned value instead.");
                     }
 
-                    if (sym->type.isView()) {
+                    if (sym->type.isView() || typeContainsScopeName(sym->type)) {
                         sym->viewSourceParamIndex = resolveViewSourceParam(assign->value.get());
                     }
                 }
@@ -1852,11 +1995,27 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             : makePlainType("Unit");
         if (valueType.isOpaqueExternal()) {
             reportError(give->value.get(), opaqueExternalValueUseMessage(valueType, "return value"));
-        } else if (!valueType.viewScope.empty()) {
-            reportError(
-                give,
-                "Scoped ref `" + valueType.describe() + "` cannot leave `scope " + valueType.viewScope +
-                    "`. Return an owned value instead or keep the borrow inside that scope.");
+        } else if (typeContainsScopeName(valueType) &&
+                   !(currentSignature && typeContainsScopeName(currentSignature->returnType))) {
+            std::vector<std::string> valueScopes;
+            collectNamedScopeNames(valueType, valueScopes);
+            const std::string scopeName = valueScopes.empty() ? std::string{} : valueScopes.front();
+            if (!valueType.viewScope.empty()) {
+                reportError(
+                    give,
+                    "Scoped ref `" + valueType.describe() + "` cannot leave `scope " + valueType.viewScope +
+                        "`. Return an owned value instead or keep the borrow inside that scope.");
+            } else if (!valueType.scopeName.empty()) {
+                reportError(
+                    give,
+                    "Cannot return value `" + valueType.describe() + "` because it is bound to scope `" +
+                        valueType.scopeName + "`. Return owned data or keep the borrowed aggregate inside the scope.");
+            } else {
+                reportError(
+                    give,
+                    "Cannot return value `" + valueType.describe() +
+                        "` because it contains borrowed storage bound to scope `" + scopeName + "`.");
+            }
         } else if (currentSignature && currentSignature->returnType.isView()) {
             if (!canBorrowAsView(valueType, currentSignature->returnType)) {
                 reportError(
@@ -1882,12 +2041,6 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
 
         if (rawDepth == 0 && isRawAddressType(valueType)) {
             reportError(give, "Raw address values may only appear inside raw blocks.");
-        }
-        if (!valueType.scopeName.empty()) {
-            reportError(
-                give,
-                "Cannot return value `" + valueType.describe() + "` because it is bound to scope `" +
-                    valueType.scopeName + "`. Return owned data or keep the borrowed aggregate inside the scope.");
         }
         return;
     }
@@ -2163,10 +2316,39 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             return type;
         }
 
+        ResolvedType concreteShapeType = makeOwnedType(shapeInit->name);
+        std::unordered_map<std::string, ResolvedType> genericBindings;
         if (!shapeInfo->typeParams.empty()) {
-            reportError(shapeInit, "Shape literal construction for generic shape '" + shapeInit->name + "' is not supported yet.");
-            analysisResult.exprTypes[expr] = type;
-            return type;
+            bool unresolvedExpectedType = false;
+            if (expectedType) {
+                std::vector<const ResolvedType*> pendingTypes{expectedType};
+                while (!pendingTypes.empty()) {
+                    const ResolvedType* current = pendingTypes.back();
+                    pendingTypes.pop_back();
+                    if (current->isGeneric || current->isUnknown() || current->isOpaqueExternal()) {
+                        unresolvedExpectedType = true;
+                        break;
+                    }
+                    for (const auto& param : current->params) {
+                        pendingTypes.push_back(&param);
+                    }
+                }
+            }
+            if (!expectedType || expectedType->name != shapeInit->name ||
+                expectedType->params.size() != shapeInfo->typeParams.size() || unresolvedExpectedType) {
+                reportError(
+                    shapeInit,
+                    "Generic shape literal '" + shapeInit->name +
+                        "' requires a concrete matching expected type, for example `" +
+                        shapeInit->name + "[SomeType]`.");
+                analysisResult.exprTypes[expr] = type;
+                return type;
+            }
+            concreteShapeType = *expectedType;
+            genericBindings = buildTypeBindingsChecked(
+                shapeInfo->typeParams,
+                concreteShapeType.params,
+                "shape literal '" + shapeInit->name + "'");
         }
 
         if (!shapeInfo->isViewShape && !shapeInit->scopeName.empty()) {
@@ -2193,10 +2375,11 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                 continue;
             }
 
-            const ResolvedType valueType = analyzeExpr(field.value.get(), &fieldIt->second);
+            ResolvedType expectedFieldType = substituteType(fieldIt->second, genericBindings);
+            const ResolvedType valueType = analyzeExpr(field.value.get(), &expectedFieldType);
             fieldValueTypes.push_back({&field, valueType});
 
-            if (shapeInfo->isViewShape && typeContainsBorrowedStorage(fieldIt->second)) {
+            if (shapeInfo->isViewShape && typeContainsBorrowedStorage(expectedFieldType)) {
                 if (valueType.viewScope.empty()) {
                     reportError(
                         field.value.get(),
@@ -2231,7 +2414,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             if (fieldIt == shapeInfo->fields.end()) {
                 continue;
             }
-            ResolvedType expectedFieldType = fieldIt->second;
+            ResolvedType expectedFieldType = substituteType(fieldIt->second, genericBindings);
             if (shapeInfo->isViewShape) {
                 expectedFieldType = bindFormalScopeName(expectedFieldType, shapeInfo->scopeParamName, actualScopeName);
             }
@@ -2246,7 +2429,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             }
         }
 
-        type = makeOwnedType(shapeInit->name);
+        type = concreteShapeType;
         if (shapeInfo->isViewShape) {
             type.scopeName = actualScopeName;
         }
@@ -2602,6 +2785,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                 }
             }
 
+            std::unordered_map<std::string, std::string> scopeBindings;
             for (size_t i = 0; i < call->args.size(); ++i) {
                 const ResolvedType* paramType = i < signature->paramTypes.size() ? &signature->paramTypes[i] : nullptr;
                 const ResolvedType argType = analyzeExpr(call->args[i].get(), paramType);
@@ -2615,16 +2799,30 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                         call->args[i].get(),
                         "Raw address values may only cross call boundaries inside raw blocks.");
                 }
-                if (paramType && !canPassArgumentType(call->args[i].get(), argType, *paramType)) {
+                const bool scopesBound = !paramType ||
+                    bindSignatureScopes(*paramType, argType, *signature, scopeBindings, call->args[i].get());
+                const ResolvedType instantiatedParam = paramType
+                    ? instantiateSignatureType(*paramType, scopeBindings)
+                    : makeUnknownType();
+                if (paramType && scopesBound && !canPassArgumentType(call->args[i].get(), argType, instantiatedParam)) {
                     reportError(
                         call->args[i].get(),
-                        "Call argument type mismatch: expected " + paramType->describe() +
+                        "Call argument type mismatch: expected " + instantiatedParam.describe() +
                             ", got " + argType.describe());
                 }
             }
 
-            type = signature->returnType;
-            if (type.isView() && signature->viewReturnSourceParam.has_value()) {
+            std::vector<std::string> returnScopes;
+            collectNamedScopeNames(signature->returnType, returnScopes);
+            for (const auto& scopeName : returnScopes) {
+                if (std::find(signature->scopeParams.begin(), signature->scopeParams.end(), scopeName) != signature->scopeParams.end() &&
+                    scopeBindings.find(scopeName) == scopeBindings.end()) {
+                    reportError(call, "Could not infer scope parameter '" + scopeName + "' for the return value.");
+                }
+            }
+
+            type = instantiateSignatureType(signature->returnType, scopeBindings);
+            if (type.isView() && type.viewScope.empty() && signature->viewReturnSourceParam.has_value()) {
                 const size_t sourceIndex = *signature->viewReturnSourceParam;
                 if (sourceIndex < call->args.size()) {
                     if (const auto* sourceType = lookupExprType(call->args[sourceIndex].get())) {
@@ -2636,14 +2834,18 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                 if (methodSignature->viewReturnFromReceiver) {
                     if (auto* member = dynamic_cast<MemberExpr*>(call->callee.get())) {
                         if (const auto* receiverType = lookupExprType(member->object.get())) {
-                            type.viewScope = receiverType->viewScope;
+                            if (type.viewScope.empty()) {
+                                type.viewScope = receiverType->viewScope;
+                            }
                         }
                     }
                 } else if (methodSignature->viewReturnSourceArg.has_value()) {
                     const size_t sourceIndex = *methodSignature->viewReturnSourceArg;
                     if (sourceIndex < call->args.size()) {
                         if (const auto* sourceType = lookupExprType(call->args[sourceIndex].get())) {
-                            type.viewScope = sourceType->viewScope;
+                            if (type.viewScope.empty()) {
+                                type.viewScope = sourceType->viewScope;
+                            }
                         }
                     }
                 }
@@ -2794,11 +2996,17 @@ std::optional<size_t> SemanticAnalyzer::resolveViewSourceParam(const Expr* expr)
             }
         }
 
-        if (!signature || !signature->returnType.isView() || !signature->viewReturnSourceParam.has_value()) {
+        if (!signature) {
             return std::nullopt;
         }
 
-        const size_t sourceIndex = *signature->viewReturnSourceParam;
+        const std::optional<size_t> sourceParam = signature->returnType.isView()
+            ? signature->viewReturnSourceParam
+            : (typeContainsScopeName(signature->returnType) ? signature->scopeReturnSourceParam : std::nullopt);
+        if (!sourceParam.has_value()) {
+            return std::nullopt;
+        }
+        const size_t sourceIndex = *sourceParam;
         if (sourceIndex >= call->args.size()) {
             return std::nullopt;
         }
@@ -3020,12 +3228,3 @@ bool SemanticAnalyzer::stmtDefinitelyTerminates(const Stmt* stmt) const {
 }
 
 } // namespace claw::frontend
-
-
-
-
-
-
-
-
-

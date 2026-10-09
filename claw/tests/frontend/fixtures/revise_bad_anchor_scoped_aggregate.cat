@@ -1,0 +1,12 @@
+view shape PairView[s] {
+    first: ref[s] Str,
+}
+
+fn main() {
+    val source = "anchored"
+    scope s {
+        val pair: PairView[s] = PairView { first: ref[s] source }
+        val invalid = Anchor.new(pair)
+        println(invalid.get().first)
+    }
+}

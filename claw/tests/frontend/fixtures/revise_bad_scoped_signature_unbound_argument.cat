@@ -1,0 +1,8 @@
+fn consume(value: ref[borrow] Str) {}
+
+fn main() {
+    val source = "not scoped"
+    scope actual {
+        consume(source)
+    }
+}

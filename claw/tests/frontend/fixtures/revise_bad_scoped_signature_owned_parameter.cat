@@ -1,0 +1,5 @@
+fn invalid(value: Str) -> ref[s] Str {
+    return ref[s] value
+}
+
+fn main() {}

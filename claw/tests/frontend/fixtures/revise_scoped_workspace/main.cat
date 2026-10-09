@@ -1,0 +1,17 @@
+import src.views.{ PairView, first_text, identity_pair, identity_ref }
+
+fn main() {
+    val first = "workspace"
+    val second = "scope"
+    scope actual {
+        val view: ref[actual] Str = ref[actual] first
+        val same_view: ref[actual] Str = identity_ref(view)
+        val pair: PairView[actual] = PairView {
+            first: same_view,
+            second: ref[actual] second,
+        }
+        val same_pair: PairView[actual] = identity_pair(pair)
+        val first_view: ref[actual] Str = first_text(same_pair)
+        println(first_view)
+    }
+}

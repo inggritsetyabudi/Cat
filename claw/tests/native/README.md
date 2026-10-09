@@ -8,8 +8,9 @@ Recommended runner (from `claw/`):
 
 Artifacts:
 - Built executables and generated LLVM IR are left in `artifacts/` so both `.exe` and `.ll` outputs can be inspected after the runner finishes.
+- A regression build runs from a temporary working directory and verifies the compiler can still locate its bundled native runtime.
 
-Fixtures live in `fixtures/`, except `revise_maybe.cat`, which is shared from `tests/frontend/fixtures/`.
+Native-only fixtures live in `fixtures/`; cross-suite frontend fixtures are listed with their paths below.
 
 Current fixtures:
 - `revise_single_file.cat`
@@ -20,5 +21,9 @@ Current fixtures:
   Confirms the current revised `Maybe[T]` subset still builds and runs natively.
 - `revise_exit_code.cat`
   Verifies `fn main() -> Int32` returns the expected OS exit code.
+- `../frontend/fixtures/revise_nested_scoped_generic.cat`
+  Builds and executes `Box[Name[s]]` through generic construction, indirect parameter/return ABI, calls, and field access.
+- `../frontend/fixtures/revise_nested_scoped_workspace/`
+  Builds and executes shared generic shapes and nested scoped signatures imported across modules.
 
-This suite intentionally avoids revised imported workspaces for now, because native lowering for that path is not complete yet.
+The suite now includes the supported imported-workspace path and keeps its generated LLVM and executables in `artifacts/`.

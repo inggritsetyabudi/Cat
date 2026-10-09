@@ -1,0 +1,4 @@
+fn main() {
+    val value: Int32 = 1
+    value.starts_with("1")
+}

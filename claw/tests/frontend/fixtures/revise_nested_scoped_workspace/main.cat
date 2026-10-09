@@ -1,0 +1,15 @@
+import src.nested.{ Box, Name, choose_box, first_text, identity_box }
+fn main() {
+    val source = "workspace"
+    val second = "cross-module"
+    scope actual {
+        val name: Name[actual] = Name { text: ref[actual] source }
+        val other: Name[actual] = Name { text: ref[actual] second }
+        val box: Box[Name[actual]] = Box { value: name, guard: 7 }
+        val other_box: Box[Name[actual]] = Box { value: other, guard: 9 }
+        val same: Box[Name[actual]] = identity_box(box)
+        val selected: Box[Name[actual]] = choose_box(same, other_box)
+        val text: ref[actual] Str = first_text(selected)
+        println(text)
+    }
+}

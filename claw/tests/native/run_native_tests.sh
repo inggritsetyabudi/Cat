@@ -23,8 +23,13 @@ if [[ ! -x "$CLAW_EXE" ]]; then
   exit 1
 fi
 
+CLAW_EXE_DIR="$(cd -- "$(dirname -- "$CLAW_EXE")" && pwd)"
+CLAW_EXE="$CLAW_EXE_DIR/$(basename -- "$CLAW_EXE")"
+
 ARTIFACT_DIR="$SCRIPT_DIR/artifacts"
 mkdir -p "$ARTIFACT_DIR"
+CWD_TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claw-native-cwd.XXXXXX")"
+trap 'rm -rf "$CWD_TEST_DIR"' EXIT
 
 normalize_stdout() {
   "$1" | tr -d '\r'
@@ -53,6 +58,10 @@ scope_output="$ARTIFACT_DIR/revise_scope_refs.exe"
 anchor_output="$ARTIFACT_DIR/revise_anchor.exe"
 anchor_choice_output="$ARTIFACT_DIR/revise_anchor_choice.exe"
 view_shape_output="$ARTIFACT_DIR/revise_view_shape_scope.exe"
+scoped_type_output="$ARTIFACT_DIR/revise_scoped_type_propagation.exe"
+scoped_workspace_output="$ARTIFACT_DIR/revise_scoped_workspace.exe"
+nested_scoped_output="$ARTIFACT_DIR/revise_nested_scoped_generic.exe"
+nested_scoped_workspace_output="$ARTIFACT_DIR/revise_nested_scoped_workspace.exe"
 
 rm -f "$single_output" "${single_output%.exe}.ll" \
       "$workspace_output" "${workspace_output%.exe}.ll" \
@@ -61,7 +70,11 @@ rm -f "$single_output" "${single_output%.exe}.ll" \
       "$scope_output" "${scope_output%.exe}.ll" \
       "$anchor_output" "${anchor_output%.exe}.ll" \
       "$anchor_choice_output" "${anchor_choice_output%.exe}.ll" \
-      "$view_shape_output" "${view_shape_output%.exe}.ll"
+      "$view_shape_output" "${view_shape_output%.exe}.ll" \
+      "$scoped_type_output" "${scoped_type_output%.exe}.ll" \
+      "$scoped_workspace_output" "${scoped_workspace_output%.exe}.ll" \
+      "$nested_scoped_output" "${nested_scoped_output%.exe}.ll" \
+      "$nested_scoped_workspace_output" "${nested_scoped_workspace_output%.exe}.ll"
 
 echo "[build/pass] test_native/revise_single_file.cat"
 "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_single_file.cat" "$single_output" >/dev/null
@@ -130,6 +143,42 @@ if [[ "$view_shape_stdout" != "hello" ]]; then
   exit 1
 fi
 
+echo "[build/pass] test_frontend/revise_scoped_type_propagation.cat"
+"$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_scoped_type_propagation.cat" "$scoped_type_output" >/dev/null
+expect_generated_ll "$scoped_type_output"
+scoped_type_stdout="$(normalize_stdout "$scoped_type_output")"
+if [[ "$scoped_type_stdout" != "alpha" ]]; then
+  echo "scoped-type native build produced unexpected output: $scoped_type_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_frontend/revise_scoped_workspace"
+"$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_scoped_workspace" "$scoped_workspace_output" >/dev/null
+expect_generated_ll "$scoped_workspace_output"
+scoped_workspace_stdout="$(normalize_stdout "$scoped_workspace_output")"
+if [[ "$scoped_workspace_stdout" != "workspace" ]]; then
+  echo "scoped workspace native build produced unexpected output: $scoped_workspace_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_frontend/revise_nested_scoped_generic.cat"
+"$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_nested_scoped_generic.cat" "$nested_scoped_output" >/dev/null
+expect_generated_ll "$nested_scoped_output"
+nested_scoped_stdout="$(normalize_stdout "$nested_scoped_output")"
+if [[ "$nested_scoped_stdout" != "alpha" ]]; then
+  echo "nested scoped generic native build produced unexpected output: $nested_scoped_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_frontend/revise_nested_scoped_workspace"
+"$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_nested_scoped_workspace" "$nested_scoped_workspace_output" >/dev/null
+expect_generated_ll "$nested_scoped_workspace_output"
+nested_scoped_workspace_stdout="$(normalize_stdout "$nested_scoped_workspace_output")"
+if [[ "$nested_scoped_workspace_stdout" != "workspace" ]]; then
+  echo "nested scoped generic workspace native build produced unexpected output: $nested_scoped_workspace_stdout" >&2
+  exit 1
+fi
+
 echo "[build/pass] test_native/revise_builtin_methods.cat"
 builtin_methods_output="$ARTIFACT_DIR/revise_builtin_methods.exe"
 rm -f "$builtin_methods_output"
@@ -141,6 +190,30 @@ if [[ "$exit_code" != "0" ]]; then
   echo "revised builtin-methods native build produced unexpected exit code: $exit_code" >&2
   exit 1
 fi
+
+echo "[build/pass] test_frontend/revise_str_search_methods.cat"
+str_search_output="$ARTIFACT_DIR/revise_str_search_methods.exe"
+rm -f "$str_search_output" "${str_search_output%.exe}.ll"
+"$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_str_search_methods.cat" "$str_search_output" >/dev/null
+expect_generated_ll "$str_search_output"
+str_search_stdout="$(normalize_stdout "$str_search_output")"
+if [[ "$str_search_stdout" != "str-search-ok" ]]; then
+  echo "Str search native output was unexpected: $str_search_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] compiler locates bundled runtime outside repository working directory"
+(
+  cd -- "$CWD_TEST_DIR"
+  cwd_independent_output="$CWD_TEST_DIR/revise_cwd_independent.exe"
+  "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_single_file.cat" "$cwd_independent_output" >/dev/null
+  expect_generated_ll "$cwd_independent_output"
+  cwd_independent_stdout="$(normalize_stdout "$cwd_independent_output")"
+  if [[ "$cwd_independent_stdout" != "3" ]]; then
+    echo "native build from an unrelated working directory produced unexpected output: $cwd_independent_stdout" >&2
+    exit 1
+  fi
+)
 
 echo "[build/pass] test_native/revise_exit_code.cat"
 "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_exit_code.cat" "$exit_code_output" >/dev/null

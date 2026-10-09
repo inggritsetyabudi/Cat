@@ -1,0 +1,17 @@
+view shape Name[s] {
+    text: ref[s] Str,
+}
+shape Box[T] {
+    value: T,
+    guard: Int128,
+}
+fn main() {
+    val outer_source = "outer"
+    val inner_source = "inner"
+    scope outer {
+        scope inner {
+            val inner_name: Name[inner] = Name { text: ref[inner] inner_source }
+            val mismatch: Box[Name[outer]] = Box { value: inner_name, guard: 7 }
+        }
+    }
+}

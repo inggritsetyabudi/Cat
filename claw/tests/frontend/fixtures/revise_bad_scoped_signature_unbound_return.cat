@@ -1,0 +1,8 @@
+view shape PairView[s] {
+    first: ref[s] Str,
+    second: ref[s] Str,
+}
+
+fn impossible() -> PairView[s] {}
+
+fn main() {}

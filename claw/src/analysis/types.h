@@ -152,6 +152,8 @@ struct FunctionSignature {
     std::vector<ResolvedType> paramTypes;
     ResolvedType returnType;
     std::optional<size_t> viewReturnSourceParam;
+    std::vector<std::string> scopeParams;
+    std::optional<size_t> scopeReturnSourceParam;
     bool isExternal = false;
     std::optional<ExternalCallableInfo> externalInfo;
 };
@@ -208,6 +210,7 @@ public:
     TypeCatalog();
 
     void registerShapeName(const std::string& name, std::optional<size_t> arity = std::nullopt);
+    void registerViewShapeName(const std::string& name, const std::string& scopeParamName);
     void registerChoiceName(const std::string& name, std::optional<size_t> arity = std::nullopt);
     bool hasNamedType(const std::string& name) const;
     ResolvedType resolveType(
@@ -220,6 +223,7 @@ private:
     std::unordered_set<std::string> builtinOwnedTypes;
     std::unordered_set<std::string> shapeNames;
     std::unordered_set<std::string> choiceNames;
+    std::unordered_map<std::string, std::string> viewShapeScopeParams;
     std::unordered_map<std::string, size_t> knownTypeArities;
 
     void registerKnownTypeArity(const std::string& name, size_t arity);
@@ -236,6 +240,8 @@ std::unordered_map<std::string, ResolvedType> buildTypeBindings(
 ResolvedType substituteType(
     const ResolvedType& type,
     const std::unordered_map<std::string, ResolvedType>& bindings);
+void collectNamedScopeNames(const ResolvedType& type, std::vector<std::string>& names);
+void populateFunctionScopeMetadata(FunctionSignature& signature);
 bool sameType(const ResolvedType& left, const ResolvedType& right);
 bool isNumericTypeName(const std::string& name);
 bool isIntegerLikeTypeName(const std::string& name);

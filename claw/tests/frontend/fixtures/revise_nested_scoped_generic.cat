@@ -1,0 +1,30 @@
+view shape Name[s] {
+    text: ref[s] Str,
+}
+shape Box[T] {
+    value: T,
+    guard: Int128,
+}
+fn identity_box(value: Box[Name[borrow]]) -> Box[Name[borrow]] {
+    return value
+}
+fn choose_box(left: Box[Name[borrow]], right: Box[Name[borrow]]) -> Box[Name[borrow]] {
+    return left
+}
+fn first_text(value: Box[Name[borrow]]) -> ref[borrow] Str {
+    return value.value.text
+}
+fn main() {
+    val source = "alpha"
+    val second = "beta"
+    scope s {
+        val name: Name[s] = Name { text: ref[s] source }
+        val other_name: Name[s] = Name { text: ref[s] second }
+        val box: Box[Name[s]] = Box { value: name, guard: 7 }
+        val other_box: Box[Name[s]] = Box { value: other_name, guard: 9 }
+        val same: Box[Name[s]] = identity_box(box)
+        val selected: Box[Name[s]] = choose_box(same, other_box)
+        val text: ref[s] Str = first_text(selected)
+        println(text)
+    }
+}
