@@ -232,6 +232,32 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         return;
     }
 
+    if (builtinTag == "Arena.new") {
+        if (!value.args.empty()) {
+            throw std::runtime_error("LLVM lowering expected zero arguments for Arena.new.");
+        }
+        if (!value.result.has_value()) {
+            return;
+        }
+
+        const ParsedTypeName arenaType = parseTypeName(value.type);
+        if (arenaType.base != "Arena") {
+            throw std::runtime_error("LLVM lowering expected Arena result type for Arena.new, got '" + value.type + "'.");
+        }
+
+        const std::string allocSymbol = quoteGlobal("claw.runtime.arena.new");
+        addRuntimeDecl("declare ptr " + allocSymbol + "()");
+
+        const std::string allocReg = state.temp("arena.new");
+        lines.push_back("  " + allocReg + " = call ptr " + allocSymbol + "()");
+
+        state.namedValues[*value.result] = allocReg;
+        state.namedAddresses.erase(*value.result);
+        state.params.erase(*value.result);
+        state.valueTypes[*value.result] = value.type;
+        return;
+    }
+
     const std::string receiverName = receiverSegment(value.callee);
     const std::string methodName = tailSegment(builtinTag);
     const auto storeResultType = [&]() {
@@ -260,6 +286,47 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         state.namedValues.erase(*value.result);
         state.params.erase(*value.result);
         storeResultType();
+        return;
+    }
+
+    if (baseType == "Arena" && methodName == "alloc") {
+        if (value.args.size() != 1) {
+            throw std::runtime_error("LLVM lowering expected one argument for Arena.alloc.");
+        }
+        
+        const std::string payloadType = value.args.front().type;
+        const auto payloadLayout = abiLayoutForType(payloadType);
+        if (!payloadLayout.has_value()) {
+            throw std::runtime_error("LLVM lowering does not yet support Arena payload type '" + payloadType + "'.");
+        }
+        
+        const std::string allocSymbol = quoteGlobal("claw.runtime.arena.alloc");
+        addRuntimeDecl("declare ptr " + allocSymbol + "(ptr, i64, i64)");
+        
+        const size_t payloadBytes = std::max<size_t>(payloadLayout->size, 1);
+        const size_t alignBytes = std::max<size_t>(payloadLayout->align, 1);
+        
+        const std::string allocReg = state.temp("arena.alloc");
+        lines.push_back("  " + allocReg + " = call ptr " + allocSymbol + "(ptr " + receiverValue + ", i64 " + std::to_string(payloadBytes) + ", i64 " + std::to_string(alignBytes) + ")");
+
+        if (payloadLayout->size > 0 && llvmType(payloadType) != "void") {
+            const std::string operand = ensureValue(value.args.front(), state, lines);
+            storeValueToAddress(allocReg, payloadType, operand, payloadLayout->align, lines);
+        }
+
+        if (value.result.has_value()) {
+            state.namedAddresses[*value.result] = allocReg;
+            state.namedValues.erase(*value.result);
+            state.params.erase(*value.result);
+            storeResultType();
+        }
+        return;
+    }
+
+    if (baseType == "Arena" && methodName == "reset") {
+        const std::string resetSymbol = quoteGlobal("claw.runtime.arena.reset");
+        addRuntimeDecl("declare void " + resetSymbol + "(ptr)");
+        lines.push_back("  call void " + resetSymbol + "(ptr " + receiverValue + ")");
         return;
     }
 

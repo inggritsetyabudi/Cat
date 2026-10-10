@@ -114,6 +114,15 @@ std::string pathMutationConflictMessage(std::string_view target, const BorrowTok
     return "Cannot mutate `" + std::string(target) + "` while `" + formatBorrowTarget(existing) + "` is still borrowed.";
 }
 
+bool isArenaNewCall(const Expr* callee) {
+    const auto* member = dynamic_cast<const MemberExpr*>(callee);
+    if (!member) {
+        return false;
+    }
+    const auto* objectIdent = dynamic_cast<const IdentExpr*>(member->object.get());
+    return objectIdent && objectIdent->name == "Arena" && member->member == "new";
+}
+
 bool isAnchorStaticConstructorCall(const Expr* callee) {
     const auto* member = dynamic_cast<const MemberExpr*>(callee);
     if (!member) {
@@ -630,6 +639,10 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
 
 void OwnershipChecker::checkCallExpr(CallExpr* call) {
     checkExpr(call->callee.get(), false);
+
+    if (isArenaNewCall(call->callee.get())) {
+        return;
+    }
 
     if (isAnchorStaticConstructorCall(call->callee.get())) {
         for (auto& arg : call->args) {

@@ -30,6 +30,9 @@ void LlvmEmitter::collectDecls() {
                     if (canonicalName != choice.name) {
                         choicesByName[canonicalName] = &choice;
                     }
+                },
+                [&](const LirStatic& stat) {
+                    staticsByName[stat.name] = &stat;
                 }
             }, decl);
         }
@@ -148,6 +151,37 @@ std::string LlvmEmitter::emitTypeDecls() const {
                     out << ", [" << choice->layout->payloadSizeBytes << " x i8]";
                 }
                 out << " }\n";
+            }
+        }
+    }
+    return out.str();
+}
+
+std::string LlvmEmitter::emitStaticGlobals() {
+    std::ostringstream out;
+    bool first = true;
+    for (const auto& realm : program.realms) {
+        for (const auto& decl : realm.decls) {
+            if (const auto* stat = std::get_if<LirStatic>(&decl)) {
+                if (!first) {
+                    out << "\n";
+                }
+                first = false;
+                
+                std::string llvmVal;
+                if (stat->type == "Int32") {
+                    llvmVal = stat->value;
+                } else if (stat->type == "Bool") {
+                    llvmVal = stat->value == "true" ? "1" : "0";
+                } else if (stat->type == "Str") {
+                    const auto& info = internString(stat->value);
+                    llvmVal = "{ ptr " + info.globalName + ", i64 " + std::to_string(info.length) + " }";
+                } else {
+                    llvmVal = "0"; // Fallback for unknown literal types
+                }
+                
+                out << quoteGlobal(stat->link.symbol) << " = " << llvmFunctionLinkage(stat->link) 
+                    << "constant " << llvmType(stat->type) << " " << llvmVal;
             }
         }
     }

@@ -1,0 +1,21 @@
+shape Vector {
+    x: Int32
+    y: Int32
+}
+
+contract Cloneable {
+    fn clone(self: ref) -> Self
+}
+
+implements Vector with Cloneable {
+    fn clone(self: ref) -> Vector {
+        return Vector { x: self.x, y: self.y }
+    }
+}
+
+fn main() -> Int32 {
+    val v1 = Vector { x: 42, y: 13 }
+    val v2 = v1.clone()
+    println(v2.x)
+    return 0
+}

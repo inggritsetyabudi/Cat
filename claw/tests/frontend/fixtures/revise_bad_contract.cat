@@ -1,0 +1,17 @@
+shape Buffer {
+    data: Int32
+}
+
+contract Serializable {
+    fn serialize(self: ref) -> Str
+}
+
+implements Buffer with Serializable {
+    fn serialize(self: ref mut) -> Str { // Error: mismatch receiver (expected ref, got ref mut)
+        return "123"
+    }
+}
+
+fn main() -> Int32 {
+    return 0
+}

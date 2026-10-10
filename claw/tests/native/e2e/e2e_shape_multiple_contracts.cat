@@ -1,0 +1,33 @@
+shape Rectangle {
+    w: Int32
+    h: Int32
+}
+
+contract Measurable {
+    fn area(self: ref) -> Int32
+}
+
+contract Resizable {
+    fn resize(self: ref mut, factor: Int32)
+}
+
+implements Rectangle with Measurable {
+    fn area(self: ref) -> Int32 {
+        return self.w * self.h
+    }
+}
+
+implements Rectangle with Resizable {
+    fn resize(self: ref mut, factor: Int32) {
+        self.w = self.w * factor
+        self.h = self.h * factor
+    }
+}
+
+fn main() -> Int32 {
+    var rect = Rectangle { w: 10, h: 5 }
+    println(rect.area())
+    rect.resize(2)
+    println(rect.area())
+    return 0
+}

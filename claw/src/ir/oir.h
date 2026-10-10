@@ -19,6 +19,7 @@ struct Expr;
 struct FnDecl;
 struct ShapeDecl;
 struct ChoiceDecl;
+struct StaticDecl;
 struct BlockStmt;
 
 struct OirValue {
@@ -210,7 +211,15 @@ struct OirChoice {
     std::optional<TypeLayoutInfo> layout;
 };
 
-using OirDecl = std::variant<OirFunction, OirShape, OirChoice>;
+struct OirStatic {
+    std::string name;
+    std::string type;
+    std::string value;
+    AbiPassKind passKind = AbiPassKind::Unknown;
+    SymbolLinkInfo link;
+};
+
+using OirDecl = std::variant<OirFunction, OirShape, OirChoice, OirStatic>;
 
 struct OirRealm {
     std::string name;
@@ -243,9 +252,10 @@ private:
     const OwnershipResult* ownership = nullptr;
 
     std::optional<OirDecl> lowerDecl(const Decl* decl, std::string_view realmName) const;
-    OirFunction lowerFn(const FnDecl* fn, std::string_view realmName) const;
+    OirFunction lowerFn(const FnDecl* fn, std::string_view realmName, std::string_view overrideName = "") const;
     OirShape lowerShape(const ShapeDecl* shape, std::string_view realmName) const;
     OirChoice lowerChoice(const ChoiceDecl* choice, std::string_view realmName) const;
+    OirStatic lowerStatic(const StaticDecl* stat, std::string_view realmName) const;
 };
 
 OirProgram buildOirProgram(std::string_view entryRealm, const std::vector<OirUnitView>& units);

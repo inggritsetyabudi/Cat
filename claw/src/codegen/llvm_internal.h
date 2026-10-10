@@ -418,6 +418,7 @@ private:
     std::unordered_map<std::string, const LirFunction*> functionsByName;
     std::unordered_map<std::string, const LirShape*> shapesByName;
     std::unordered_map<std::string, const LirChoice*> choicesByName;
+    std::unordered_map<std::string, const LirStatic*> staticsByName;
     std::unordered_map<std::string, std::unordered_map<std::string, size_t>> shapeFieldIndices;
     mutable std::unordered_map<std::string, TypeLayoutInfo> concreteShapeLayouts;
     mutable std::unordered_set<std::string> concreteShapeLayoutsInProgress;
@@ -435,6 +436,7 @@ private:
     std::string emitTypeDecls() const;
     const StringConstantInfo& internString(std::string_view literal);
     std::string emitStringGlobals();
+    std::string emitStaticGlobals();
     void addRuntimeDecl(const std::string& decl);
     void addExternalDecl(const std::string& decl);
     bool usesRuntimePointerAbi(const std::string& argType) const;

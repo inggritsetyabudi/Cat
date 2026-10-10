@@ -13,6 +13,7 @@ namespace claw::frontend {
 
 struct AstNode;
 struct Decl;
+struct ImplementsDecl;
 struct RealmDecl;
 struct FnDecl;
 struct ShapeDecl;
@@ -82,11 +83,12 @@ private:
     void registerImports(const RealmDecl* realm);
     void declareTopLevel(const RealmDecl* realm);
     void resolveTopLevelTypes(const RealmDecl* realm);
+    void validateContractImplementation(const ImplementsDecl& impl, const std::unordered_map<std::string, FunctionSignature>& implMethods);
     void validateNamedLayouts(const RealmDecl* realm);
     bool validateOwnedLayoutDependency(const std::string& rootName, const ResolvedType& type, const SourceSpan& span, std::vector<std::string>& stack);
 
     void analyzeDecl(Decl* decl);
-    void analyzeFnDecl(FnDecl* fn);
+    void analyzeFnDecl(FnDecl* fn, const std::string& receiverTypeName = "");
     void analyzeShapeDecl(ShapeDecl* shape);
     void analyzeChoiceDecl(ChoiceDecl* choice);
 

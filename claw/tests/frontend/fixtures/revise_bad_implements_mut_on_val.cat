@@ -1,0 +1,15 @@
+shape Buffer {
+    len: Int32
+}
+
+implements Buffer {
+    fn push(self: ref mut) {
+        self.len = self.len + 1
+    }
+}
+
+fn main() -> Int32 {
+    val buf = Buffer { len: 0 }
+    buf.push()
+    return 0
+}

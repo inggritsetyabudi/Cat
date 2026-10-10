@@ -260,6 +260,15 @@ std::string describeCalleeExpr(const Expr* expr) {
     return "<callee>";
 }
 
+bool isArenaNewCall(const Expr* callee) {
+    const auto* member = dynamic_cast<const MemberExpr*>(callee);
+    if (!member) {
+        return false;
+    }
+    const auto* objectIdent = dynamic_cast<const IdentExpr*>(member->object.get());
+    return objectIdent && objectIdent->name == "Arena" && member->member == "new";
+}
+
 bool isAnchorStaticConstructorCall(const Expr* callee) {
     const auto* member = dynamic_cast<const MemberExpr*>(callee);
     if (!member) {
@@ -518,6 +527,9 @@ const FunctionSignature* SemanticAnalyzer::lookupCallableSignature(const Expr* c
                     exported->second.functionSignature.has_value()) {
                     return &*exported->second.functionSignature;
                 }
+            } else if (sym && (sym->kind == SymbolKind::Shape || sym->kind == SymbolKind::Choice)) {
+                const std::string qualifiedName = objectIdent->name + "." + member->member;
+                return lookupFunctionSignature(qualifiedName);
             }
         }
     }
@@ -1009,6 +1021,57 @@ void SemanticAnalyzer::analyze(RealmDecl* realm) {
     lexicalScopeDepth = 0;
     namedBorrowScopes.clear();
 
+    // Inject built-in choices if not already declared by the user
+    bool hasMaybe = false;
+    bool hasResult = false;
+    for (const auto& decl : realm->declarations) {
+        if (auto* choice = dynamic_cast<ChoiceDecl*>(decl.get())) {
+            if (choice->name == "Maybe") hasMaybe = true;
+            if (choice->name == "Result") hasResult = true;
+        }
+    }
+
+    if (!hasMaybe) {
+        auto maybeChoice = std::make_unique<ChoiceDecl>();
+        maybeChoice->name = "Maybe";
+        maybeChoice->typeParams = {"T"};
+        ChoiceVariant noneVar;
+        noneVar.tag = "None";
+        ChoiceVariant someVar;
+        someVar.tag = "Some";
+        FnParam somePayload;
+        somePayload.name = "value";
+        somePayload.type = std::make_unique<TypeNode>();
+        somePayload.type->name = "T";
+        someVar.payloads.push_back(std::move(somePayload));
+        maybeChoice->variants.push_back(std::move(noneVar));
+        maybeChoice->variants.push_back(std::move(someVar));
+        realm->declarations.insert(realm->declarations.begin(), std::move(maybeChoice));
+    }
+
+    if (!hasResult) {
+        auto resultChoice = std::make_unique<ChoiceDecl>();
+        resultChoice->name = "Result";
+        resultChoice->typeParams = {"T", "E"};
+        ChoiceVariant okVar;
+        okVar.tag = "Ok";
+        FnParam okPayload;
+        okPayload.name = "value";
+        okPayload.type = std::make_unique<TypeNode>();
+        okPayload.type->name = "T";
+        okVar.payloads.push_back(std::move(okPayload));
+        ChoiceVariant failVar;
+        failVar.tag = "Fail";
+        FnParam failPayload;
+        failPayload.name = "cause";
+        failPayload.type = std::make_unique<TypeNode>();
+        failPayload.type->name = "E";
+        failVar.payloads.push_back(std::move(failPayload));
+        resultChoice->variants.push_back(std::move(okVar));
+        resultChoice->variants.push_back(std::move(failVar));
+        realm->declarations.insert(realm->declarations.begin(), std::move(resultChoice));
+    }
+
     enterSemanticScope();
     registerPrelude();
     registerImports(realm);
@@ -1176,6 +1239,21 @@ void SemanticAnalyzer::declareTopLevel(const RealmDecl* realm) {
             if (!scopes.define(choice->name, sym)) {
                 reportError(choice, "Duplicate type declaration: " + choice->name);
             }
+        } else if (auto* stat = dynamic_cast<StaticDecl*>(decl.get())) {
+            sym->name = stat->name;
+            sym->kind = SymbolKind::Variable;
+            sym->isStatic = true;
+            sym->type = makeUnknownType(stat->name);
+            if (!scopes.define(stat->name, sym)) {
+                reportError(stat, "Duplicate static declaration: " + stat->name);
+            }
+        } else if (auto* contract = dynamic_cast<ContractDecl*>(decl.get())) {
+            sym->name = contract->name;
+            sym->kind = SymbolKind::Contract;
+            sym->type = makePlainType(contract->name);
+            if (!scopes.define(contract->name, sym)) {
+                reportError(contract, "Duplicate contract declaration: " + contract->name);
+            }
         }
     }
 }
@@ -1186,6 +1264,57 @@ void SemanticAnalyzer::resolveTopLevelTypes(const RealmDecl* realm) {
             analyzeShapeDecl(shape);
         } else if (auto* choice = dynamic_cast<ChoiceDecl*>(decl.get())) {
             analyzeChoiceDecl(choice);
+        } else if (auto* stat = dynamic_cast<StaticDecl*>(decl.get())) {
+            auto sym = lookupSymbol(stat->name);
+            if (sym) {
+                sym->type = resolveTypeNode(stat->type.get(), {});
+            }
+            if (stat->init) {
+                const ResolvedType initType = analyzeExpr(stat->init.get(), sym ? &sym->type : nullptr);
+                if (sym && !canAssignType(initType, sym->type)) {
+                    reportError(stat->init.get(), "Static initializer type mismatch: expected " + sym->type.describe() + ", got " + initType.describe());
+                }
+                bool isLiteral = dynamic_cast<IntExpr*>(stat->init.get()) != nullptr ||
+                                 dynamic_cast<FloatExpr*>(stat->init.get()) != nullptr ||
+                                 dynamic_cast<StringExpr*>(stat->init.get()) != nullptr ||
+                                 dynamic_cast<BoolExpr*>(stat->init.get()) != nullptr;
+                if (!isLiteral) {
+                    reportError(stat->init.get(), "Static variable initializer must be a compile-time literal expression.");
+                }
+            } else {
+                reportError(stat, "Static variable requires an initializer.");
+            }
+        } else if (auto* contract = dynamic_cast<ContractDecl*>(decl.get())) {
+            ContractInfo info;
+            info.name = contract->name;
+            info.typeParams = contract->typeParams;
+            for (const auto& method : contract->methods) {
+                FunctionSignature sig;
+                std::unordered_set<std::string> typeParams;
+                for (const auto& param : contract->typeParams) {
+                    typeParams.insert(param);
+                }
+                for (const auto& param : method->params) {
+                    if (param.isSelf) {
+                        std::string vk = param.type ? param.type->viewKind : "";
+                        ResolvedType selfType;
+                        if (!vk.empty()) {
+                            selfType = asViewType(makeOwnedType("Self"), vk);
+                        } else {
+                            selfType = makeOwnedType("Self");
+                        }
+                        sig.receiverType = selfType;
+                    } else {
+                        sig.paramTypes.push_back(resolveTypeNode(param.type.get(), typeParams));
+                    }
+                }
+                sig.returnType = method->returnType ? resolveTypeNode(method->returnType.get(), typeParams) : makePlainType("Unit");
+                populateFunctionScopeMetadata(sig);
+                info.methods[method->name] = sig;
+                // Also register contract method signature for type-checking
+                analysisResult.contractMethods[contract->name + "." + method->name] = sig;
+            }
+            analysisResult.contractsByName[contract->name] = info;
         }
     }
 
@@ -1205,6 +1334,115 @@ void SemanticAnalyzer::resolveTopLevelTypes(const RealmDecl* realm) {
 
             analysisResult.functionSignatures[fn] = signature;
             analysisResult.functionsByName[fn->name] = signature;
+        } else if (auto* impl = dynamic_cast<ImplementsDecl*>(decl.get())) {
+            std::unordered_map<std::string, FunctionSignature> implMethodSignatures;
+            for (const auto& method : impl->methods) {
+                FunctionSignature signature;
+                std::unordered_set<std::string> typeParams;
+
+                for (const auto& param : method->params) {
+                    if (param.isSelf) {
+                        std::string vk = param.type ? param.type->viewKind : "";
+                        ResolvedType selfType;
+                        if (!vk.empty()) {
+                            selfType = asViewType(makeOwnedType(impl->typeName), vk);
+                        } else {
+                            selfType = makeOwnedType(impl->typeName);
+                        }
+                        signature.receiverType = selfType;
+                    } else {
+                        signature.paramTypes.push_back(resolveTypeNode(param.type.get(), typeParams));
+                    }
+                }
+
+                signature.returnType = method->returnType
+                    ? resolveTypeNode(method->returnType.get(), typeParams)
+                    : makePlainType("Unit");
+                populateFunctionScopeMetadata(signature);
+
+                std::string fullMethodName = impl->typeName + "." + method->name;
+                analysisResult.functionSignatures[method.get()] = signature;
+                analysisResult.functionsByName[fullMethodName] = signature;
+                implMethodSignatures[method->name] = signature;
+            }
+
+            if (impl->contractName.has_value()) {
+                validateContractImplementation(*impl, implMethodSignatures);
+                analysisResult.shapeContracts[impl->typeName].push_back(*impl->contractName);
+            }
+        }
+    }
+}
+
+void SemanticAnalyzer::validateContractImplementation(
+    const ImplementsDecl& impl,
+    const std::unordered_map<std::string, FunctionSignature>& implMethods) {
+    const std::string& contractName = *impl.contractName;
+
+    const auto contractIt = analysisResult.contractsByName.find(contractName);
+    if (contractIt == analysisResult.contractsByName.end()) {
+        reportError(&impl, "Unknown contract: " + contractName);
+        return;
+    }
+
+    // Reject implementing the same contract twice for the same shape.
+    const auto& existing = analysisResult.shapeContracts[impl.typeName];
+    if (std::find(existing.begin(), existing.end(), contractName) != existing.end()) {
+        reportError(&impl, "Contract '" + contractName + "' is already implemented for '" + impl.typeName + "'.");
+        return;
+    }
+
+    const ContractInfo& contract = contractIt->second;
+    for (const auto& [methodName, contractSig] : contract.methods) {
+        const auto implIt = implMethods.find(methodName);
+        if (implIt == implMethods.end()) {
+            reportError(&impl, "Contract '" + contractName + "' is not fully implemented: missing method '" + methodName + "'.");
+            continue;
+        }
+
+        const FunctionSignature& implSig = implIt->second;
+
+        // `Self` in the contract resolves to the implementing type.
+        const auto substituteSelf = [&](const ResolvedType& t) {
+            ResolvedType out = t;
+            if (out.name == "Self") {
+                out.name = impl.typeName;
+            }
+            return out;
+        };
+
+        if (contractSig.receiverType.has_value() != implSig.receiverType.has_value()) {
+            reportError(&impl, "Method '" + methodName + "' receiver type does not match contract '" + contractName + "'.");
+        } else if (contractSig.receiverType.has_value()) {
+            const ResolvedType expectedReceiver = substituteSelf(contractSig.receiverType.value());
+            if (expectedReceiver.isView() != implSig.receiverType->isView() || 
+                expectedReceiver.viewKind != implSig.receiverType->viewKind) {
+                reportError(&impl, "Method '" + methodName + "' receiver type does not match contract '" + contractName + "': expected " + expectedReceiver.describe() + ", got " + implSig.receiverType->describe() + ".");
+            }
+        }
+
+        if (contractSig.paramTypes.size() != implSig.paramTypes.size()) {
+            reportError(&impl, "Method '" + methodName + "' does not match contract '" + contractName +
+                                 "': expected " + std::to_string(contractSig.paramTypes.size()) +
+                                 " parameter(s), got " + std::to_string(implSig.paramTypes.size()) + ".");
+            continue;
+        }
+
+        for (size_t i = 0; i < contractSig.paramTypes.size(); ++i) {
+            const ResolvedType expected = substituteSelf(contractSig.paramTypes[i]);
+            const ResolvedType actual = implSig.paramTypes[i];
+            if (expected.describe() != actual.describe()) {
+                reportError(&impl, "Method '" + methodName + "' parameter " + std::to_string(i) +
+                                     " does not match contract '" + contractName + "': expected " +
+                                     expected.describe() + ", got " + actual.describe() + ".");
+            }
+        }
+
+        const ResolvedType expectedReturn = substituteSelf(contractSig.returnType);
+        if (expectedReturn.describe() != implSig.returnType.describe()) {
+            reportError(&impl, "Method '" + methodName + "' return type does not match contract '" +
+                                 contractName + "': expected " + expectedReturn.describe() +
+                                 ", got " + implSig.returnType.describe() + ".");
         }
     }
 }
@@ -1334,6 +1572,13 @@ bool SemanticAnalyzer::validateOwnedLayoutDependency(
 ResolvedType SemanticAnalyzer::resolveTypeNode(
     const TypeNode* node,
     const std::unordered_set<std::string>& localTypeParams) {
+    if (node && node->name == "Self") {
+        ResolvedType type = makePlainType("Self");
+        if (!node->viewKind.empty()) {
+            type = asViewType(type, node->viewKind);
+        }
+        return type;
+    }
     ResolvedType type = typeCatalog.resolveType(node, localTypeParams, &diagnostics);
     if (node) {
         validateAnchorPayloadType(type, node, "type positions");
@@ -1372,6 +1617,26 @@ std::optional<MethodSignature> SemanticAnalyzer::lookupMethodSignature(
     const std::string& methodName) const {
     if (receiverType.isUnknown() || receiverType.isOpaqueExternal()) {
         return std::nullopt;
+    }
+
+    if (receiverType.name == "Arena" && methodName == "alloc") {
+        MethodSignature signature;
+        signature.name = methodName;
+        signature.receiverType = asViewType(receiverType, "look");
+        signature.function.isExternal = true;
+        signature.viewReturnFromReceiver = true;
+        signature.isBuiltin = true;
+        return signature;
+    }
+    
+    if (receiverType.name == "Arena" && methodName == "reset") {
+        MethodSignature signature;
+        signature.name = methodName;
+        signature.receiverType = asViewType(receiverType, "edit");
+        signature.function.returnType = makePlainType("Unit");
+        signature.function.isExternal = true;
+        signature.isBuiltin = true;
+        return signature;
     }
 
     if (receiverType.name == "Anchor" && methodName == "get" && receiverType.params.size() == 1) {
@@ -1415,16 +1680,34 @@ std::optional<MethodSignature> SemanticAnalyzer::lookupMethodSignature(
         return signature;
     }
 
+    const std::string fullMethodName = receiverType.name + "." + methodName;
+    const auto it = analysisResult.functionsByName.find(fullMethodName);
+    if (it != analysisResult.functionsByName.end()) {
+        if (!it->second.receiverType.has_value()) {
+            return std::nullopt;
+        }
+        MethodSignature signature;
+        signature.name = methodName;
+        signature.receiverType = it->second.receiverType.value();
+        signature.function = it->second;
+        signature.isBuiltin = false;
+        return signature;
+    }
+
     return std::nullopt;
 }
 
 void SemanticAnalyzer::analyzeDecl(Decl* decl) {
     if (auto* fn = dynamic_cast<FnDecl*>(decl)) {
         analyzeFnDecl(fn);
+    } else if (auto* impl = dynamic_cast<ImplementsDecl*>(decl)) {
+        for (const auto& method : impl->methods) {
+            analyzeFnDecl(method.get(), impl->typeName);
+        }
     }
 }
 
-void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
+void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverTypeName) {
     enterSemanticScope();
 
     const FnDecl* previousFunction = currentFunction;
@@ -1436,7 +1719,14 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
     const size_t previousNamedScopeCount = namedBorrowScopes.size();
     const size_t previousActiveNamedScopeCount = activeNamedScopes.size();
     currentFunction = fn;
-    currentSignature = lookupFunctionSignature(fn);
+    
+    if (!receiverTypeName.empty()) {
+        std::string fullMethodName = receiverTypeName + "." + fn->name;
+        currentSignature = lookupFunctionSignature(fullMethodName);
+    } else {
+        currentSignature = lookupFunctionSignature(fn);
+    }
+    
     implicitTailExpr = nullptr;
     currentViewReturnSourceParam.reset();
     currentViewReturnSeen = false;
@@ -1475,10 +1765,27 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
         }
     }
 
+    size_t nonSelfParamIdx = 0;
     for (size_t i = 0; i < fn->params.size(); ++i) {
-        const ResolvedType type = (currentSignature && i < currentSignature->paramTypes.size())
-            ? currentSignature->paramTypes[i]
-            : makeUnknownType();
+        ResolvedType type;
+        if (fn->params[i].isSelf) {
+            if (currentSignature && currentSignature->receiverType.has_value()) {
+                type = currentSignature->receiverType.value();
+            } else if (!receiverTypeName.empty()) {
+                std::string vk = fn->params[i].type ? fn->params[i].type->viewKind : "";
+                if (!vk.empty()) {
+                    type = asViewType(makeOwnedType(receiverTypeName), vk);
+                } else {
+                    type = makeOwnedType(receiverTypeName);
+                }
+            } else {
+                type = makeUnknownType();
+            }
+        } else {
+            type = (currentSignature && nonSelfParamIdx < currentSignature->paramTypes.size())
+                ? currentSignature->paramTypes[nonSelfParamIdx++]
+                : makeUnknownType();
+        }
         defineVariable(
             fn->params[i].name,
             type,
@@ -1539,11 +1846,15 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn) {
                         reportError(
                             tailExprStmt,
                             "Returned ref value must come from one of the function's ref parameters. Return an owned value instead, use Anchor[T] for stable storage, or keep the borrow inside a scope block.");
+                    } else if (sourceParamIndex.value() != SIZE_MAX) {
+                        if (!currentViewReturnSeen) {
+                            currentViewReturnSourceParam = sourceParamIndex;
+                            currentViewReturnSeen = true;
+                        } else if (currentViewReturnSourceParam != sourceParamIndex && currentViewReturnSourceParam.value_or(SIZE_MAX) != SIZE_MAX) {
+                            reportError(tailExprStmt, "All returned ref values in a function must come from the same parameter.");
+                        }
                     } else if (!currentViewReturnSeen) {
-                        currentViewReturnSourceParam = sourceParamIndex;
                         currentViewReturnSeen = true;
-                    } else if (currentViewReturnSourceParam != sourceParamIndex) {
-                        reportError(tailExprStmt, "All returned ref values in a function must come from the same parameter.");
                     }
                 } else if (currentSignature && currentFunction && !canAssignType(valueType, currentSignature->returnType)) {
                     reportError(
@@ -2026,11 +2337,15 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             const auto sourceParamIndex = give->value ? resolveViewSourceParam(give->value.get()) : std::nullopt;
             if (!sourceParamIndex.has_value()) {
                 reportError(give, "Returned ref value must come from one of the function's ref parameters. Return an owned value instead, use Anchor[T] for stable storage, or keep the borrow inside a scope block.");
+            } else if (sourceParamIndex.value() != SIZE_MAX) {
+                if (!currentViewReturnSeen) {
+                    currentViewReturnSourceParam = sourceParamIndex;
+                    currentViewReturnSeen = true;
+                } else if (currentViewReturnSourceParam != sourceParamIndex && currentViewReturnSourceParam.value_or(SIZE_MAX) != SIZE_MAX) {
+                    reportError(give, "All returned ref values in a function must come from the same parameter.");
+                }
             } else if (!currentViewReturnSeen) {
-                currentViewReturnSourceParam = sourceParamIndex;
                 currentViewReturnSeen = true;
-            } else if (currentViewReturnSourceParam != sourceParamIndex) {
-                reportError(give, "All returned ref values in a function must come from the same parameter.");
             }
         } else if (currentSignature && currentFunction && !canAssignType(valueType, currentSignature->returnType)) {
             reportError(
@@ -2458,7 +2773,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
         const auto sym = lookupSymbol(ident->name);
         if (!sym) {
             reportError(ident, "Undefined variable: " + ident->name);
-        } else if (sym->kind == SymbolKind::Variable) {
+        } else if (sym->kind == SymbolKind::Variable || sym->kind == SymbolKind::Shape) {
             type = sym->type;
         } else {
             type = makeUnknownType(ident->name);
@@ -2551,8 +2866,30 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             reportError(binary->right.get(), opaqueExternalValueUseMessage(rightType, isComparison ? "comparison operand" : "arithmetic operand"));
         }
 
+        auto getOpMethod = [](const std::string& op) -> std::string {
+            if (op == "+") return "add";
+            if (op == "-") return "sub";
+            if (op == "*") return "mul";
+            if (op == "/") return "div";
+            if (op == "==" || op == "!=") return "equal";
+            if (op == "<" || op == ">" || op == "<=" || op == ">=") return "compare";
+            return "";
+        };
+
+        std::string opMethod = getOpMethod(binary->op);
+        const FunctionSignature* opMethodSig = nullptr;
+        if (!opMethod.empty() && !leftType.isUnknown()) {
+            opMethodSig = lookupFunctionSignature(leftType.name + "." + opMethod);
+        }
+
         if (leftType.isOpaqueExternal() || rightType.isOpaqueExternal()) {
             type = makeUnknownType();
+        } else if (opMethodSig != nullptr) {
+            if (isComparison) {
+                type = makePlainType("Bool");
+            } else {
+                type = opMethodSig->returnType;
+            }
         } else if (isComparison) {
             if (!leftType.isUnknown() && !rightType.isUnknown() &&
                 !canAssignType(rightType, leftType) && !canAssignType(leftType, rightType) &&
@@ -2575,6 +2912,15 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
         bool opaqueExternalCall = false;
         bool skipCalleeAnalysis = false;
         std::string opaqueExternalCallee;
+
+        if (isArenaNewCall(call->callee.get())) {
+            if (!call->args.empty()) {
+                reportError(call, "Arena.new() expects exactly 0 arguments.");
+            }
+            type = makeOwnedType("Arena");
+            analysisResult.exprTypes[expr] = type;
+            return type;
+        }
 
         if (isAnchorStaticConstructorCall(call->callee.get())) {
             const ResolvedType* expectedPayloadType = nullptr;
@@ -2695,6 +3041,12 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                         opaqueExternalCall = true;
                         opaqueExternalCallee = describeCalleeExpr(call->callee.get());
                     }
+                } else if (sym && (sym->kind == SymbolKind::Shape || sym->kind == SymbolKind::Choice)) {
+                    const std::string qualifiedName = objectIdent->name + "." + member->member;
+                    signature = lookupFunctionSignature(qualifiedName);
+                    if (signature) {
+                        skipCalleeAnalysis = true;
+                    }
                 }
             }
 
@@ -2745,7 +3097,20 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                 } else {
                     methodSignature = lookupMethodSignature(receiverType, member->member);
                     if (methodSignature.has_value()) {
-                        signature = &methodSignature->function;
+                        if (receiverType.name == "Arena" && member->member == "alloc") {
+                            ResolvedType payloadType = makeUnknownType();
+                            if (call->args.size() == 1) {
+                                payloadType = analyzeExpr(call->args.front().get(), nullptr);
+                            } else {
+                                reportError(call, "Arena.alloc(...) expects exactly 1 argument.");
+                            }
+                            methodSignature->function.paramTypes.push_back(payloadType);
+                            methodSignature->function.returnType = asViewType(payloadType, "look");
+                            signature = &methodSignature->function;
+                        } else {
+                            signature = &methodSignature->function;
+                        }
+                        
                         if (!canPassArgumentType(member->object.get(), receiverType, methodSignature->receiverType)) {
                             reportError(
                                 member->object.get(),
@@ -2944,6 +3309,9 @@ std::optional<size_t> SemanticAnalyzer::resolveViewSourceParam(const Expr* expr)
     if (auto* ident = dynamic_cast<const IdentExpr*>(expr)) {
         const auto sym = lookupSymbol(ident->name);
         if (sym && sym->kind == SymbolKind::Variable) {
+            if (sym->isStatic) {
+                return std::optional<size_t>(SIZE_MAX);
+            }
             return sym->viewSourceParamIndex;
         }
         return std::nullopt;

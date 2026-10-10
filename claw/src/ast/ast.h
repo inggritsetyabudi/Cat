@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <optional>
 
 #include "diagnostics/diagnostics.h"
 #include "lexer/lexer.h"
@@ -180,6 +181,7 @@ struct FnParam {
     SourceSpan span;
     std::string name;
     std::unique_ptr<TypeNode> type;
+    bool isSelf = false;
 };
 
 struct FnDecl : public Decl {
@@ -214,6 +216,28 @@ struct ChoiceDecl : public Decl {
     std::string name;
     std::vector<std::string> typeParams;
     std::vector<ChoiceVariant> variants;
+};
+
+struct ImplementsDecl : public Decl {
+    std::string typeName;
+    std::vector<std::string> typeParams;
+    std::optional<std::string> contractName;
+    std::vector<std::unique_ptr<FnDecl>> methods;
+    SourceSpan span;
+};
+
+struct ContractDecl : public Decl {
+    std::string name;
+    std::vector<std::string> typeParams;
+    std::vector<std::unique_ptr<FnDecl>> methods;
+    SourceSpan span;
+};
+
+struct StaticDecl : public Decl {
+    std::string name;
+    std::unique_ptr<TypeNode> type;
+    std::unique_ptr<Expr> init;
+    SourceSpan span;
 };
 
 struct ImportDecl {

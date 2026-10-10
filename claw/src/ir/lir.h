@@ -248,7 +248,15 @@ struct LirChoice {
     std::optional<TypeLayoutInfo> layout;
 };
 
-using LirDecl = std::variant<LirFunction, LirShape, LirChoice>;
+struct LirStatic {
+    std::string name;
+    std::string type;
+    std::string value;
+    AbiPassKind passKind = AbiPassKind::Unknown;
+    SymbolLinkInfo link;
+};
+
+using LirDecl = std::variant<LirFunction, LirShape, LirChoice, LirStatic>;
 
 struct LirRealm {
     std::string name;

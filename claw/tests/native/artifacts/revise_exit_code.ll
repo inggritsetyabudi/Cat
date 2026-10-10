@@ -1,5 +1,5 @@
 ; ModuleID = 'claw'
-target triple = "aarch64-apple-darwin"
+target triple = "x86_64-w64-windows-gnu"
 
 %claw.slice = type { ptr, i64 }
 %claw.buffer = type { ptr, i64, i64 }

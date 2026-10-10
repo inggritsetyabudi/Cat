@@ -1,7 +1,3 @@
-choice Result[T, E] {
-    Ok(value: T)
-    Fail(cause: E)
-}
 
 fn step(flag: Bool) -> Result[Int32, Str] {
     if flag {

@@ -951,7 +951,9 @@ fn main() {
 
 ---
 
-## 14. `implements` dan `contract`
+## 14. `implements` dan `contract` [sudah]
+
+> [sudah] Receiver-first method dispatch, deklarasi `contract`, dan `implements Shape with Contract` selesai end-to-end (parser/AST, sema/validasi signature `Self`, OIR/LLVM, serta test nyata).
 
 ### `implements` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Method pada Shape
 
@@ -1195,7 +1197,9 @@ fn main() {
 
 ---
 
-## 15. Operator Overloading
+## 15. Operator Overloading [sudah]
+
+> [sudah] Operator overloading aktif penuh. Eksekusi native di backend/IR berhasil memetakan tipe yang mengimplementasi contract ke fungsi/method call (misal `v1 + v2` menjadi call `add(v1, v2)` dan `v1 == v2` memanggil `equal(v1, v2)`). Operasi boolean lanjutan (misal `<` dan chaining overload juga lolos test end-to-end).
 
 Operator overloading dilakukan lewat `contract` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â tidak ada magic syntax terpisah.
 

@@ -1,0 +1,28 @@
+shape ID {
+    value: Int32
+}
+
+contract Validatable {
+    fn is_valid(self: ref) -> Bool
+}
+
+implements ID with Validatable {
+    fn is_valid(self: ref) -> Bool {
+        return self.value > 0
+    }
+}
+
+// Skip T with Contract check for now since we haven't touched generics bounds parsing yet.
+fn check_validity(item: ref ID) {
+    if item.is_valid() {
+        println("Valid")
+    } else {
+        println("Invalid")
+    }
+}
+
+fn main() -> Int32 {
+    val id = ID { value: 5 }
+    check_validity(ref id)
+    return 0
+}

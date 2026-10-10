@@ -1,0 +1,20 @@
+shape Config {
+    share host: Str
+    share port: Int32
+}
+
+implements Config {
+    fn new(host: Str, port: Int32) -> Config {
+        return Config { host: host, port: port }
+    }
+
+    fn show_host(self: ref) {
+        println(self.host)
+    }
+}
+
+fn main() -> Int32 {
+    val cfg = Config.new("localhost", 8080)
+    cfg.show_host()
+    return 0
+}
