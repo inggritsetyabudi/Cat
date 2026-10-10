@@ -91,7 +91,25 @@ run_validate_fail "test_frontend/revise_bad_non_entry_main" "$FIXTURE_DIR/revise
 run_check_fail "test_frontend/revise_bad_call_main.cat" "$FIXTURE_DIR/revise_bad_call_main.cat" '`main` is the program entry point and cannot be called like a normal function.'
 
 run_check_pass "test_frontend/revise_builtin_methods.cat" "$FIXTURE_DIR/revise_builtin_methods.cat"
+run_check_pass "test_frontend/revise_builtin_method_views.cat" "$FIXTURE_DIR/revise_builtin_method_views.cat"
+run_check_fail "test_frontend/revise_bad_builtin_method_receiver.cat" "$FIXTURE_DIR/revise_bad_builtin_method_receiver.cat" 'Method receiver type mismatch: expected ref mut Vec[Int32], got Vec[Int32]'
 run_check_pass "test_frontend/revise_str_search_methods.cat" "$FIXTURE_DIR/revise_str_search_methods.cat"
+run_check_pass "test_frontend/revise_choice_resolution.cat" "$FIXTURE_DIR/revise_choice_resolution.cat"
+echo "[air/golden] test_frontend/revise_choice_resolution.cat"
+choice_resolution_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_choice_resolution.cat")"
+if ! diff -u "$FIXTURE_DIR/revise_choice_resolution.air.golden" <(printf '%s\n' "$choice_resolution_air_output"); then
+  echo "Choice-resolution AIR output differs from the golden" >&2
+  exit 1
+fi
+run_check_fail "test_frontend/revise_bad_result_choice_resolution.cat" "$FIXTURE_DIR/revise_bad_result_choice_resolution.cat" '`try` requires Result to define Ok(T) and Fail(E) single-payload variants.'
+run_check_pass "test_frontend/revise_numeric_literals.cat" "$FIXTURE_DIR/revise_numeric_literals.cat"
+echo "[air/golden] test_frontend/revise_numeric_literals.cat"
+numeric_literals_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_numeric_literals.cat")"
+if ! diff -u "$FIXTURE_DIR/revise_numeric_literals.air.golden" <(printf '%s\n' "$numeric_literals_air_output"); then
+  echo "numeric-literal AIR output differs from the baseline golden" >&2
+  exit 1
+fi
+run_check_fail "test_frontend/revise_bad_numeric_literal.cat" "$FIXTURE_DIR/revise_bad_numeric_literal.cat" "Integer literal '340282366920938463463374607431768211456' does not fit target type UInt128."
 run_check_fail "test_frontend/revise_bad_str_search_argument.cat" "$FIXTURE_DIR/revise_bad_str_search_argument.cat" 'Call argument type mismatch: expected ref Str, got integer literal'
 run_check_fail "test_frontend/revise_bad_str_search_receiver.cat" "$FIXTURE_DIR/revise_bad_str_search_receiver.cat" "Type 'Int32' does not provide method 'starts_with'."
 

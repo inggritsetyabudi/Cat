@@ -1,0 +1,32 @@
+oir.module revise_scope_refs
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_scope_refs::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_scope_refs::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn identity(input: ref Str [borrow]) -> ref Str [borrow] [abi=claw link=internal symbol=revise_scope_refs::identity ffi=false]
+  block entry:
+    return input : ref Str
+oir.fn inspect(left: ref Str [borrow], right: ref Str [borrow]) -> Unit [void] [abi=claw link=internal symbol=revise_scope_refs::inspect ffi=false]
+  block entry:
+    call println(left) : Unit
+    call println(right) : Unit
+    return unit : Unit
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_scope_refs::main ffi=false]
+  block entry:
+    val first: Str = "alpha"
+    val second: Str = "beta"
+    goto scope_s_0
+  block scope_s_0:
+    val a: ref[s] Str = first
+    val b: ref[s] Str = second
+    %t0 = call identity(a) : ref[s] Str
+    val again: ref[s] Str = %t0
+    call inspect(again, b) : Unit
+    goto scope_cont_1
+  block scope_cont_1:
+    drop second : Str
+    drop first : Str

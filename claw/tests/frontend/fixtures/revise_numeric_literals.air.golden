@@ -1,0 +1,15 @@
+air.module revise_numeric_literals
+air.choice Result
+  Ok(T)
+  Fail(E)
+air.choice Maybe
+  None
+  Some(T)
+air.fn main() -> Int32
+  val signed: Int8 = 127 : Int8
+  val unsigned: UInt128 = 340282366920938463463374607431768211455 : UInt128
+  val suffixed: Int16 = 32767_Int16 : Int16
+  val single: Float32 = 1.25_Float32 : Float32
+  val exact_integer_float: Float32 = 16777216 : Float32
+  val double: Float64 = 0.1 : Float64
+  return 0 : integer literal

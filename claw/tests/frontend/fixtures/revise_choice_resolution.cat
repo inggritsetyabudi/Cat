@@ -1,0 +1,37 @@
+choice Packet[T] {
+    Data(value: T)
+    Empty
+}
+
+choice Result[T, E] {
+    ok(value: T)
+    FAIL(error: E)
+}
+
+fn packet_value(packet: Packet[Int32]) -> Int32 {
+    pick packet {
+        Data(value) {
+            return value
+        }
+        Empty {
+            return 0
+        }
+    }
+}
+
+fn step() -> Result[Int32, Str] {
+    return oK(41)
+}
+
+fn result_value() -> Int32 {
+    val value = try step() else err {
+        return 0
+    }
+    return value + 1
+}
+
+fn main() {
+    val packet: Packet[Int32] = dAtA(42)
+    println(packet_value(packet))
+    println(result_value())
+}

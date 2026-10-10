@@ -1,0 +1,36 @@
+oir.module revise_anchor_choice
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_anchor_choice::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_anchor_choice::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.choice StableText [abi=claw link=internal symbol=revise_anchor_choice::StableText ffi=false]
+  layout repr=claw-internal kind=tagged size=16 align=8 pass=direct ffi=false tag=4 payload_offset=8 payload_size=8
+  case Some(Anchor[Str]) @payload_offset=8 size=8 align=8
+  case None @payload_offset=8 size=0 align=1
+oir.fn print_value(value: StableText [direct]) -> Unit [void] [abi=claw link=internal symbol=revise_anchor_choice::print_value ffi=false]
+  block entry:
+    pick value : StableText
+    case Some(stable) -> pick_Some_1
+    case None -> pick_None_2
+  block pick_Some_1:
+    %t0 = call stable.get() : ref Str
+    call println(%t0) : Unit
+    drop stable : Anchor[Str]
+    goto pick_join_0
+  block pick_None_2:
+    call println("none") : Unit
+    goto pick_join_0
+  block pick_join_0:
+    drop value : StableText
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_anchor_choice::main ffi=false]
+  block entry:
+    %t0 = call Anchor.new("choice") : Anchor[Str]
+    %t1 = Some(%t0) : StableText
+    call print_value(%t1) : Unit
+    %t2 = None() : StableText
+    call print_value(%t2) : Unit
+    return unit : Unit

@@ -10,6 +10,7 @@ add_library(claw_frontend
     src/parser/parser.cpp
     src/ir/air.cpp
     src/ir/oir.cpp
+    src/ir/oir_format.cpp
     src/ir/lir.cpp
     src/codegen/llvm.cpp
     src/codegen/llvm_types.cpp
@@ -17,10 +18,14 @@ add_library(claw_frontend
     src/codegen/llvm_control.cpp
     src/codegen/llvm_emit.cpp
     src/analysis/types.cpp
+    src/analysis/choice_utils.cpp
+    src/analysis/builtin_methods.cpp
+    src/analysis/numeric_literals.cpp
     src/analysis/scope.cpp
     src/analysis/sema.cpp
     src/analysis/ownership.cpp
     src/workspace/workspace.cpp
+    src/workspace/manifest.cpp
     src/workspace/config.cpp
 )
 target_include_directories(claw_frontend PUBLIC src)
@@ -41,5 +46,3 @@ add_custom_command(TARGET claw POST_BUILD
     COMMENT "Bundling Claw native runtime"
     VERBATIM
 )
-
-

@@ -51,6 +51,8 @@ expect_generated_ll() {
 }
 
 single_output="$ARTIFACT_DIR/revise_single_file.exe"
+numeric_literals_output="$ARTIFACT_DIR/revise_numeric_literals.exe"
+choice_resolution_output="$ARTIFACT_DIR/revise_choice_resolution.exe"
 workspace_output="$ARTIFACT_DIR/revise_workspace.exe"
 maybe_output="$ARTIFACT_DIR/revise_maybe.exe"
 exit_code_output="$ARTIFACT_DIR/revise_exit_code.exe"
@@ -64,6 +66,8 @@ nested_scoped_output="$ARTIFACT_DIR/revise_nested_scoped_generic.exe"
 nested_scoped_workspace_output="$ARTIFACT_DIR/revise_nested_scoped_workspace.exe"
 
 rm -f "$single_output" "${single_output%.exe}.ll" \
+      "$numeric_literals_output" "${numeric_literals_output%.exe}.ll" \
+      "$choice_resolution_output" "${choice_resolution_output%.exe}.ll" \
       "$workspace_output" "${workspace_output%.exe}.ll" \
       "$maybe_output" "${maybe_output%.exe}.ll" \
       "$exit_code_output" "${exit_code_output%.exe}.ll" \
@@ -82,6 +86,24 @@ expect_generated_ll "$single_output"
 single_stdout="$(normalize_stdout "$single_output")"
 if [[ "$single_stdout" != "3" ]]; then
   echo "revised single-file native build produced unexpected output: $single_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_numeric_literals.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_numeric_literals.cat" "$numeric_literals_output" >/dev/null
+expect_generated_ll "$numeric_literals_output"
+numeric_literals_stdout="$(normalize_stdout "$numeric_literals_output")"
+if [[ "$numeric_literals_stdout" != "127" ]]; then
+  echo "numeric-literal native build produced unexpected output: $numeric_literals_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_frontend/revise_choice_resolution.cat"
+"$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_choice_resolution.cat" "$choice_resolution_output" >/dev/null
+expect_generated_ll "$choice_resolution_output"
+choice_resolution_stdout="$(normalize_stdout "$choice_resolution_output")"
+if [[ "$choice_resolution_stdout" != $'42\n42' ]]; then
+  echo "Choice-resolution native build produced unexpected output: $choice_resolution_stdout" >&2
   exit 1
 fi
 

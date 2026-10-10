@@ -1,0 +1,86 @@
+oir.module revise_operator_overload
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_operator_overload::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_operator_overload::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.shape Vector2 [abi=claw link=internal symbol=revise_operator_overload::Vector2 ffi=false]
+  layout repr=claw-internal kind=aggregate size=8 align=4 pass=direct ffi=false
+  field x: Int32 @offset=0 size=4 align=4
+  field y: Int32 @offset=4 size=4 align=4
+oir.fn Vector2.add(self: ref Vector2 [borrow], other: ref Vector2 [borrow]) -> Vector2 [direct] [abi=claw link=internal symbol=revise_operator_overload::Vector2.add ffi=false]
+  block entry:
+    val %t0: Vector2
+    %t1 = field self.x : Int32
+    %t2 = field other.x : Int32
+    %t3 = add %t1, %t2 : Int32
+    store_field %t0.x <- %t3 : Int32
+    %t4 = field self.y : Int32
+    %t5 = field other.y : Int32
+    %t6 = add %t4, %t5 : Int32
+    store_field %t0.y <- %t6 : Int32
+    return %t0 : Vector2
+oir.fn Vector2.equal(self: ref Vector2 [borrow], other: ref Vector2 [borrow]) -> Bool [scalar] [abi=claw link=internal symbol=revise_operator_overload::Vector2.equal ffi=false]
+  block entry:
+    %t0 = field self.x : Int32
+    %t1 = field other.x : Int32
+    %t2 = eq %t0, %t1 : Bool
+    branch %t2 -> when_then_0, when_join_1
+  block when_then_0:
+    %t3 = field self.y : Int32
+    %t4 = field other.y : Int32
+    %t5 = eq %t3, %t4 : Bool
+    branch %t5 -> when_then_2, when_join_3
+  block when_then_2:
+    return true : Bool
+  block when_join_3:
+    goto when_join_1
+  block when_join_1:
+    return false : Bool
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_operator_overload::main ffi=false]
+  block entry:
+    val %t0: Vector2
+    store_field %t0.x <- 10 : Int32
+    store_field %t0.y <- 20 : Int32
+    val v1: Vector2 = %t0
+    val %t1: Vector2
+    store_field %t1.x <- 5 : Int32
+    store_field %t1.y <- 15 : Int32
+    val v2: Vector2 = %t1
+    %t2 = call Vector2.add(v1, v2) : Vector2
+    val v3: Vector2 = %t2
+    %t3 = field v3.x : Int32
+    call println(%t3) : Unit
+    %t4 = field v3.y : Int32
+    call println(%t4) : Unit
+    %t5 = call Vector2.equal(v1, v2) : Bool
+    val is_eq: Bool = %t5
+    call println(is_eq) : Unit
+    val %t6: Vector2
+    store_field %t6.x <- 10 : Int32
+    store_field %t6.y <- 20 : Int32
+    val v4: Vector2 = %t6
+    %t7 = call Vector2.equal(v1, v4) : Bool
+    val is_same: Bool = %t7
+    call println(is_same) : Unit
+    val %t8: Vector2
+    store_field %t8.x <- 2 : Int32
+    store_field %t8.y <- 3 : Int32
+    val v5: Vector2 = %t8
+    %t9 = call Vector2.add(v1, v2) : Vector2
+    %t10 = call Vector2.add(%t9, v5) : Vector2
+    val v6: Vector2 = %t10
+    %t11 = field v6.x : Int32
+    call println(%t11) : Unit
+    %t12 = field v6.y : Int32
+    call println(%t12) : Unit
+    drop v6 : Vector2
+    drop v5 : Vector2
+    drop v4 : Vector2
+    drop v3 : Vector2
+    drop v2 : Vector2
+    drop v1 : Vector2
+    return 0 : Int32

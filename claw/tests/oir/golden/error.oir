@@ -1,0 +1,39 @@
+oir.module revise_error_handling
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_error_handling::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_error_handling::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn step(flag: Bool [scalar]) -> Result[Int32, Str] [indirect] [abi=claw link=internal symbol=revise_error_handling::step ffi=false]
+  block entry:
+    branch flag -> when_then_0, when_join_1
+  block when_then_0:
+    %t0 = Ok(7) : Result[Int32, Str]
+    return %t0 : Result[Int32, Str]
+  block when_join_1:
+    %t1 = Fail("bad") : Result[Int32, Str]
+    return %t1 : Result[Int32, Str]
+oir.fn unwrap(flag: Bool [scalar]) -> Result[Int32, Str] [indirect] [abi=claw link=internal symbol=revise_error_handling::unwrap ffi=false]
+  block entry:
+    %t0 = call step(flag) : Result[Int32, Str]
+    try %t0 -> value propagate
+    %t1 = add value, 1 : Int32
+    %t2 = Ok(%t1) : Result[Int32, Str]
+    return %t2 : Result[Int32, Str]
+oir.fn show(flag: Bool [scalar]) -> Unit [void] [abi=claw link=internal symbol=revise_error_handling::show ffi=false]
+  block entry:
+    %t0 = call step(flag) : Result[Int32, Str]
+    try %t0 -> value, else err -> try_fail_0
+    call println(value) : Unit
+    return unit : Unit
+  block try_fail_0:
+    call println(err) : Unit
+    drop err : Str
+    return unit : Unit
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_error_handling::main ffi=false]
+  block entry:
+    call show(true) : Unit
+    return unit : Unit

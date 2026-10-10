@@ -1,0 +1,16 @@
+choice Result[T, E] {
+    ok(value: T)
+    FAIL
+}
+
+fn step() -> Result[Int32, Str] {
+    return ok(41)
+}
+
+fn main() {
+    val value = try step() else err {
+        println(err)
+        return
+    }
+    println(value)
+}

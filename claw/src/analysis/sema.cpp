@@ -1,4 +1,7 @@
 #include "analysis/sema.h"
+#include "analysis/builtin_methods.h"
+#include "analysis/choice_utils.h"
+#include "analysis/numeric_literals.h"
 
 #include "ast/ast.h"
 
@@ -11,6 +14,8 @@
 #include <unordered_set>
 
 namespace claw::frontend {
+
+using namespace numeric_literals;
 
 namespace {
 
@@ -28,220 +33,8 @@ ResolvedType makeOwnedType(const std::string& name) {
     return type;
 }
 
-ResolvedType makeIntegerLiteralType() {
-    ResolvedType type;
-    type.name = "IntLiteral";
-    type.category = TypeCategory::Plain;
-    return type;
-}
-
-ResolvedType makeFloatLiteralType() {
-    ResolvedType type;
-    type.name = "FloatLiteral";
-    type.category = TypeCategory::Plain;
-    return type;
-}
-
-bool isFloatLiteralType(const ResolvedType& type) {
-    return type.category == TypeCategory::Plain && type.viewKind.empty() && type.name == "FloatLiteral";
-}
-
-bool isNumericLiteralType(const ResolvedType& type) {
-    return isIntegerLiteralType(type) || isFloatLiteralType(type);
-}
-
-bool isConcreteNumericType(const ResolvedType& type) {
-    return type.isPlain() && type.viewKind.empty() && isNumericTypeName(type.name);
-}
-
-bool isFloatTypeName(const std::string& name) {
-    return name == "Float32" || name == "Float64";
-}
-
-bool literalMagnitudeHasNonZeroDigit(const std::string& magnitude) {
-    for (char c : magnitude) {
-        if (std::isdigit(static_cast<unsigned char>(c)) && c != '0') {
-            return true;
-        }
-    }
-    return false;
-}
-
-struct NumericLiteralParts {
-    std::string magnitude;
-    std::string suffix;
-};
-
-NumericLiteralParts splitNumericLiteralText(const std::string& text) {
-    const size_t suffixPos = text.find('_');
-    if (suffixPos == std::string::npos) {
-        return {text, {}};
-    }
-    return {text.substr(0, suffixPos), text.substr(suffixPos + 1)};
-}
-
-std::optional<ResolvedType> resolveNumericLiteralSuffixType(const std::string& suffix) {
-    if (suffix.empty() || !isNumericTypeName(suffix)) {
-        return std::nullopt;
-    }
-    return makePlainType(suffix);
-}
-
-using UInt128 = unsigned __int128;
-
-bool tryParseUnsignedDecimal(const std::string& text, UInt128* value) {
-    if (!value || text.empty()) {
-        return false;
-    }
-
-    UInt128 parsed = 0;
-    for (char c : text) {
-        if (!std::isdigit(static_cast<unsigned char>(c))) {
-            return false;
-        }
-        const unsigned digit = static_cast<unsigned>(c - '0');
-        const UInt128 maxValue = std::numeric_limits<UInt128>::max();
-        if (parsed > (maxValue - digit) / 10) {
-            return false;
-        }
-        parsed = parsed * 10 + digit;
-    }
-
-    *value = parsed;
-    return true;
-}
-
-UInt128 maxUnsignedBits(unsigned bits) {
-    if (bits >= 128) {
-        return std::numeric_limits<UInt128>::max();
-    }
-    return (UInt128{1} << bits) - 1;
-}
-
-UInt128 maxSignedPositiveBits(unsigned bits) {
-    if (bits <= 1) {
-        return 0;
-    }
-    return maxUnsignedBits(bits - 1);
-}
-
-std::optional<unsigned> integerLikeBitWidth(const std::string& typeName) {
-    static const std::unordered_map<std::string, unsigned> widths = {
-        {"Int8", 8}, {"Int16", 16}, {"Int32", 32}, {"Int64", 64}, {"Int128", 128},
-        {"UInt8", 8}, {"UInt16", 16}, {"UInt32", 32}, {"UInt64", 64}, {"UInt128", 128}};
-    const auto it = widths.find(typeName);
-    return it != widths.end() ? std::optional<unsigned>(it->second) : std::nullopt;
-}
-
-bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target) {
-    UInt128 value = 0;
-    if (!tryParseUnsignedDecimal(magnitude, &value)) {
-        return false;
-    }
-
-    const unsigned pointerWidthBits = std::min(target.pointerWidthBits == 0 ? 64u : target.pointerWidthBits, 128u);
-    const unsigned ptrdiffWidthBits = std::min(target.ptrdiffWidthBits == 0 ? 64u : target.ptrdiffWidthBits, 128u);
-
-    if (targetName == "Char") {
-        return value <= UInt128{0x10FFFF};
-    }
-    if (targetName == "USize") {
-        return value <= maxUnsignedBits(pointerWidthBits);
-    }
-
-
-
-    if (const auto bits = integerLikeBitWidth(targetName)) {
-        if (targetName.rfind("Int", 0) == 0) {
-            return value <= maxSignedPositiveBits(*bits);
-        }
-        return value <= maxUnsignedBits(*bits);
-    }
-
-    if (targetName == "Float32") {
-        return value <= UInt128{1} << 24;
-    }
-    if (targetName == "Float64") {
-        return value <= UInt128{1} << 53;
-    }
-
-    return false;
-}
-
-bool floatLiteralFitsTarget(const std::string& magnitude, const std::string& targetName) {
-    if (!isFloatTypeName(targetName)) {
-        return false;
-    }
-
-    try {
-        const long double value = std::stold(magnitude);
-        if (!std::isfinite(value)) {
-            return false;
-        }
-        const bool nonZeroMagnitude = literalMagnitudeHasNonZeroDigit(magnitude);
-        if (targetName == "Float32") {
-            const float narrowed = static_cast<float>(value);
-            return std::isfinite(narrowed) && !(narrowed == 0.0f && nonZeroMagnitude);
-        }
-        const double narrowed = static_cast<double>(value);
-        return std::isfinite(narrowed) && !(narrowed == 0.0 && nonZeroMagnitude);
-    } catch (const std::exception&) {
-        return false;
-    }
-}
-
 bool startsWithUppercase(const std::string& name) {
     return !name.empty() && std::isupper(static_cast<unsigned char>(name.front())) != 0;
-}
-
-bool shouldUseExpectedIntegerType(const ResolvedType* expectedType) {
-    return expectedType && expectedType->isPlain() && expectedType->viewKind.empty() &&
-           isIntegerLikeTypeName(expectedType->name);
-}
-
-bool shouldUseExpectedFloatType(const ResolvedType* expectedType) {
-    return expectedType && expectedType->isPlain() && expectedType->viewKind.empty() &&
-           isFloatTypeName(expectedType->name);
-}
-
-ResolvedType defaultIntegerLiteralType() {
-    return makePlainType("Int32");
-}
-
-ResolvedType defaultFloatLiteralType() {
-    return makePlainType("Float64");
-}
-
-ResolvedType normalizeInferredLiteralType(const ResolvedType& type) {
-    if (isIntegerLiteralType(type)) {
-        return defaultIntegerLiteralType();
-    }
-    if (isFloatLiteralType(type)) {
-        return defaultFloatLiteralType();
-    }
-    return type;
-}
-
-std::optional<ResolvedType> numericLiteralContextType(
-    const ResolvedType* expectedType,
-    const ResolvedType& leftType,
-    const ResolvedType& rightType) {
-    if (expectedType && isConcreteNumericType(*expectedType)) {
-        return *expectedType;
-    }
-    if (isConcreteNumericType(leftType)) {
-        return leftType;
-    }
-    if (isConcreteNumericType(rightType)) {
-        return rightType;
-    }
-    if (isFloatLiteralType(leftType) || isFloatLiteralType(rightType)) {
-        return defaultFloatLiteralType();
-    }
-    if (isIntegerLiteralType(leftType) && isIntegerLiteralType(rightType)) {
-        return defaultIntegerLiteralType();
-    }
-    return std::nullopt;
 }
 
 bool isRawAddressTypeName(const std::string& name) {
@@ -317,175 +110,12 @@ std::string typedExternalRawRequirementMessage(const Expr* callee) {
         "' is declared raw-only and requires an explicit raw block.";
 }
 
-std::string lowercaseAscii(std::string_view text) {
-    std::string lowered;
-    lowered.reserve(text.size());
-    for (const char c : text) {
-        lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-    }
-    return lowered;
-}
-
-bool sameIdentifierIgnoringCase(std::string_view left, std::string_view right) {
-    return lowercaseAscii(left) == lowercaseAscii(right);
-}
-
-std::optional<std::string> findChoiceVariantName(const ChoiceInfo& choice, std::string_view requested) {
-    for (const auto& variantName : choice.variantOrder) {
-        if (sameIdentifierIgnoringCase(variantName, requested)) {
-            return variantName;
-        }
-    }
-    return std::nullopt;
-}
-
-std::optional<ChoiceVariantInfo> resolveChoiceVariantInfo(
-    const ChoiceInfo& choice,
-    const ResolvedType& concreteType,
-    std::string_view variantName) {
-    const auto matchedName = findChoiceVariantName(choice, variantName);
-    if (!matchedName.has_value()) {
-        return std::nullopt;
-    }
-    const auto bindings = buildTypeBindings(choice.typeParams, concreteType.params);
-    const auto variantIt = choice.variants.find(*matchedName);
-    if (variantIt == choice.variants.end()) {
-        return std::nullopt;
-    }
-
-    ChoiceVariantInfo resolved;
-    for (const auto& payloadType : variantIt->second.payloadTypes) {
-        resolved.payloadTypes.push_back(substituteType(payloadType, bindings));
-    }
-    return resolved;
-}
-
-bool isOutcomeLikeChoice(const ChoiceInfo& choice) {
-    const auto okName = findChoiceVariantName(choice, "Ok");
-    const auto failName = findChoiceVariantName(choice, "Fail");
-    if (!okName.has_value() || !failName.has_value() || choice.variantOrder.size() != 2) {
-        return false;
-    }
-    const auto okIt = choice.variants.find(*okName);
-    const auto failIt = choice.variants.find(*failName);
-    if (okIt == choice.variants.end() || failIt == choice.variants.end()) {
-        return false;
-    }
-    return okIt->second.payloadTypes.size() == 1 && failIt->second.payloadTypes.size() == 1;
-}
-
-struct BuiltinMethodSpec {
-    std::string receiverName;
-    std::string methodName;
-    std::string receiverViewKind;
-    std::vector<ResolvedType> paramTypes;
-    ResolvedType returnType;
-    std::optional<size_t> viewReturnSourceArg;
-    bool viewReturnFromReceiver = false;
-};
-
 ResolvedType asViewType(const ResolvedType& base, const std::string& viewKind) {
     ResolvedType adapted = base;
     adapted.viewKind = viewKind;
     adapted.viewScope = base.viewScope;
     adapted.category = viewKind.empty() ? base.category : TypeCategory::View;
     return adapted;
-}
-
-const std::vector<BuiltinMethodSpec>& builtinMethodSpecs() {
-    static const std::vector<BuiltinMethodSpec> specs = [] {
-        std::vector<BuiltinMethodSpec> entries;
-        auto addSizedLookMethods = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{receiverName, "len", "look", {}, makePlainType("USize")});
-            entries.push_back(BuiltinMethodSpec{receiverName, "is_empty", "look", {}, makePlainType("Bool")});
-        };
-        auto addByteIndexMethod = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{
-                receiverName,
-                "byte_at",
-                "look",
-                {makePlainType("USize")},
-                makePlainType("UInt8")});
-        };
-        auto addByteEdgeMethods = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{receiverName, "first_byte", "look", {}, makePlainType("UInt8")});
-            entries.push_back(BuiltinMethodSpec{receiverName, "last_byte", "look", {}, makePlainType("UInt8")});
-            entries.push_back(BuiltinMethodSpec{receiverName, "find_byte", "look", {makePlainType("UInt8")}, makePlainType("Int64")});
-            entries.push_back(BuiltinMethodSpec{receiverName, "count_byte", "look", {makePlainType("UInt8")}, makePlainType("USize")});
-        };
-        auto addTextSearchMethods = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{receiverName, "starts_with", "look", {asViewType(makeOwnedType(receiverName), "look")}, makePlainType("Bool")});
-            entries.push_back(BuiltinMethodSpec{receiverName, "ends_with", "look", {asViewType(makeOwnedType(receiverName), "look")}, makePlainType("Bool")});
-        };
-        auto addCapacityLookMethod = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{receiverName, "capacity", "look", {}, makePlainType("USize")});
-            entries.push_back(BuiltinMethodSpec{receiverName, "has_capacity", "look", {makePlainType("USize")}, makePlainType("Bool")});
-        };
-        auto addClearEditMethod = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{receiverName, "clear", "edit", {}, makePlainType("Unit")});
-        };
-        auto addReserveEditMethod = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{receiverName, "reserve", "edit", {makePlainType("USize")}, makePlainType("Unit")});
-        };
-        auto addTruncateEditMethod = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{receiverName, "truncate", "edit", {makePlainType("USize")}, makePlainType("Unit")});
-        };
-        auto addShrinkToFitEditMethod = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{receiverName, "shrink_to_fit", "edit", {}, makePlainType("Unit")});
-        };
-        auto addSliceViewMethod = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{
-                receiverName,
-                "slice",
-                "look",
-                {makePlainType("USize"), makePlainType("USize")},
-                asViewType(makeOwnedType(receiverName), "look"),
-                std::nullopt,
-                true});
-        };
-
-        addSizedLookMethods("Str");
-        addSizedLookMethods("Span");
-        addSizedLookMethods("Vec");
-        addSizedLookMethods("Map");
-        addSizedLookMethods("Set");
-        addSizedLookMethods("Queue");
-
-        addByteIndexMethod("Str");
-        addByteEdgeMethods("Str");
-        addTextSearchMethods("Str");
-
-        entries.push_back(BuiltinMethodSpec{"Str", "contains", "look", {asViewType(makeOwnedType("Str"), "look")}, makePlainType("Bool")});
-        entries.push_back(BuiltinMethodSpec{"Str", "contains_byte", "look", {makePlainType("UInt8")}, makePlainType("Bool")});
-
-        addSliceViewMethod("Str");
-        addSliceViewMethod("Span");
-
-        addCapacityLookMethod("Vec");
-        addCapacityLookMethod("Map");
-        addCapacityLookMethod("Set");
-        addCapacityLookMethod("Queue");
-
-        addClearEditMethod("Vec");
-        addClearEditMethod("Map");
-        addClearEditMethod("Set");
-        addClearEditMethod("Queue");
-
-        addReserveEditMethod("Vec");
-        addReserveEditMethod("Map");
-        addReserveEditMethod("Set");
-        addReserveEditMethod("Queue");
-
-        addTruncateEditMethod("Vec");
-        addTruncateEditMethod("Queue");
-
-        addShrinkToFitEditMethod("Vec");
-        addShrinkToFitEditMethod("Map");
-        addShrinkToFitEditMethod("Set");
-        addShrinkToFitEditMethod("Queue");
-        return entries;
-    }();
-    return specs;
 }
 
 } // namespace
@@ -1663,7 +1293,7 @@ std::optional<MethodSignature> SemanticAnalyzer::lookupMethodSignature(
         return signature;
     }
 
-    for (const auto& spec : builtinMethodSpecs()) {
+    for (const auto& spec : builtin_methods::builtinMethodSpecs()) {
         if (spec.receiverName != receiverType.name || spec.methodName != methodName) {
             continue;
         }
@@ -2112,7 +1742,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                 reportError(tryStmt->expr.get(), "`try` requires a Result value, got " + outcomeType.describe());
             } else {
                 const auto* outcomeInfo = lookupChoice(outcomeType.name);
-                if (!outcomeInfo || !isOutcomeLikeChoice(*outcomeInfo)) {
+                if (!outcomeInfo || !choice_utils::isOutcomeLikeChoice(*outcomeInfo)) {
                     reportError(tryStmt->expr.get(), "`try` requires Result to define Ok(T) and Fail(E) single-payload variants.");
                 }
                 okType = outcomeType.params[0];
@@ -2525,7 +2155,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                 reportError(lift->expr.get(), "'lift' requires a Result value, got " + outcomeType.describe());
             } else {
                 const auto* outcomeInfo = lookupChoice(outcomeType.name);
-                if (!outcomeInfo || !isOutcomeLikeChoice(*outcomeInfo)) {
+                if (!outcomeInfo || !choice_utils::isOutcomeLikeChoice(*outcomeInfo)) {
                     reportError(lift->expr.get(), "'lift' requires Result to define Ok(T) and Fail(E) single-payload variants.");
                 }
                 okType = outcomeType.params[0];
@@ -2751,7 +2381,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
     } else if (auto* ident = dynamic_cast<IdentExpr*>(expr)) {
         if (expectedType && !expectedType->isUnknown() && !expectedType->isOpaqueExternal()) {
             if (const auto* choiceInfo = lookupChoice(expectedType->name)) {
-                if (const auto variantInfo = resolveChoiceVariantInfo(*choiceInfo, *expectedType, ident->name)) {
+                if (const auto variantInfo = choice_utils::resolveChoiceVariantInfo(*choiceInfo, *expectedType, ident->name)) {
                     if (!variantInfo->payloadTypes.empty()) {
                         reportError(
                             ident,
@@ -2760,7 +2390,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                     } else {
                         ChoiceConstructorInfo constructorInfo;
                         constructorInfo.resultType = *expectedType;
-                        constructorInfo.variantName = findChoiceVariantName(*choiceInfo, ident->name).value_or(ident->name);
+                        constructorInfo.variantName = choice_utils::findChoiceVariantName(*choiceInfo, ident->name).value_or(ident->name);
                         analysisResult.choiceConstructors[ident] = std::move(constructorInfo);
                         type = *expectedType;
                         analysisResult.exprTypes[expr] = type;
@@ -2968,7 +2598,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
         if (auto* calleeIdent = dynamic_cast<IdentExpr*>(call->callee.get())) {
             if (expectedType && !expectedType->isUnknown() && !expectedType->isOpaqueExternal()) {
                 if (const auto* choiceInfo = lookupChoice(expectedType->name)) {
-                    if (const auto variantInfo = resolveChoiceVariantInfo(*choiceInfo, *expectedType, calleeIdent->name)) {
+                    if (const auto variantInfo = choice_utils::resolveChoiceVariantInfo(*choiceInfo, *expectedType, calleeIdent->name)) {
                         if (call->args.size() != variantInfo->payloadTypes.size()) {
                             reportError(
                                 call,
@@ -2996,7 +2626,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
 
                         ChoiceConstructorInfo constructorInfo;
                         constructorInfo.resultType = *expectedType;
-                        constructorInfo.variantName = findChoiceVariantName(*choiceInfo, calleeIdent->name).value_or(calleeIdent->name);
+                        constructorInfo.variantName = choice_utils::findChoiceVariantName(*choiceInfo, calleeIdent->name).value_or(calleeIdent->name);
                         constructorInfo.payloadTypes = variantInfo->payloadTypes;
                         analysisResult.choiceConstructors[call] = std::move(constructorInfo);
                         type = *expectedType;

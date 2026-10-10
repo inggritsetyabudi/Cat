@@ -1,0 +1,46 @@
+oir.module revise_choice_resolution
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_choice_resolution::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.choice Packet of T [abi=claw link=internal symbol=revise_choice_resolution::Packet ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Data(T)
+  case Empty
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_choice_resolution::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case ok(T)
+  case FAIL(E)
+oir.fn packet_value(packet: Packet[Int32] [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_choice_resolution::packet_value ffi=false]
+  block entry:
+    pick packet : Packet[Int32]
+    case Data(value) -> pick_Data_0
+    case Empty -> pick_Empty_1
+  block pick_Data_0:
+    drop packet : Packet[Int32]
+    return value : Int32
+  block pick_Empty_1:
+    drop packet : Packet[Int32]
+    return 0 : Int32
+oir.fn step() -> Result[Int32, Str] [indirect] [abi=claw link=internal symbol=revise_choice_resolution::step ffi=false]
+  block entry:
+    %t0 = ok(41) : Result[Int32, Str]
+    return %t0 : Result[Int32, Str]
+oir.fn result_value() -> Int32 [scalar] [abi=claw link=internal symbol=revise_choice_resolution::result_value ffi=false]
+  block entry:
+    %t0 = call step() : Result[Int32, Str]
+    try %t0 -> value, else err -> try_fail_0
+    %t1 = add value, 1 : Int32
+    return %t1 : Int32
+  block try_fail_0:
+    drop err : Str
+    return 0 : Int32
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_choice_resolution::main ffi=false]
+  block entry:
+    %t0 = Data(42) : Packet[Int32]
+    val packet: Packet[Int32] = %t0
+    %t1 = call packet_value(packet) : Int32
+    call println(%t1) : Unit
+    %t2 = call result_value() : Int32
+    call println(%t2) : Unit
+    return unit : Unit
