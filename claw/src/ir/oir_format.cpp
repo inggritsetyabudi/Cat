@@ -105,7 +105,7 @@ std::string formatValue(const OirValue& value) {
 std::string formatInst(const OirInst& inst, int indent) {
     const std::string pad = indentText(indent);
     return std::visit(Overloaded{
-        [&](const OirHoldInst& value) {
+        [&](const OirBindingInst& value) {
             std::ostringstream out;
             out << pad << (value.isMutable ? "var " : "val ") << value.name << ": " << value.type;
             if (value.init.has_value()) {
@@ -123,6 +123,18 @@ std::string formatInst(const OirInst& inst, int indent) {
         [&](const OirStoreFieldInst& value) {
             std::ostringstream out;
             out << pad << "store_field " << formatValue(value.object) << "." << value.field << " <- "
+                << formatValue(value.value) << " : " << value.value.type << "\n";
+            return out.str();
+        },
+        [&](const OirIndexInst& value) {
+            std::ostringstream out;
+            out << pad << value.result << " = index " << formatValue(value.object) << "[" << formatValue(value.index)
+                << "] : " << value.type << "\n";
+            return out.str();
+        },
+        [&](const OirStoreIndexInst& value) {
+            std::ostringstream out;
+            out << pad << "store_index " << formatValue(value.object) << "[" << formatValue(value.index) << "] <- "
                 << formatValue(value.value) << " : " << value.value.type << "\n";
             return out.str();
         },
@@ -150,9 +162,22 @@ std::string formatInst(const OirInst& inst, int indent) {
         [&](const OirGotoInst& value) {
             return pad + "goto " + value.targetLabel + "\n";
         },
+        [&](const OirRangeScanInitInst& value) {
+            std::ostringstream out;
+            out << pad << "range_scan_init " << value.itemName << ": " << value.itemType;
+            if (!value.indexName.empty()) {
+                out << ", " << value.indexName << ": USize";
+            }
+            out << " from " << formatValue(value.iterable) << " : " << value.iterable.type << "\n";
+            return out.str();
+        },
         [&](const OirScanInst& value) {
             std::ostringstream out;
-            out << pad << "scan " << value.itemName << ": " << value.itemType << " over "
+            out << pad << "scan " << value.itemName << ": " << value.itemType;
+            if (!value.indexName.empty()) {
+                out << ", " << value.indexName << ": USize";
+            }
+            out << " over "
                 << formatValue(value.iterable) << " -> " << value.bodyLabel << ", " << value.exitLabel << "\n";
             return out.str();
         },
@@ -175,7 +200,7 @@ std::string formatInst(const OirInst& inst, int indent) {
             }
             return out.str();
         },
-        [&](const OirLiftInst& value) {
+        [&](const OirTryInst& value) {
             std::ostringstream out;
             out << pad << "try " << formatValue(value.value) << " -> " << value.okName;
             if (value.autoPropagate) {
@@ -230,6 +255,12 @@ std::string formatInst(const OirInst& inst, int indent) {
             std::ostringstream out;
             out << pad << value.result << " = field " << formatValue(value.object) << "." << value.field
                 << " : " << value.type << "\n";
+            return out.str();
+        },
+        [&](const OirUnaryInst& value) {
+            std::ostringstream out;
+            out << pad << value.result << " = " << (value.op == "-" ? "neg" : value.op) << ' '
+                << formatValue(value.operand) << " : " << value.type << "\n";
             return out.str();
         },
         [&](const OirBinaryInst& value) {

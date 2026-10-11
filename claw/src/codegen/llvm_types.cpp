@@ -54,7 +54,8 @@ const LirFunction* LlvmEmitter::entryFunction() const {
 
 std::string LlvmEmitter::llvmType(const std::string& typeText) const {
     const std::string stripped = stripViewPrefix(typeText);
-    const std::string base = canonicalBackendTypeBase(stripGenericArgs(stripped));
+    const ParsedTypeName parsedType = parseTypeName(stripped);
+    const std::string& base = parsedType.base;
 
     if (stripped == "Unit" || base == "Unit") return "void";
     if (stripped == "Bool" || base == "Bool") return "i1";
@@ -73,6 +74,30 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
         base == "OwnedCStr" || base == "Arena" || base == "Anchor" || base == "Map" ||
         base == "Set" || base == "Queue") {
         return "ptr";
+    }
+
+    if (base == "Tuple") {
+        if (parsedType.args.empty()) {
+            throw std::runtime_error("LLVM lowering requires at least one element type for a tuple.");
+        }
+        std::ostringstream tupleType;
+        tupleType << "{ ";
+        for (size_t i = 0; i < parsedType.args.size(); ++i) {
+            if (i > 0) {
+                tupleType << ", ";
+            }
+            const std::string elementType = llvmType(parsedType.args[i]);
+            tupleType << (elementType == "void" ? "[0 x i8]" : elementType);
+        }
+        tupleType << " }";
+        return tupleType.str();
+    }
+
+    if (base == "Range") {
+        if (parsedType.args.size() != 1 || parsedType.args.front() != "Int32") {
+            throw std::runtime_error("LLVM lowering supports only Range[Int32].");
+        }
+        return "{ i32, i32, i1 }";
     }
 
     const auto shapeIt = shapesByName.find(base);
@@ -249,13 +274,16 @@ std::string LlvmEmitter::emitStringGlobals() {
                             [&](const LirIterNextInst& value) {
                                 collectLiteral(value.iterable);
                             },
+                            [&](const LirRangeScanInitInst& value) {
+                                collectLiteral(value.iterable);
+                            },
                             [&](const LirBranchInst& value) {
                                 collectLiteral(value.condition);
                             },
                             [&](const LirSwitchInst& value) {
                                 collectLiteral(value.value);
                             },
-                            [&](const LirLiftInst& value) {
+                            [&](const LirTryInst& value) {
                                 collectLiteral(value.value);
                             },
                             [&](const LirChoiceMakeInst& value) {
@@ -265,6 +293,18 @@ std::string LlvmEmitter::emitStringGlobals() {
                             },
                             [&](const LirFieldInst& value) {
                                 collectLiteral(value.object);
+                            },
+                            [&](const LirIndexInst& value) {
+                                collectLiteral(value.object);
+                                collectLiteral(value.index);
+                            },
+                            [&](const LirStoreIndexInst& value) {
+                                collectLiteral(value.object);
+                                collectLiteral(value.index);
+                                collectLiteral(value.value);
+                            },
+                            [&](const LirUnaryInst& value) {
+                                collectLiteral(value.operand);
                             },
                             [&](const LirBinaryInst& value) {
                                 collectLiteral(value.left);
@@ -404,6 +444,31 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
         base == "OwnedCStr" || base == "Arena" || base == "Anchor" || base == "Map" ||
         base == "Set" || base == "Queue") {
         return AbiLayout{8, 8};
+    }
+
+    if (base == "Tuple") {
+        if (parsed.args.empty()) {
+            return std::nullopt;
+        }
+        size_t size = 0;
+        size_t align = 1;
+        for (const auto& elementType : parsed.args) {
+            const auto elementLayout = abiLayoutForType(elementType);
+            if (!elementLayout.has_value()) {
+                return std::nullopt;
+            }
+            size = roundUpTo(size, elementLayout->align);
+            size += elementLayout->size;
+            align = std::max(align, elementLayout->align);
+        }
+        return AbiLayout{roundUpTo(size, align), align};
+    }
+
+    if (base == "Range") {
+        if (parsed.args.size() != 1 || parsed.args.front() != "Int32") {
+            return std::nullopt;
+        }
+        return AbiLayout{12, 4};
     }
 
     if (shapesByName.contains(base)) {
@@ -614,9 +679,3 @@ const LirFunction* LlvmEmitter::lookupDirectFunction(std::string_view callee) co
 }
 
 } // namespace claw::codegen
-
-
-
-
-
-

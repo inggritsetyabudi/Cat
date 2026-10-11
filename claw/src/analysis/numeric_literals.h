@@ -21,6 +21,7 @@ bool isFloatTypeName(const std::string& name);
 NumericLiteralParts splitNumericLiteralText(const std::string& text);
 std::optional<ResolvedType> resolveNumericLiteralSuffixType(const std::string& suffix);
 bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target);
+bool integerLiteralFitsNegatedTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target);
 bool floatLiteralFitsTarget(const std::string& magnitude, const std::string& targetName);
 bool shouldUseExpectedIntegerType(const ResolvedType* expectedType);
 bool shouldUseExpectedFloatType(const ResolvedType* expectedType);

@@ -1,0 +1,5 @@
+fn trim(values: ref mut Queue[Int32]) {
+    values.truncate(2)
+}
+
+fn main() {}

@@ -9,11 +9,11 @@ oir.choice Maybe of T [abi=claw link=internal symbol=revise_error_handling::Mayb
   case Some(T)
 oir.fn step(flag: Bool [scalar]) -> Result[Int32, Str] [indirect] [abi=claw link=internal symbol=revise_error_handling::step ffi=false]
   block entry:
-    branch flag -> when_then_0, when_join_1
-  block when_then_0:
+    branch flag -> if_then_0, if_join_1
+  block if_then_0:
     %t0 = Ok(7) : Result[Int32, Str]
     return %t0 : Result[Int32, Str]
-  block when_join_1:
+  block if_join_1:
     %t1 = Fail("bad") : Result[Int32, Str]
     return %t1 : Result[Int32, Str]
 oir.fn unwrap(flag: Bool [scalar]) -> Result[Int32, Str] [indirect] [abi=claw link=internal symbol=revise_error_handling::unwrap ffi=false]

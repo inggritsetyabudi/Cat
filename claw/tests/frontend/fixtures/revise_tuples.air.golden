@@ -1,0 +1,51 @@
+air.module revise_tuples
+air.choice Result
+  Ok(T)
+  Fail(E)
+air.choice Maybe
+  None
+  Some(T)
+air.choice Route
+  left
+  right
+air.fn typed_pair() -> Tuple[Int64, Int64]
+  return (40, 2) : Tuple[Int64, Int64]
+air.fn choose_if(flag: Bool) -> Tuple[Int64, Int64]
+  return if flag : Bool {
+  expr (1, 41) : Tuple[Int64, Int64]
+} else {
+  expr (20, 22) : Tuple[Int64, Int64]
+} : Tuple[Int64, Int64]
+air.fn choose_pick(route: Route) -> Tuple[Int64, Int64]
+  return pick route : Route {
+  left {
+    expr (10, 32) : Tuple[Int64, Int64]
+  }
+  right {
+    expr (21, 21) : Tuple[Int64, Int64]
+  }
+} : Tuple[Int64, Int64]
+air.fn nested_pair() -> Tuple[Tuple[Int32, Int32], Int32]
+  return ((1, 2), 40) : Tuple[Tuple[Int32, Int32], Int32]
+air.fn empty_unit() -> Unit
+  return () : Unit
+air.fn sum_pair(pair: Tuple[Int64, Int64]) -> Int64
+  return (pair.0 + pair.1) : Int64
+air.fn main() -> Unit
+  val grouped: Int32 = (20 + 22) : Int32
+  val singleton: Tuple[Int32] = (42,) : Tuple[Int32]
+  val pair: Tuple[Int64, Int64] = typed_pair() : Tuple[Int64, Int64]
+  val nested: Tuple[Tuple[Int32, Int32], Int32] = nested_pair() : Tuple[Tuple[Int32, Int32], Int32]
+  val selected_if: Tuple[Int64, Int64] = choose_if(true : Bool) : Tuple[Int64, Int64]
+  val selected_pick: Tuple[Int64, Int64] = choose_pick(left : Route) : Tuple[Int64, Int64]
+  val decimal: Tuple[Float64, Float64] = (1.5, 2.25) : Tuple[Float64, Float64]
+  expr empty_unit() : Unit
+  expr println(grouped : Int32) : Unit
+  expr println(singleton.0 : Int32) : Unit
+  expr println((pair.0 + pair.1) : Int64) : Unit
+  expr println(sum_pair(pair : Tuple[Int64, Int64]) : Int64) : Unit
+  expr println((nested.0.1 + nested.1) : Int32) : Unit
+  expr println((selected_if.0 + selected_if.1) : Int64) : Unit
+  expr println((selected_pick.0 + selected_pick.1) : Int64) : Unit
+  if ((decimal.0 + decimal.1) == 3.75) : Bool
+    expr println("float-ok" : Str) : Unit

@@ -1,0 +1,85 @@
+oir.module revise_tuple_pick
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_tuple_pick::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_tuple_pick::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn make_nested() -> Tuple[Tuple[Int32, Int32], Int32] [direct] [abi=claw link=internal symbol=revise_tuple_pick::make_nested ffi=false]
+  block entry:
+    call println("selector-once") : Unit
+    var separator: Int32
+    val %t0: Tuple[Tuple[Int32, Int32], Int32]
+    val %t1: Tuple[Int32, Int32]
+    store_field %t1.0 <- 8 : Int32
+    store_field %t1.1 <- 9 : Int32
+    store_field %t0.0 <- %t1 : Tuple[Int32, Int32]
+    store_field %t0.1 <- 10 : Int32
+    return %t0 : Tuple[Tuple[Int32, Int32], Int32]
+oir.fn statement_pick() -> Unit [void] [abi=claw link=internal symbol=revise_tuple_pick::statement_pick ffi=false]
+  block entry:
+    %t0 = call make_nested() : Tuple[Tuple[Int32, Int32], Int32]
+    %t1 = field %t0.0 : Tuple[Int32, Int32]
+    %t2 = field %t1.0 : Int32
+    val left: Int32 = %t2
+    %t3 = field %t0.1 : Int32
+    val right: Int32 = %t3
+    goto pick_tuple_0
+  block pick_tuple_0:
+    %t4 = add left, right : Int32
+    call println(%t4) : Unit
+    goto pick_join_1
+  block pick_join_1:
+oir.fn expression_pick() -> Int32 [scalar] [abi=claw link=internal symbol=revise_tuple_pick::expression_pick ffi=false]
+  block entry:
+    %t0 = call make_nested() : Tuple[Tuple[Int32, Int32], Int32]
+    var %t1: Int32
+    %t2 = field %t0.0 : Tuple[Int32, Int32]
+    %t3 = field %t2.1 : Int32
+    val middle: Int32 = %t3
+    %t4 = field %t0.1 : Int32
+    val right: Int32 = %t4
+    goto pick_tuple_0
+  block pick_tuple_0:
+    %t5 = add middle, right : Int32
+    store %t1 <- %t5 : Int32
+    goto pick_join_1
+  block pick_join_1:
+    return %t1 : Int32
+oir.fn fallback(pair: Tuple[Int32, Int32] [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_tuple_pick::fallback ffi=false]
+  block entry:
+    var %t0: Int32
+    goto pick_tuple_0
+  block pick_tuple_0:
+    store %t0 <- 0 : Int32
+    goto pick_join_1
+  block pick_join_1:
+    return %t0 : Int32
+oir.fn singleton_pick() -> Int32 [scalar] [abi=claw link=internal symbol=revise_tuple_pick::singleton_pick ffi=false]
+  block entry:
+    val %t0: Tuple[Int32]
+    store_field %t0.0 <- 7 : Int32
+    var %t1: Int32
+    %t2 = field %t0.0 : Int32
+    val only: Int32 = %t2
+    goto pick_tuple_0
+  block pick_tuple_0:
+    store %t1 <- only : Int32
+    goto pick_join_1
+  block pick_join_1:
+    return %t1 : Int32
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_tuple_pick::main ffi=false]
+  block entry:
+    call statement_pick() : Unit
+    %t0 = call expression_pick() : Int32
+    call println(%t0) : Unit
+    val %t1: Tuple[Int32, Int32]
+    store_field %t1.0 <- 1 : Int32
+    store_field %t1.1 <- 2 : Int32
+    %t2 = call fallback(%t1) : Int32
+    call println(%t2) : Unit
+    %t3 = call singleton_pick() : Int32
+    call println(%t3) : Unit
+    return unit : Unit

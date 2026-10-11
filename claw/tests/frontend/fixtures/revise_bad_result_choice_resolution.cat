@@ -1,10 +1,10 @@
 choice Result[T, E] {
-    ok(value: T)
-    FAIL
+    Ok(value: T)
+    Fail
 }
 
 fn step() -> Result[Int32, Str] {
-    return ok(41)
+    return Ok(41)
 }
 
 fn main() {

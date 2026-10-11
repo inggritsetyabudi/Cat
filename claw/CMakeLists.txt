@@ -25,7 +25,6 @@ add_library(claw_frontend
     src/analysis/sema.cpp
     src/analysis/ownership.cpp
     src/workspace/workspace.cpp
-    src/workspace/manifest.cpp
     src/workspace/config.cpp
 )
 target_include_directories(claw_frontend PUBLIC src)

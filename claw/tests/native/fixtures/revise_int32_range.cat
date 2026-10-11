@@ -1,0 +1,64 @@
+fn contains(value: Int32, range: Range[Int32]) -> Int32 {
+    if value in range { 1 } else { 0 }
+}
+
+fn combined_membership() -> Int32 {
+    if 3 in 1..5 and 4 in 1..=4 { 1 } else { 0 }
+}
+
+fn parenthesized_membership() -> Int32 {
+    if 9 in (1..5) or 3 in (2..=4) { 1 } else { 0 }
+}
+
+fn start_once() -> Int32 {
+    println("start")
+    return 2
+}
+
+fn end_once() -> Int32 {
+    println("end")
+    return 5
+}
+
+fn make_inclusive() -> Range[Int32] {
+    3..=5
+}
+
+fn main() -> Int32 {
+    val decimal: Float64 = 1.5
+    val nested: ((Int32, Int32), Int32) = ((1, 10), 20)
+    println(nested.0.1)
+    if decimal == 1.5 { println(1) } else { println(0) }
+    val mixed_precedence: Range[Int32] = 1..2 + 3
+    println(contains(4, mixed_precedence))
+    println(combined_membership())
+    println(parenthesized_membership())
+
+    val exclusive: Range[Int32] = start_once()..end_once()
+    println(contains(1, exclusive))
+    println(contains(2, exclusive))
+    println(contains(4, exclusive))
+    println(contains(5, exclusive))
+
+    val inclusive: Range[Int32] = make_inclusive()
+    println(contains(3, inclusive))
+    println(contains(5, inclusive))
+    println(contains(6, inclusive))
+
+    val empty: Range[Int32] = 4..4
+    println(contains(4, empty))
+    val reversed: Range[Int32] = 5..4
+    println(contains(4, reversed))
+    val reversed_inclusive: Range[Int32] = 5..=4
+    println(contains(5, reversed_inclusive))
+    val equal_inclusive: Range[Int32] = 4..=4
+    println(contains(4, equal_inclusive))
+
+    val signed: Range[Int32] = -2..=2
+    println(contains(-2, signed))
+    println(contains(2, signed))
+    println(contains(3, signed))
+
+    if 3 in 1..5 { println(1) } else { println(0) }
+    0
+}

@@ -1,0 +1,15 @@
+choice Route {
+    left(value: Int32)
+    right(value: Int32)
+}
+
+fn select(route: Route) -> Int32 {
+    pick route {
+        left(value) {
+            value
+        }
+        right(value) {
+            "text"
+        }
+    }
+}

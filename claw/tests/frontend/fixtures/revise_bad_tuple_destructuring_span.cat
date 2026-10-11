@@ -1,0 +1,5 @@
+fn inspect(span: Span[Int32]) {
+    val (part, _) = (span, 1)
+}
+
+fn main() {}

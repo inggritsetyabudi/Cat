@@ -1,0 +1,3 @@
+fn consume(UpperParameter: Int32) {}
+
+fn main() {}

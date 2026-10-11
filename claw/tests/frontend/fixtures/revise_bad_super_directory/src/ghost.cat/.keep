@@ -1,0 +1,1 @@
+This directory intentionally tests rejection of a non-file sibling module candidate.

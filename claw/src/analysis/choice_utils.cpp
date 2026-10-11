@@ -1,30 +1,12 @@
 #include "analysis/choice_utils.h"
 
-#include <algorithm>
-#include <cctype>
 #include <string>
 
 namespace claw::frontend::choice_utils {
-namespace {
-
-std::string lowercaseAscii(std::string_view text) {
-    std::string lowered;
-    lowered.reserve(text.size());
-    for (const char c : text) {
-        lowered.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-    }
-    return lowered;
-}
-
-bool sameIdentifierIgnoringCase(std::string_view left, std::string_view right) {
-    return lowercaseAscii(left) == lowercaseAscii(right);
-}
-
-} // namespace
 
 std::optional<std::string> findChoiceVariantName(const ChoiceInfo& choice, std::string_view requested) {
     for (const auto& variantName : choice.variantOrder) {
-        if (sameIdentifierIgnoringCase(variantName, requested)) {
+        if (std::string_view(variantName) == requested) {
             return variantName;
         }
     }

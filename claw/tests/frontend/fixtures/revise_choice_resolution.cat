@@ -1,26 +1,26 @@
 choice Packet[T] {
-    Data(value: T)
-    Empty
+    data(value: T)
+    empty
 }
 
 choice Result[T, E] {
-    ok(value: T)
-    FAIL(error: E)
+    Ok(value: T)
+    Fail(error: E)
 }
 
 fn packet_value(packet: Packet[Int32]) -> Int32 {
     pick packet {
-        Data(value) {
+        data(value) {
             return value
         }
-        Empty {
+        empty {
             return 0
         }
     }
 }
 
 fn step() -> Result[Int32, Str] {
-    return oK(41)
+    return Ok(41)
 }
 
 fn result_value() -> Int32 {
@@ -31,7 +31,7 @@ fn result_value() -> Int32 {
 }
 
 fn main() {
-    val packet: Packet[Int32] = dAtA(42)
+    val packet: Packet[Int32] = data(42)
     println(packet_value(packet))
     println(result_value())
 }

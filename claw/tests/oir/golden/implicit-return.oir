@@ -1,0 +1,29 @@
+oir.module revise_implicit_return
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_implicit_return::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_implicit_return::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn calculate() -> Int32 [scalar] [abi=claw link=internal symbol=revise_implicit_return::calculate ffi=false]
+  block entry:
+    discard 9 : integer literal
+    var %t0: Int32
+    branch true -> if_then_0, if_else_1
+  block if_then_0:
+    discard 7 : integer literal
+    %t1 = add 40, 2 : Int32
+    store %t0 <- %t1 : Int32
+    goto if_join_2
+  block if_else_1:
+    store %t0 <- 0 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t0 : Int32
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_implicit_return::main ffi=false]
+  block entry:
+    %t0 = call calculate() : Int32
+    call println(%t0) : Unit
+    return 0 : integer literal

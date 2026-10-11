@@ -1,0 +1,7 @@
+shape AnchorBox[T] {
+    value: Anchor[T]
+}
+
+fn accept(box: AnchorBox[Anchor[Int32]]) {}
+
+fn main() {}

@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    Anchor.new("borrowed-temporary").get()
+    0
+}

@@ -7,28 +7,27 @@ namespace claw::frontend {
 
 enum class TokenKind {
     // Keywords
-    KwFn, KwVal, KwVar, KwHold, KwSlot, KwReturn, KwGive, KwIf, KwElse, KwWhen, KwOtherwise,
+    KwFn, KwVal, KwVar, KwReturn, KwIf, KwElse,
     KwLoop, KwScan, KwStop, KwSkip, KwShape, KwChoice, KwView, KwScope,
-    KwImport, KwShare, KwSuper, KwPub, KwModules,
-    KwAs, KwOver, KwOf, KwFail, KwPick, KwLift, KwRaw,
+    KwImport, KwShare, KwSuper,
+    KwAs, KwOver, KwFail, KwPick, KwRaw, KwAnd, KwOr, KwNot, KwIn,
     KwRef, KwMut, KwTry, KwForeign, KwStatic,
     KwContract, KwImplements, KwWith, KwSelf, KwTrue, KwFalse,
-    KwLook, KwEdit, KwRealm,
 
     // Punctuation
     LBracket, RBracket,
     LBrace, RBrace,
     LParen, RParen,
     Colon,
-    Equal,
+    Equal, PlusEqual, MinusEqual, StarEqual, SlashEqual, PercentEqual,
     Arrow,
     Comma,
-    Dot,
+    Dot, DotDot, DotDotEqual,
     Bang,
     EqEq, NotEq,
     Less, LessEq,
     Greater, GreaterEq,
-    Plus, Minus, Star, Slash,
+    Plus, Minus, Star, Slash, Percent,
 
     // Literals/Identifiers
     Identifier,
@@ -69,7 +68,7 @@ private:
     bool skipBlockComment();
 
     Token readIdentifierOrKeyword();
-    Token readNumber();
+    Token readNumber(bool allowFraction);
     Token readString();
     Token readChar();
     Token makeToken(
@@ -81,4 +80,3 @@ private:
 };
 
 } // namespace claw::frontend
-

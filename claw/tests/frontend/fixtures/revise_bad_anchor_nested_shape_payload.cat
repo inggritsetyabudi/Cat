@@ -1,0 +1,9 @@
+shape AnchorBox[T] {
+    value: Anchor[T]
+}
+
+fn wrap_box(box: AnchorBox[Str]) {
+    val outer = Anchor.new(box)
+}
+
+fn main() {}

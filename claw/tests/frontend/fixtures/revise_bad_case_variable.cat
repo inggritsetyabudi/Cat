@@ -1,0 +1,4 @@
+fn main() {
+    val UpperVariable = 1
+    println(UpperVariable)
+}

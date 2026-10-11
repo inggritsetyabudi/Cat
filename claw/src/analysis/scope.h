@@ -12,6 +12,7 @@ namespace claw::frontend {
 
 struct Symbol {
     std::string name;
+    std::string backendBindingKey;
     SymbolKind kind = SymbolKind::Variable;
     bool isMutable = false;
     bool isExternal = false;

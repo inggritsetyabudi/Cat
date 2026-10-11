@@ -1,0 +1,231 @@
+oir.module revise_if_pick_values
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_if_pick_values::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_if_pick_values::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.choice Route [abi=claw link=internal symbol=revise_if_pick_values::Route ffi=false]
+  layout repr=claw-internal kind=tagged size=8 align=4 pass=direct ffi=false tag=4 payload_offset=4 payload_size=4
+  case left(Int32) @payload_offset=4 size=4 align=4
+  case right(Int32) @payload_offset=4 size=4 align=4
+oir.fn if_tail(flag: Bool [scalar]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_if_pick_values::if_tail ffi=false]
+  block entry:
+    var %t0: Int32
+    branch flag -> if_then_0, if_else_1
+  block if_then_0:
+    store %t0 <- 11 : Int32
+    goto if_join_2
+  block if_else_1:
+    store %t0 <- 22 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t0 : Int32
+oir.fn if_return(flag: Bool [scalar]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_if_pick_values::if_return ffi=false]
+  block entry:
+    var %t0: Int32
+    branch flag -> if_then_0, if_else_1
+  block if_then_0:
+    store %t0 <- 33 : Int32
+    goto if_join_2
+  block if_else_1:
+    return 44 : Int32
+  block if_join_2:
+    return %t0 : Int32
+oir.fn if_initializer(flag: Bool [scalar]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_if_pick_values::if_initializer ffi=false]
+  block entry:
+    var %t0: Int32
+    branch flag -> if_then_0, if_else_1
+  block if_then_0:
+    store %t0 <- 55 : Int32
+    goto if_join_2
+  block if_else_1:
+    var %t1: Int32
+    branch false -> if_then_3, if_else_4
+  block if_then_3:
+    store %t1 <- 66 : Int32
+    goto if_join_5
+  block if_else_4:
+    store %t1 <- 77 : Int32
+    goto if_join_5
+  block if_join_5:
+    store %t0 <- %t1 : Int32
+    goto if_join_2
+  block if_join_2:
+    val selected: Int32 = %t0
+    return selected : Int32
+oir.fn pick_return(route: Route [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_if_pick_values::pick_return ffi=false]
+  block entry:
+    var %t0: Int32
+    pick route : Route
+    case left(value) -> pick_left_1
+    case right(value) -> pick_right_2
+  block pick_left_1:
+    store %t0 <- value : Int32
+    goto pick_join_0
+  block pick_right_2:
+    store %t0 <- value : Int32
+    goto pick_join_0
+  block pick_join_0:
+    drop route : Route
+    return %t0 : Int32
+oir.fn pick_initializer(route: Route [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_if_pick_values::pick_initializer ffi=false]
+  block entry:
+    var %t0: Int32
+    pick route : Route
+    case left(value) -> pick_left_1
+    case right(value) -> pick_right_2
+  block pick_left_1:
+    store %t0 <- value : Int32
+    goto pick_join_0
+  block pick_right_2:
+    store %t0 <- value : Int32
+    goto pick_join_0
+  block pick_join_0:
+    val selected: Int32 = %t0
+    drop route : Route
+    return selected : Int32
+oir.fn pick_return_or_value(route: Route [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_if_pick_values::pick_return_or_value ffi=false]
+  block entry:
+    var %t0: Int32
+    pick route : Route
+    case left(value) -> pick_left_1
+    case right(value) -> pick_right_2
+  block pick_left_1:
+    store %t0 <- value : Int32
+    goto pick_join_0
+  block pick_right_2:
+    drop route : Route
+    return value : Int32
+  block pick_join_0:
+    drop route : Route
+    return %t0 : Int32
+oir.fn terminal_if_initializer(flag: Bool [scalar]) -> Unit [void] [abi=claw link=internal symbol=revise_if_pick_values::terminal_if_initializer ffi=false]
+  block entry:
+    branch flag -> if_then_0, if_else_1
+  block if_then_0:
+    return unit : Unit
+  block if_else_1:
+    return unit : Unit
+oir.fn terminal_pick_initializer(route: Route [direct]) -> Unit [void] [abi=claw link=internal symbol=revise_if_pick_values::terminal_pick_initializer ffi=false]
+  block entry:
+    pick route : Route
+    case left(value) -> pick_left_0
+    case right(value) -> pick_right_1
+  block pick_left_0:
+    drop route : Route
+    return unit : Unit
+  block pick_right_1:
+    drop route : Route
+    return unit : Unit
+oir.fn pick_with_wildcard(route: Route [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_if_pick_values::pick_with_wildcard ffi=false]
+  block entry:
+    var %t0: Int32
+    pick route : Route
+    case left(value) -> pick_left_1
+    case _ -> pick___2
+  block pick_left_1:
+    store %t0 <- value : Int32
+    goto pick_join_0
+  block pick___2:
+    store %t0 <- 0 : Int32
+    goto pick_join_0
+  block pick_join_0:
+    drop route : Route
+    return %t0 : Int32
+oir.fn pick_statement_with_wildcard(route: Route [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_if_pick_values::pick_statement_with_wildcard ffi=false]
+  block entry:
+    var selected: Int32 = 0
+    pick route : Route
+    case left(value) -> pick_left_1
+    case _ -> pick___2
+  block pick_left_1:
+    store selected <- value : Int32
+    goto pick_join_0
+  block pick___2:
+    %t0 = neg 1 : Int32
+    store selected <- %t0 : Int32
+    goto pick_join_0
+  block pick_join_0:
+    drop route : Route
+    return selected : Int32
+oir.fn ownership_join(flag: Bool [scalar]) -> Str [direct] [abi=claw link=internal symbol=revise_if_pick_values::ownership_join ffi=false]
+  block entry:
+    val x: Str = "outer"
+    var %t0: Str
+    branch flag -> if_then_0, if_else_1
+  block if_then_0:
+    return x : Str
+  block if_else_1:
+    store %t0 <- "inner" : Str
+    goto if_join_2
+  block if_join_2:
+    val y: Str = %t0
+    drop x : Str
+    return y : Str
+oir.fn anchor_ownership_join(flag: Bool [scalar]) -> Anchor[Str] [direct] [abi=claw link=internal symbol=revise_if_pick_values::anchor_ownership_join ffi=false]
+  block entry:
+    %t0 = call Anchor.new("outer") : Anchor[Str]
+    val x: Anchor[Str] = %t0
+    var %t1: Anchor[Str]
+    branch flag -> if_then_0, if_else_1
+  block if_then_0:
+    return x : Anchor[Str]
+  block if_else_1:
+    %t2 = call Anchor.new("inner") : Anchor[Str]
+    store %t1 <- %t2 : Anchor[Str]
+    goto if_join_2
+  block if_join_2:
+    val y: Anchor[Str] = %t1
+    drop x : Anchor[Str]
+    return y : Anchor[Str]
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_if_pick_values::main ffi=false]
+  block entry:
+    %t0 = call if_tail(true) : Int32
+    call println(%t0) : Unit
+    %t1 = call if_tail(false) : Int32
+    call println(%t1) : Unit
+    %t2 = call if_return(true) : Int32
+    call println(%t2) : Unit
+    %t3 = call if_return(false) : Int32
+    call println(%t3) : Unit
+    %t4 = call if_initializer(true) : Int32
+    call println(%t4) : Unit
+    %t5 = call if_initializer(false) : Int32
+    call println(%t5) : Unit
+    %t6 = left(101) : Route
+    %t7 = call pick_return(%t6) : Int32
+    call println(%t7) : Unit
+    %t8 = right(202) : Route
+    %t9 = call pick_return(%t8) : Int32
+    call println(%t9) : Unit
+    %t10 = right(303) : Route
+    %t11 = call pick_initializer(%t10) : Int32
+    call println(%t11) : Unit
+    %t12 = left(404) : Route
+    %t13 = call pick_return_or_value(%t12) : Int32
+    call println(%t13) : Unit
+    %t14 = right(505) : Route
+    %t15 = call pick_return_or_value(%t14) : Int32
+    call println(%t15) : Unit
+    %t16 = left(606) : Route
+    %t17 = call pick_with_wildcard(%t16) : Int32
+    call println(%t17) : Unit
+    %t18 = right(707) : Route
+    %t19 = call pick_with_wildcard(%t18) : Int32
+    call println(%t19) : Unit
+    %t20 = right(808) : Route
+    %t21 = call pick_statement_with_wildcard(%t20) : Int32
+    call println(%t21) : Unit
+    %t22 = call ownership_join(false) : Str
+    call println(%t22) : Unit
+    %t23 = call ownership_join(true) : Str
+    call println(%t23) : Unit
+    %t24 = call anchor_ownership_join(false) : Anchor[Str]
+    val dropped_anchor: Anchor[Str] = %t24
+    %t25 = call anchor_ownership_join(true) : Anchor[Str]
+    val returned_anchor: Anchor[Str] = %t25
+    drop returned_anchor : Anchor[Str]
+    drop dropped_anchor : Anchor[Str]

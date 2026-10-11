@@ -1,0 +1,10 @@
+fn step() -> Result[Int32, Str] {
+    return Ok(1)
+}
+
+fn bad() -> Result[Int32, Int32] {
+    val value = try step()
+    return Ok(value)
+}
+
+fn main() {}

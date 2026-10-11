@@ -1,0 +1,5 @@
+fn main() {
+    scan item, index over "text" {
+        stop
+    }
+}

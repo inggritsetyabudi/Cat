@@ -1,0 +1,3 @@
+# 2026-10-11 — Syntax review follow-up
+
+This follow-up closes independent review findings on the revised-syntax workstream: the active try lowering now emits `try_ok` success labels, and its backend test rejects residual `%lift.*`/`.lift_*` markers. The unreferenced LLVM dump under `tests/backend/fixtures/` is removed because the active runner compiles the `.cat` source and emits the inspected output under `tests/backend/artifacts/`. Frontend regressions now compile each removed PRD type name in isolation and assert its exact `Unknown type` diagnostic. Arena, module maintenance, and `modules.cat` remain unchanged.

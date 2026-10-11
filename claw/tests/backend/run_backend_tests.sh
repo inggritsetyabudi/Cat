@@ -50,7 +50,10 @@ nested_scoped_ll="$ARTIFACT_DIR/revise_nested_scoped_generic.ll"
 nested_scoped_workspace_ll="$ARTIFACT_DIR/revise_nested_scoped_workspace.ll"
 str_search_ll="$ARTIFACT_DIR/revise_str_search_methods.ll"
 implements_ll="$ARTIFACT_DIR/revise_implements.ll"
-rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll"
+if_pick_values_ll="$ARTIFACT_DIR/revise_if_pick_values.ll"
+try_contract_ll="$ARTIFACT_DIR/revise_try_contract.ll"
+rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll" "$if_pick_values_ll"
+rm -f "$try_contract_ll"
 
 run_llvm "test_backend/revise_result_llvm.cat" "$BACKEND_FIXTURE_DIR/revise_result_llvm.cat" "$result_ll"
 llvm_output="$(tr -d '\r' < "$result_ll")"
@@ -58,8 +61,13 @@ if [[ "$llvm_output" != *'define internal void @"revise_result_llvm::step"'* ]] 
    [[ "$llvm_output" != *'define internal void @"revise_result_llvm::show"'* ]] ||
    [[ "$llvm_output" != *'@"claw.runtime.println.i32"'* ]] ||
    [[ "$llvm_output" != *'@"claw.runtime.println.slice"'* ]] ||
+   [[ "$llvm_output" != *'entry.try_ok.0:'* ]] ||
    [[ "$llvm_output" != *'try_fail_0:'* ]]; then
   echo "revised backend LLVM output did not include the expected Result/try lowering markers" >&2
+  exit 1
+fi
+if [[ "$llvm_output" == *'%lift.'* || "$llvm_output" == *'.lift_'* ]]; then
+  echo "revised backend LLVM output still contains legacy lift markers" >&2
   exit 1
 fi
 
@@ -134,6 +142,52 @@ fi
 
 run_llvm "test_native/revise_implements.cat" "$SCRIPT_DIR/../native/fixtures/revise_implements.cat" "$implements_ll"
 
+run_llvm "test_native/revise_if_pick_values.cat" "$SCRIPT_DIR/../native/fixtures/revise_if_pick_values.cat" "$if_pick_values_ll"
+if_pick_values_output="$(tr -d '\r' < "$if_pick_values_ll")"
+if [[ "$if_pick_values_output" != *'br i1'* ]] ||
+   [[ "$if_pick_values_output" != *'switch i32'* ]] ||
+   [[ "$if_pick_values_output" != *'label %pick___'* ]] ||
+   [[ "$if_pick_values_output" != *'store i32'* ]] ||
+   [[ "$if_pick_values_output" != *'load i32'* ]] ||
+   [[ "$if_pick_values_output" != *'call void @"claw.runtime.anchor.free"'* ]]; then
+  echo "if/pick value LLVM output did not contain branch/result storage and choice switch markers" >&2
+  exit 1
+fi
+
+run_llvm "test_native/revise_try_contract.cat" "$SCRIPT_DIR/../native/fixtures/revise_try_contract.cat" "$try_contract_ll"
+try_unwrap_one_llvm="$(sed -n '/define internal void @"revise_try_contract::unwrap_one"/,/^}/p' "$try_contract_ll")"
+try_tag_check_count="$(printf '%s\n' "$try_unwrap_one_llvm" | grep -c ' = icmp eq i32 .*try.tag' || true)"
+if [[ "$try_unwrap_one_llvm" != *'call void @"revise_try_contract::nested"('* ]] ||
+   [[ "$try_unwrap_one_llvm" != *'entry.try_ok.0:'* ]] ||
+   [[ "$try_tag_check_count" != "1" ]]; then
+  echo "nested Result LLVM lowering did not check exactly the outer Result tag" >&2
+  exit 1
+fi
+
+range_ll="$ARTIFACT_DIR/revise_int32_range.ll"
+rm -f "$range_ll"
+run_llvm "test_native/revise_int32_range.cat" "$SCRIPT_DIR/../native/fixtures/revise_int32_range.cat" "$range_ll"
+range_output="$(tr -d '\r' < "$range_ll")"
+if [[ "$range_output" != *'define internal i32 @"revise_int32_range::contains"(i32 %arg.value, { i32, i32, i1 } %arg.range)'* ]] ||
+   [[ "$range_output" != *'insertvalue { i32, i32, i1 } zeroinitializer'* ]] ||
+   [[ "$range_output" != *'extractvalue { i32, i32, i1 }'* ]] ||
+   [[ "$range_output" != *'icmp sge i32'* ]] ||
+   [[ "$range_output" != *'icmp slt i32'* ]] ||
+   [[ "$range_output" != *'icmp sle i32'* ]] ||
+   [[ "$range_output" != *'select i1'* ]]; then
+  echo "Int32 range LLVM output did not contain the direct aggregate ABI and expected bound tests" >&2
+  exit 1
+fi
+if range_negative="$("$CLAW_EXE" llvm "$FRONTEND_FIXTURE_DIR/revise_bad_int32_range_char.cat" 2>&1)"; then
+  echo "unsupported Char range unexpectedly reached LLVM lowering" >&2
+  exit 1
+fi
+if [[ "$range_negative" != *"Range bounds currently support only Int32"* ]]; then
+  echo "unsupported Char range LLVM failure did not report the sema diagnostic" >&2
+  echo "$range_negative" >&2
+  exit 1
+fi
+
 static_ll="$ARTIFACT_DIR/revise_static.ll"
 rm -f "$static_ll"
 run_llvm "test_native/revise_static.cat" "$SCRIPT_DIR/../native/fixtures/revise_static.cat" "$static_ll"
@@ -149,4 +203,3 @@ run_llvm "test_native/revise_arena.cat" "$SCRIPT_DIR/../native/fixtures/revise_a
 op_ll="$ARTIFACT_DIR/revise_operator_overload.ll"
 rm -f "$op_ll"
 run_llvm "test_native/revise_operator_overload.cat" "$SCRIPT_DIR/../native/fixtures/revise_operator_overload.cat" "$op_ll"
-

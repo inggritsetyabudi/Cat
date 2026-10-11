@@ -1,0 +1,5 @@
+shape Point {
+    UpperField: Int32,
+}
+
+fn main() {}

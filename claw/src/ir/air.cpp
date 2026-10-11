@@ -7,6 +7,35 @@
 
 namespace claw::frontend {
 
+namespace {
+
+std::string formatPickPattern(const PickPattern* pattern) {
+    if (!pattern) {
+        return "<pattern>";
+    }
+    if (pattern->kind == PickPatternKind::Wildcard) {
+        return "_";
+    }
+    if (pattern->kind == PickPatternKind::Binding) {
+        return pattern->name;
+    }
+
+    std::string text = "(";
+    for (size_t i = 0; i < pattern->elements.size(); ++i) {
+        if (i > 0) {
+            text += ", ";
+        }
+        text += formatPickPattern(pattern->elements[i].get());
+    }
+    if (pattern->elements.size() == 1) {
+        text += ",";
+    }
+    text += ")";
+    return text;
+}
+
+} // namespace
+
 AirEmitter::AirEmitter(const SemanticAnalyzer& sema) : sema(sema) {}
 
 std::string AirEmitter::emit(const RealmDecl* realm) const {
@@ -77,18 +106,29 @@ std::string AirEmitter::emitFn(const FnDecl* fn, int indent) const {
     if (fn->body) {
         const ExprStmt* implicitTailExpr = nullptr;
         if (!fn->body->statements.empty()) {
-            implicitTailExpr = dynamic_cast<const ExprStmt*>(fn->body->statements.back().get());
+            auto* candidate = dynamic_cast<const ExprStmt*>(fn->body->statements.back().get());
+            const auto* candidateType = candidate && candidate->expr ? sema.lookupExprType(candidate->expr.get()) : nullptr;
+            const bool isUnitControlStatement = candidateType && candidateType->name == "Unit" && candidate &&
+                (dynamic_cast<const IfExpr*>(candidate->expr.get()) || dynamic_cast<const PickExpr*>(candidate->expr.get()));
+            if (!isUnitControlStatement) {
+                implicitTailExpr = candidate;
+            }
         }
 
         for (const auto& stmt : fn->body->statements) {
             if (implicitTailExpr && stmt.get() == implicitTailExpr) {
-                out << indentText(indent + 1) << "return ";
-                if (implicitTailExpr->expr) {
-                    out << emitExpr(implicitTailExpr->expr.get());
+                const auto* tailType = implicitTailExpr->expr ? sema.lookupExprType(implicitTailExpr->expr.get()) : nullptr;
+                if (tailType && tailType->name == "Never") {
+                    out << emitStmt(implicitTailExpr, indent + 1);
                 } else {
-                    out << "unit";
+                    out << indentText(indent + 1) << "return ";
+                    if (implicitTailExpr->expr) {
+                        out << emitExpr(implicitTailExpr->expr.get());
+                    } else {
+                        out << "unit";
+                    }
+                    out << "\n";
                 }
-                out << "\n";
             } else {
                 out << emitStmt(stmt.get(), indent + 1);
             }
@@ -159,6 +199,18 @@ std::string AirEmitter::emitStmt(const Stmt* stmt, int indent) const {
     const std::string pad = indentText(indent);
 
     if (auto* bind = dynamic_cast<const BindingStmt*>(stmt)) {
+        if (!bind->tuplePatternNames.empty()) {
+            out << pad << "val (";
+            for (size_t i = 0; i < bind->tuplePatternNames.size(); ++i) {
+                if (i > 0) {
+                    out << ", ";
+                }
+                out << bind->tuplePatternNames[i];
+            }
+            out << ") = " << emitExpr(bind->value.get()) << "\n";
+            return out.str();
+        }
+
         const auto bindingIt = sema.result().bindingTypes.find(bind);
         out << pad << (bind->isMutable ? "var " : "val ") << bind->name << ": "
             << (bindingIt != sema.result().bindingTypes.end() ? bindingIt->second.describe() : "<unknown>");
@@ -170,30 +222,62 @@ std::string AirEmitter::emitStmt(const Stmt* stmt, int indent) const {
     }
 
     if (auto* assign = dynamic_cast<const AssignStmt*>(stmt)) {
-        out << pad << "assign " << emitExpr(assign->target.get()) << " <- " << emitExpr(assign->value.get()) << "\n";
+        out << pad << "assign " << emitExpr(assign->target.get());
+        if (assign->op == "=") {
+            out << " <- ";
+        } else {
+            out << " " << assign->op << " ";
+        }
+        out << emitExpr(assign->value.get()) << "\n";
         return out.str();
     }
 
-    if (auto* give = dynamic_cast<const GiveStmt*>(stmt)) {
+    if (auto* returnStmt = dynamic_cast<const ReturnStmt*>(stmt)) {
         out << pad << "return";
-        if (give->value) {
-            out << " " << emitExpr(give->value.get());
+        if (returnStmt->value) {
+            out << " " << emitExpr(returnStmt->value.get());
         }
         out << "\n";
         return out.str();
     }
 
     if (auto* exprStmt = dynamic_cast<const ExprStmt*>(stmt)) {
+        if (auto* ifExpr = dynamic_cast<const IfExpr*>(exprStmt->expr.get())) {
+            out << pad << "if " << emitExpr(ifExpr->condition.get()) << "\n";
+            out << emitBlock(ifExpr->thenBlock.get(), indent + 1);
+            if (ifExpr->elseBlock) {
+                out << pad << "else\n";
+                out << emitBlock(ifExpr->elseBlock.get(), indent + 1);
+            }
+            return out.str();
+        }
+        if (auto* pickExpr = dynamic_cast<const PickExpr*>(exprStmt->expr.get())) {
+            out << pad << "pick " << emitExpr(pickExpr->value.get()) << "\n";
+            for (const auto& branch : pickExpr->branches) {
+                out << indentText(indent + 1)
+                    << (branch.tuplePattern ? formatPickPattern(branch.tuplePattern.get()) : branch.tag);
+                if (!branch.tuplePattern && !branch.bindings.empty()) {
+                    out << "(";
+                    for (size_t i = 0; i < branch.bindings.size(); ++i) {
+                        if (i > 0) out << ", ";
+                        out << branch.bindings[i];
+                    }
+                    out << ")";
+                }
+                out << "\n" << emitBlock(branch.body.get(), indent + 2);
+            }
+            return out.str();
+        }
         out << pad << "expr " << emitExpr(exprStmt->expr.get()) << "\n";
         return out.str();
     }
 
-    if (auto* when = dynamic_cast<const WhenStmt*>(stmt)) {
-        out << pad << "if " << emitExpr(when->condition.get()) << "\n";
-        out << emitBlock(when->thenBlock.get(), indent + 1);
-        if (when->elseBlock) {
+    if (auto* ifStmt = dynamic_cast<const IfStmt*>(stmt)) {
+        out << pad << "if " << emitExpr(ifStmt->condition.get()) << "\n";
+        out << emitBlock(ifStmt->thenBlock.get(), indent + 1);
+        if (ifStmt->elseBlock) {
             out << pad << "else\n";
-            out << emitBlock(when->elseBlock.get(), indent + 1);
+            out << emitBlock(ifStmt->elseBlock.get(), indent + 1);
         }
         return out.str();
     }
@@ -211,8 +295,11 @@ std::string AirEmitter::emitStmt(const Stmt* stmt, int indent) const {
     if (auto* scan = dynamic_cast<const ScanStmt*>(stmt)) {
         const auto itemIt = sema.result().scanItemTypes.find(scan);
         out << pad << "scan " << scan->itemName << ": "
-            << (itemIt != sema.result().scanItemTypes.end() ? itemIt->second.describe() : "<unknown>")
-            << " over " << emitExpr(scan->iterable.get()) << "\n";
+            << (itemIt != sema.result().scanItemTypes.end() ? itemIt->second.describe() : "<unknown>");
+        if (!scan->indexName.empty()) {
+            out << ", " << scan->indexName << ": USize";
+        }
+        out << " over " << emitExpr(scan->iterable.get()) << "\n";
         out << emitBlock(scan->body.get(), indent + 1);
         return out.str();
     }
@@ -226,8 +313,9 @@ std::string AirEmitter::emitStmt(const Stmt* stmt, int indent) const {
     if (auto* pick = dynamic_cast<const PickStmt*>(stmt)) {
         out << pad << "pick " << emitExpr(pick->value.get()) << "\n";
         for (const auto& branch : pick->branches) {
-            out << indentText(indent + 1) << branch.tag;
-            if (!branch.bindings.empty()) {
+            out << indentText(indent + 1)
+                << (branch.tuplePattern ? formatPickPattern(branch.tuplePattern.get()) : branch.tag);
+            if (!branch.tuplePattern && !branch.bindings.empty()) {
                 out << "(";
                 for (size_t i = 0; i < branch.bindings.size(); ++i) {
                     if (i > 0) {
@@ -240,12 +328,6 @@ std::string AirEmitter::emitStmt(const Stmt* stmt, int indent) const {
             out << "\n";
             out << emitBlock(branch.body.get(), indent + 2);
         }
-        return out.str();
-    }
-
-    if (auto* lift = dynamic_cast<const LiftStmt*>(stmt)) {
-        out << pad << "lift " << emitExpr(lift->expr.get()) << " as " << lift->valueName << " fail " << lift->failName << "\n";
-        out << emitBlock(lift->failBlock.get(), indent + 1);
         return out.str();
     }
 
@@ -309,10 +391,46 @@ std::string AirEmitter::emitExprValue(const Expr* expr) const {
         out << value->value;
     } else if (auto* value = dynamic_cast<const StringExpr*>(expr)) {
         out << '"' << value->value << '"';
+    } else if (auto* tuple = dynamic_cast<const TupleExpr*>(expr)) {
+        out << "(";
+        for (size_t i = 0; i < tuple->elements.size(); ++i) {
+            if (i > 0) {
+                out << ", ";
+            }
+            out << emitExprValue(tuple->elements[i].get());
+        }
+        if (tuple->elements.size() == 1) {
+            out << ",";
+        }
+        out << ")";
     } else if (auto* value = dynamic_cast<const BoolExpr*>(expr)) {
         out << (value->value ? "true" : "false");
+    } else if (auto* ifExpr = dynamic_cast<const IfExpr*>(expr)) {
+        out << "if " << emitExpr(ifExpr->condition.get()) << " {\n"
+            << emitBlock(ifExpr->thenBlock.get(), 1) << "}";
+        if (ifExpr->elseBlock) {
+            out << " else {\n" << emitBlock(ifExpr->elseBlock.get(), 1) << "}";
+        }
+    } else if (auto* pickExpr = dynamic_cast<const PickExpr*>(expr)) {
+        out << "pick " << emitExpr(pickExpr->value.get()) << " {\n";
+        for (const auto& branch : pickExpr->branches) {
+            out << indentText(1)
+                << (branch.tuplePattern ? formatPickPattern(branch.tuplePattern.get()) : branch.tag);
+            if (!branch.tuplePattern && !branch.bindings.empty()) {
+                out << "(";
+                for (size_t i = 0; i < branch.bindings.size(); ++i) {
+                    if (i > 0) out << ", ";
+                    out << branch.bindings[i];
+                }
+                out << ")";
+            }
+            out << " {\n" << emitBlock(branch.body.get(), 2) << indentText(1) << "}\n";
+        }
+        out << "}";
     } else if (auto* ident = dynamic_cast<const IdentExpr*>(expr)) {
         out << ident->name;
+    } else if (auto* unary = dynamic_cast<const UnaryExpr*>(expr)) {
+        out << "(" << unary->op << " " << emitExprValue(unary->operand.get()) << ")";
     } else if (auto* binary = dynamic_cast<const BinaryExpr*>(expr)) {
         out << "(" << emitExprValue(binary->left.get()) << " " << binary->op << " " << emitExprValue(binary->right.get()) << ")";
     } else if (auto* borrow = dynamic_cast<const BorrowExpr*>(expr)) {
@@ -367,6 +485,3 @@ std::string AirEmitter::indentText(int indent) const {
 }
 
 } // namespace claw::frontend
-
-
-

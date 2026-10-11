@@ -1,0 +1,17 @@
+fn main() -> Int32 {
+    println("shadow")
+    scan item, index over 20..=21 {
+        println(item)
+        println(index)
+        scan item, index over 1..=2 {
+            scan item over 7..=7 {
+                println(item)
+            }
+            println(item)
+            println(index)
+        }
+        println(item)
+        println(index)
+    }
+    0
+}

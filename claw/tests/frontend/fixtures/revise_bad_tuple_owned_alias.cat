@@ -1,0 +1,5 @@
+fn main() {
+    val pair = (Anchor.new(1), Anchor.new(2))
+    val alias = pair
+    println(pair.0.get())
+}

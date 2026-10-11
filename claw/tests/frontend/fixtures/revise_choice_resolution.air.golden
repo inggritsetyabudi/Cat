@@ -3,24 +3,24 @@ air.choice Maybe
   None
   Some(T)
 air.choice Packet
-  Data(T)
-  Empty
+  data(T)
+  empty
 air.choice Result
-  ok(T)
-  FAIL(E)
+  Ok(T)
+  Fail(E)
 air.fn packet_value(packet: Packet[Int32]) -> Int32
   pick packet : Packet[Int32]
-    Data(value)
+    data(value)
       return value : Int32
-    Empty
+    empty
       return 0 : Int32
 air.fn step() -> Result[Int32, Str]
-  return oK(41 : Int32) : Result[Int32, Str]
+  return Ok(41 : Int32) : Result[Int32, Str]
 air.fn result_value() -> Int32
   val value = try step() : Result[Int32, Str] else err
     return 0 : Int32
   return (value + 1) : Int32
 air.fn main() -> Unit
-  val packet: Packet[Int32] = dAtA(42 : Int32) : Packet[Int32]
+  val packet: Packet[Int32] = data(42 : Int32) : Packet[Int32]
   expr println(packet_value(packet : Packet[Int32]) : Int32) : Unit
   return println(result_value() : Int32) : Unit

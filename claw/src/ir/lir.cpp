@@ -29,7 +29,7 @@ std::string formatValue(const LirValue& value) {
 }
 
 LirValue lowerValue(const OirValue& value) {
-    return LirValue{value.text, value.type, value.isUnit};
+    return LirValue{value.text, value.type, value.isUnit, value.bindingKey};
 }
 
 std::string tailSegment(std::string_view text) {
@@ -190,7 +190,6 @@ bool isKnownBuiltinMethod(std::string_view name) {
         "capacity",
         "has_capacity",
         "reserve",
-        "truncate",
         "shrink_to_fit",
         "clear",
     };
@@ -203,7 +202,6 @@ bool requiresBoundsCheck(std::string_view name) {
         "first_byte",
         "last_byte",
         "slice",
-        "truncate",
     };
     return methods.contains(std::string(name));
 }
@@ -358,14 +356,16 @@ void populatePredecessors(LirFunction& function) {
                 },
                 [&](const LirSwitchInst& value) {
                     for (const auto& item : value.cases) {
-                        addEdge(predecessors, item.targetLabel, block.label);
+                        if (item.tag != "_") {
+                            addEdge(predecessors, item.targetLabel, block.label);
+                        }
                     }
-                    addEdge(predecessors, value.defectLabel, block.label);
+                    addEdge(predecessors, value.defaultLabel, block.label);
                 },
                 [&](const LirBoundsCheckInst& value) {
                     addEdge(predecessors, value.failLabel, block.label);
                 },
-                [&](const LirLiftInst& value) {
+                [&](const LirTryInst& value) {
                     if (!value.successLabel.empty()) {
                         addEdge(predecessors, value.successLabel, block.label);
                     }
@@ -414,7 +414,7 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
     }
 
     int nextDefect = 0;
-    int nextLift = 0;
+    int nextTry = 0;
     std::vector<LirBlock> defectBlocks;
     lowered.blocks.reserve(fn.blocks.size());
 
@@ -427,14 +427,17 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
             const bool hasTrailingInsts = instIndex + 1 < block.insts.size();
             const auto& inst = block.insts[instIndex];
             std::visit(Overloaded{
-                [&](const OirHoldInst& value) {
-                    currentBlock.insts.push_back(LirObjectInst{value.isMutable, value.name, value.type, "stack"});
+                [&](const OirBindingInst& value) {
+                    currentBlock.insts.push_back(LirObjectInst{
+                        value.isMutable, value.name, value.type, "stack", value.bindingKey});
                     if (value.init.has_value()) {
-                        currentBlock.insts.push_back(LirStoreInst{value.name, lowerValue(*value.init)});
+                        currentBlock.insts.push_back(LirStoreInst{
+                            value.name, lowerValue(*value.init), value.bindingKey});
                     }
                 },
                 [&](const OirStoreInst& value) {
-                    currentBlock.insts.push_back(LirStoreInst{value.target, lowerValue(value.value)});
+                    currentBlock.insts.push_back(LirStoreInst{
+                        value.target, lowerValue(value.value), value.targetBindingKey});
                 },
                 [&](const OirStoreFieldInst& value) {
                     currentBlock.insts.push_back(LirStoreFieldInst{
@@ -451,7 +454,7 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
                     currentBlock.insts.push_back(LirDiscardInst{lowerValue(value.value)});
                 },
                 [&](const OirDropInst& value) {
-                    currentBlock.insts.push_back(LirDropInst{value.name, value.type});
+                    currentBlock.insts.push_back(LirDropInst{value.name, value.type, value.bindingKey});
                 },
                 [&](const OirBranchInst& value) {
                     currentBlock.insts.push_back(LirBranchInst{lowerValue(value.condition), value.trueLabel, value.falseLabel});
@@ -459,36 +462,64 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
                 [&](const OirGotoInst& value) {
                     currentBlock.insts.push_back(LirGotoInst{value.targetLabel});
                 },
+                [&](const OirRangeScanInitInst& value) {
+                    currentBlock.insts.push_back(LirRangeScanInitInst{
+                        value.stateKey,
+                        value.itemName,
+                        value.indexName,
+                        value.itemType,
+                        lowerValue(value.iterable),
+                        value.itemBindingKey,
+                        value.indexBindingKey});
+                },
                 [&](const OirScanInst& value) {
-                    currentBlock.insts.push_back(LirIterNextInst{value.itemName, value.itemType, lowerValue(value.iterable), value.bodyLabel, value.exitLabel});
+                    currentBlock.insts.push_back(LirIterNextInst{
+                        value.itemName,
+                        value.indexName,
+                        value.itemType,
+                        lowerValue(value.iterable),
+                        value.bodyLabel,
+                        value.exitLabel,
+                        value.itemBindingKey,
+                        value.indexBindingKey});
                 },
                 [&](const OirPickInst& value) {
                     LirSwitchInst loweredSwitch;
                     loweredSwitch.value = lowerValue(value.value);
+                    const auto wildcard = std::find_if(value.cases.begin(), value.cases.end(), [](const OirPickCase& item) {
+                        return item.tag == "_";
+                    });
                     for (const auto& item : value.cases) {
-                        loweredSwitch.cases.push_back(LirSwitchCase{item.tag, item.bindings, item.targetLabel});
+                        loweredSwitch.cases.push_back(
+                            LirSwitchCase{item.tag, item.bindings, item.targetLabel, item.bindingKeys});
                     }
-                    const std::string defectLabel = currentBlock.label + ".defect.pick." + std::to_string(nextDefect++);
-                    loweredSwitch.defectLabel = defectLabel;
                     currentBlock.insts.push_back(std::move(loweredSwitch));
-
-                    LirBlock defectBlock;
-                    defectBlock.label = defectLabel;
-                    defectBlock.insts.push_back(LirDefectInst{"unreachable_choice", "switch reached no matching case"});
-                    defectBlocks.push_back(std::move(defectBlock));
+                    auto& loweredSwitchInst = std::get<LirSwitchInst>(currentBlock.insts.back());
+                    if (wildcard != value.cases.end()) {
+                        loweredSwitchInst.defaultLabel = wildcard->targetLabel;
+                    } else {
+                        const std::string defectLabel = currentBlock.label + ".defect.pick." + std::to_string(nextDefect++);
+                        loweredSwitchInst.defaultLabel = defectLabel;
+                        LirBlock defectBlock;
+                        defectBlock.label = defectLabel;
+                        defectBlock.insts.push_back(LirDefectInst{"unreachable_choice", "switch reached no matching case"});
+                        defectBlocks.push_back(std::move(defectBlock));
+                    }
                 },
-                [&](const OirLiftInst& value) {
+                [&](const OirTryInst& value) {
                     std::string successLabel;
                     if (hasTrailingInsts) {
-                        successLabel = currentBlock.label + ".lift_ok." + std::to_string(nextLift++);
+                        successLabel = currentBlock.label + ".try_ok." + std::to_string(nextTry++);
                     }
-                    currentBlock.insts.push_back(LirLiftInst{
+                    currentBlock.insts.push_back(LirTryInst{
                         lowerValue(value.value),
                         value.okName,
                         value.failName,
                         successLabel,
                         value.failLabel,
-                        value.autoPropagate});
+                        value.autoPropagate,
+                        value.okBindingKey,
+                        value.failBindingKey});
                     if (!successLabel.empty()) {
                         lowered.blocks.push_back(std::move(currentBlock));
                         currentBlock = LirBlock{};
@@ -521,12 +552,16 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
                     LirSafetyTag safety = classifyCallSafety(value);
                     if (safety == LirSafetyTag::BoundsCheckRequired) {
                         const std::string defectLabel = currentBlock.label + ".defect.bounds." + std::to_string(nextDefect++);
+                        const std::string subject = [&]() {
+                            const std::string receiver = receiverSegment(value.callee);
+                            return receiver.empty() ? std::string("<receiver>") : receiver;
+                        }();
                         currentBlock.insts.push_back(LirBoundsCheckInst{
                             tailSegment(value.callee),
-                            [&]() {
-                                const std::string receiver = receiverSegment(value.callee);
-                                return receiver.empty() ? std::string("<receiver>") : receiver;
-                            }(),
+                            subject,
+                            value.builtinReceiver.has_value()
+                                ? std::optional<LirValue>{lowerValue(*value.builtinReceiver)}
+                                : std::nullopt,
                             args,
                             defectLabel,
                         });
@@ -548,10 +583,24 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
                         safety,
                         classifyHook(value, kind),
                         lowerExternalInfo(value),
+                        value.builtinReceiver.has_value()
+                            ? std::optional<LirValue>{lowerValue(*value.builtinReceiver)}
+                            : std::nullopt,
                     });
                 },
                 [&](const OirFieldInst& value) {
                     currentBlock.insts.push_back(LirFieldInst{value.result, lowerValue(value.object), value.field, value.type, LirSafetyTag::ProvenSafe});
+                },
+                [&](const OirIndexInst& value) {
+                    currentBlock.insts.push_back(LirIndexInst{
+                        value.result, lowerValue(value.object), lowerValue(value.index), value.type});
+                },
+                [&](const OirStoreIndexInst& value) {
+                    currentBlock.insts.push_back(LirStoreIndexInst{
+                        lowerValue(value.object), lowerValue(value.index), lowerValue(value.value)});
+                },
+                [&](const OirUnaryInst& value) {
+                    currentBlock.insts.push_back(LirUnaryInst{value.result, value.op, lowerValue(value.operand), value.type});
                 },
                 [&](const OirBinaryInst& value) {
                     currentBlock.insts.push_back(LirBinaryInst{value.result, value.op, lowerValue(value.left), lowerValue(value.right), value.type});
@@ -651,9 +700,22 @@ std::string formatInst(const LirInst& inst, int indent) {
         [&](const LirGotoInst& value) {
             return pad + "goto " + value.targetLabel + "\n";
         },
+        [&](const LirRangeScanInitInst& value) {
+            std::ostringstream out;
+            out << pad << "range_scan_init " << value.itemName << ": " << value.itemType;
+            if (!value.indexName.empty()) {
+                out << ", " << value.indexName << ": USize";
+            }
+            out << " from " << formatValue(value.iterable) << " : " << value.iterable.type << "\n";
+            return out.str();
+        },
         [&](const LirIterNextInst& value) {
             std::ostringstream out;
-            out << pad << "iter_next " << value.itemName << ": " << value.itemType << " over "
+            out << pad << "iter_next " << value.itemName << ": " << value.itemType;
+            if (!value.indexName.empty()) {
+                out << ", " << value.indexName << ": USize";
+            }
+            out << " over "
                 << formatValue(value.iterable) << " -> " << value.bodyLabel << ", " << value.exitLabel << "\n";
             return out.str();
         },
@@ -661,6 +723,9 @@ std::string formatInst(const LirInst& inst, int indent) {
             std::ostringstream out;
             out << pad << "switch " << formatValue(value.value) << " : " << value.value.type << "\n";
             for (const auto& item : value.cases) {
+                if (item.tag == "_") {
+                    continue;
+                }
                 out << pad << "case " << item.tag;
                 if (!item.bindings.empty()) {
                     out << '(';
@@ -674,10 +739,10 @@ std::string formatInst(const LirInst& inst, int indent) {
                 }
                 out << " -> " << item.targetLabel << "\n";
             }
-            out << pad << "default -> " << value.defectLabel << "\n";
+            out << pad << "default -> " << value.defaultLabel << "\n";
             return out.str();
         },
-        [&](const LirLiftInst& value) {
+        [&](const LirTryInst& value) {
             std::ostringstream out;
             out << pad << "try " << formatValue(value.value) << " -> " << value.okName;
             if (!value.successLabel.empty()) {
@@ -733,6 +798,24 @@ std::string formatInst(const LirInst& inst, int indent) {
             std::ostringstream out;
             out << pad << value.result << " = field " << formatValue(value.object) << '.' << value.field
                 << " : " << value.type << safetySuffix(value.safety) << "\n";
+            return out.str();
+        },
+        [&](const LirIndexInst& value) {
+            std::ostringstream out;
+            out << pad << value.result << " = index " << formatValue(value.object) << "[" << formatValue(value.index)
+                << "] : " << value.type << " [bounds-check]\n";
+            return out.str();
+        },
+        [&](const LirStoreIndexInst& value) {
+            std::ostringstream out;
+            out << pad << "store_index " << formatValue(value.object) << "[" << formatValue(value.index) << "] <- "
+                << formatValue(value.value) << " : " << value.value.type << " [bounds-check]\n";
+            return out.str();
+        },
+        [&](const LirUnaryInst& value) {
+            std::ostringstream out;
+            out << pad << value.result << " = " << (value.op == "-" ? "neg" : value.op) << ' '
+                << formatValue(value.operand) << " : " << value.type << "\n";
             return out.str();
         },
         [&](const LirBinaryInst& value) {
@@ -947,4 +1030,3 @@ std::string emitLirProgram(std::string_view entryRealm, const std::vector<OirUni
 }
 
 } // namespace claw::frontend
-

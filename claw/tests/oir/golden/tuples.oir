@@ -1,0 +1,128 @@
+oir.module revise_tuples
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_tuples::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_tuples::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.choice Route [abi=claw link=internal symbol=revise_tuples::Route ffi=false]
+  layout repr=claw-internal kind=tagged size=4 align=4 pass=direct ffi=false tag=4 payload_offset=4 payload_size=0
+  case left @payload_offset=4 size=0 align=1
+  case right @payload_offset=4 size=0 align=1
+oir.fn typed_pair() -> Tuple[Int64, Int64] [direct] [abi=claw link=internal symbol=revise_tuples::typed_pair ffi=false]
+  block entry:
+    val %t0: Tuple[Int64, Int64]
+    store_field %t0.0 <- 40 : Int64
+    store_field %t0.1 <- 2 : Int64
+    return %t0 : Tuple[Int64, Int64]
+oir.fn choose_if(flag: Bool [scalar]) -> Tuple[Int64, Int64] [direct] [abi=claw link=internal symbol=revise_tuples::choose_if ffi=false]
+  block entry:
+    var %t0: Tuple[Int64, Int64]
+    branch flag -> if_then_0, if_else_1
+  block if_then_0:
+    val %t1: Tuple[Int64, Int64]
+    store_field %t1.0 <- 1 : Int64
+    store_field %t1.1 <- 41 : Int64
+    store %t0 <- %t1 : Tuple[Int64, Int64]
+    goto if_join_2
+  block if_else_1:
+    val %t2: Tuple[Int64, Int64]
+    store_field %t2.0 <- 20 : Int64
+    store_field %t2.1 <- 22 : Int64
+    store %t0 <- %t2 : Tuple[Int64, Int64]
+    goto if_join_2
+  block if_join_2:
+    return %t0 : Tuple[Int64, Int64]
+oir.fn choose_pick(route: Route [direct]) -> Tuple[Int64, Int64] [direct] [abi=claw link=internal symbol=revise_tuples::choose_pick ffi=false]
+  block entry:
+    var %t0: Tuple[Int64, Int64]
+    pick route : Route
+    case left -> pick_left_1
+    case right -> pick_right_2
+  block pick_left_1:
+    val %t1: Tuple[Int64, Int64]
+    store_field %t1.0 <- 10 : Int64
+    store_field %t1.1 <- 32 : Int64
+    store %t0 <- %t1 : Tuple[Int64, Int64]
+    goto pick_join_0
+  block pick_right_2:
+    val %t2: Tuple[Int64, Int64]
+    store_field %t2.0 <- 21 : Int64
+    store_field %t2.1 <- 21 : Int64
+    store %t0 <- %t2 : Tuple[Int64, Int64]
+    goto pick_join_0
+  block pick_join_0:
+    drop route : Route
+    return %t0 : Tuple[Int64, Int64]
+oir.fn nested_pair() -> Tuple[Tuple[Int32, Int32], Int32] [direct] [abi=claw link=internal symbol=revise_tuples::nested_pair ffi=false]
+  block entry:
+    val %t0: Tuple[Tuple[Int32, Int32], Int32]
+    val %t1: Tuple[Int32, Int32]
+    store_field %t1.0 <- 1 : Int32
+    store_field %t1.1 <- 2 : Int32
+    store_field %t0.0 <- %t1 : Tuple[Int32, Int32]
+    store_field %t0.1 <- 40 : Int32
+    return %t0 : Tuple[Tuple[Int32, Int32], Int32]
+oir.fn empty_unit() -> Unit [void] [abi=claw link=internal symbol=revise_tuples::empty_unit ffi=false]
+  block entry:
+    return unit : Unit
+oir.fn sum_pair(pair: Tuple[Int64, Int64] [direct]) -> Int64 [scalar] [abi=claw link=internal symbol=revise_tuples::sum_pair ffi=false]
+  block entry:
+    %t0 = field pair.0 : Int64
+    %t1 = field pair.1 : Int64
+    %t2 = add %t0, %t1 : Int64
+    return %t2 : Int64
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_tuples::main ffi=false]
+  block entry:
+    %t0 = add 20, 22 : Int32
+    val grouped: Int32 = %t0
+    val %t1: Tuple[Int32]
+    store_field %t1.0 <- 42 : Int32
+    val singleton: Tuple[Int32] = %t1
+    %t2 = call typed_pair() : Tuple[Int64, Int64]
+    val pair: Tuple[Int64, Int64] = %t2
+    %t3 = call nested_pair() : Tuple[Tuple[Int32, Int32], Int32]
+    val nested: Tuple[Tuple[Int32, Int32], Int32] = %t3
+    %t4 = call choose_if(true) : Tuple[Int64, Int64]
+    val selected_if: Tuple[Int64, Int64] = %t4
+    %t5 = left() : Route
+    %t6 = call choose_pick(%t5) : Tuple[Int64, Int64]
+    val selected_pick: Tuple[Int64, Int64] = %t6
+    val %t7: Tuple[Float64, Float64]
+    store_field %t7.0 <- 1.5 : Float64
+    store_field %t7.1 <- 2.25 : Float64
+    val decimal: Tuple[Float64, Float64] = %t7
+    call empty_unit() : Unit
+    call println(grouped) : Unit
+    %t8 = field singleton.0 : Int32
+    call println(%t8) : Unit
+    %t9 = field pair.0 : Int64
+    %t10 = field pair.1 : Int64
+    %t11 = add %t9, %t10 : Int64
+    call println(%t11) : Unit
+    %t12 = call sum_pair(pair) : Int64
+    call println(%t12) : Unit
+    %t13 = field nested.0 : Tuple[Int32, Int32]
+    %t14 = field %t13.1 : Int32
+    %t15 = field nested.1 : Int32
+    %t16 = add %t14, %t15 : Int32
+    call println(%t16) : Unit
+    %t17 = field selected_if.0 : Int64
+    %t18 = field selected_if.1 : Int64
+    %t19 = add %t17, %t18 : Int64
+    call println(%t19) : Unit
+    %t20 = field selected_pick.0 : Int64
+    %t21 = field selected_pick.1 : Int64
+    %t22 = add %t20, %t21 : Int64
+    call println(%t22) : Unit
+    %t23 = field decimal.0 : Float64
+    %t24 = field decimal.1 : Float64
+    %t25 = add %t23, %t24 : Float64
+    %t26 = eq %t25, 3.75 : Bool
+    branch %t26 -> if_then_0, if_join_1
+  block if_then_0:
+    call println("float-ok") : Unit
+    goto if_join_1
+  block if_join_1:

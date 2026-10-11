@@ -1,0 +1,7 @@
+fn main() -> Int32 {
+    return pick 7 {
+        (left, right) {
+            left + right
+        }
+    }
+}

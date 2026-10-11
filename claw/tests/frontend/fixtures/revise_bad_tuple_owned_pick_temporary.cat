@@ -1,0 +1,12 @@
+fn make_pair() -> (Anchor[Int32], Anchor[Int32]) {
+    println("factory")
+    var separator: Int32
+    (Anchor.new(1), Anchor.new(2))
+}
+
+fn main() {
+    val value = pick make_pair() {
+        _ { 0 }
+    }
+    println(value)
+}

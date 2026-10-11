@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val invalid = not 1
+    return 0
+}

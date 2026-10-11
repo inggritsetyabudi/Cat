@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val range = 1..4
+    val invalid = 1.5 in range
+    0
+}

@@ -1,0 +1,3 @@
+fn main() {
+    val outer = Anchor.new(Anchor.new(77))
+}

@@ -1,0 +1,6 @@
+fn main() {
+    val selected = if true {
+        1
+    }
+    println(selected)
+}

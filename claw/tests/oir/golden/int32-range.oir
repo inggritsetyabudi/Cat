@@ -1,0 +1,172 @@
+oir.module revise_int32_range
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_int32_range::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_int32_range::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn contains(value: Int32 [scalar], range: Range[Int32] [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range::contains ffi=false]
+  block entry:
+    %t0 = in value, range : Bool
+    var %t1: Int32
+    branch %t0 -> if_then_0, if_else_1
+  block if_then_0:
+    store %t1 <- 1 : Int32
+    goto if_join_2
+  block if_else_1:
+    store %t1 <- 0 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t1 : Int32
+oir.fn combined_membership() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range::combined_membership ffi=false]
+  block entry:
+    %t0 = range_exclusive 1, 5 : Range[Int32]
+    %t1 = in 3, %t0 : Bool
+    var %t2: Bool
+    branch %t1 -> logic_rhs_0, logic_short_1
+  block logic_rhs_0:
+    %t3 = range_inclusive 1, 4 : Range[Int32]
+    %t4 = in 4, %t3 : Bool
+    store %t2 <- %t4 : Bool
+    goto logic_merge_2
+  block logic_short_1:
+    store %t2 <- false : Bool
+    goto logic_merge_2
+  block logic_merge_2:
+    var %t5: Int32
+    branch %t2 -> if_then_3, if_else_4
+  block if_then_3:
+    store %t5 <- 1 : Int32
+    goto if_join_5
+  block if_else_4:
+    store %t5 <- 0 : Int32
+    goto if_join_5
+  block if_join_5:
+    return %t5 : Int32
+oir.fn parenthesized_membership() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range::parenthesized_membership ffi=false]
+  block entry:
+    %t0 = range_exclusive 1, 5 : Range[Int32]
+    %t1 = in 9, %t0 : Bool
+    var %t2: Bool
+    branch %t1 -> logic_short_1, logic_rhs_0
+  block logic_rhs_0:
+    %t3 = range_inclusive 2, 4 : Range[Int32]
+    %t4 = in 3, %t3 : Bool
+    store %t2 <- %t4 : Bool
+    goto logic_merge_2
+  block logic_short_1:
+    store %t2 <- true : Bool
+    goto logic_merge_2
+  block logic_merge_2:
+    var %t5: Int32
+    branch %t2 -> if_then_3, if_else_4
+  block if_then_3:
+    store %t5 <- 1 : Int32
+    goto if_join_5
+  block if_else_4:
+    store %t5 <- 0 : Int32
+    goto if_join_5
+  block if_join_5:
+    return %t5 : Int32
+oir.fn start_once() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range::start_once ffi=false]
+  block entry:
+    call println("start") : Unit
+    return 2 : Int32
+oir.fn end_once() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range::end_once ffi=false]
+  block entry:
+    call println("end") : Unit
+    return 5 : Int32
+oir.fn make_inclusive() -> Range[Int32] [direct] [abi=claw link=internal symbol=revise_int32_range::make_inclusive ffi=false]
+  block entry:
+    %t0 = range_inclusive 3, 5 : Range[Int32]
+    return %t0 : Range[Int32]
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range::main ffi=false]
+  block entry:
+    val decimal: Float64 = 1.5
+    val %t0: Tuple[Tuple[Int32, Int32], Int32]
+    val %t1: Tuple[Int32, Int32]
+    store_field %t1.0 <- 1 : Int32
+    store_field %t1.1 <- 10 : Int32
+    store_field %t0.0 <- %t1 : Tuple[Int32, Int32]
+    store_field %t0.1 <- 20 : Int32
+    val nested: Tuple[Tuple[Int32, Int32], Int32] = %t0
+    %t2 = field nested.0 : Tuple[Int32, Int32]
+    %t3 = field %t2.1 : Int32
+    call println(%t3) : Unit
+    %t4 = eq decimal, 1.5 : Bool
+    branch %t4 -> if_then_0, if_else_1
+  block if_then_0:
+    call println(1) : Unit
+    goto if_join_2
+  block if_else_1:
+    call println(0) : Unit
+    goto if_join_2
+  block if_join_2:
+    %t5 = add 2, 3 : Int32
+    %t6 = range_exclusive 1, %t5 : Range[Int32]
+    val mixed_precedence: Range[Int32] = %t6
+    %t7 = call contains(4, mixed_precedence) : Int32
+    call println(%t7) : Unit
+    %t8 = call combined_membership() : Int32
+    call println(%t8) : Unit
+    %t9 = call parenthesized_membership() : Int32
+    call println(%t9) : Unit
+    %t10 = call start_once() : Int32
+    %t11 = call end_once() : Int32
+    %t12 = range_exclusive %t10, %t11 : Range[Int32]
+    val exclusive: Range[Int32] = %t12
+    %t13 = call contains(1, exclusive) : Int32
+    call println(%t13) : Unit
+    %t14 = call contains(2, exclusive) : Int32
+    call println(%t14) : Unit
+    %t15 = call contains(4, exclusive) : Int32
+    call println(%t15) : Unit
+    %t16 = call contains(5, exclusive) : Int32
+    call println(%t16) : Unit
+    %t17 = call make_inclusive() : Range[Int32]
+    val inclusive: Range[Int32] = %t17
+    %t18 = call contains(3, inclusive) : Int32
+    call println(%t18) : Unit
+    %t19 = call contains(5, inclusive) : Int32
+    call println(%t19) : Unit
+    %t20 = call contains(6, inclusive) : Int32
+    call println(%t20) : Unit
+    %t21 = range_exclusive 4, 4 : Range[Int32]
+    val empty: Range[Int32] = %t21
+    %t22 = call contains(4, empty) : Int32
+    call println(%t22) : Unit
+    %t23 = range_exclusive 5, 4 : Range[Int32]
+    val reversed: Range[Int32] = %t23
+    %t24 = call contains(4, reversed) : Int32
+    call println(%t24) : Unit
+    %t25 = range_inclusive 5, 4 : Range[Int32]
+    val reversed_inclusive: Range[Int32] = %t25
+    %t26 = call contains(5, reversed_inclusive) : Int32
+    call println(%t26) : Unit
+    %t27 = range_inclusive 4, 4 : Range[Int32]
+    val equal_inclusive: Range[Int32] = %t27
+    %t28 = call contains(4, equal_inclusive) : Int32
+    call println(%t28) : Unit
+    %t29 = neg 2 : Int32
+    %t30 = range_inclusive %t29, 2 : Range[Int32]
+    val signed: Range[Int32] = %t30
+    %t31 = neg 2 : Int32
+    %t32 = call contains(%t31, signed) : Int32
+    call println(%t32) : Unit
+    %t33 = call contains(2, signed) : Int32
+    call println(%t33) : Unit
+    %t34 = call contains(3, signed) : Int32
+    call println(%t34) : Unit
+    %t35 = range_exclusive 1, 5 : Range[Int32]
+    %t36 = in 3, %t35 : Bool
+    branch %t36 -> if_then_3, if_else_4
+  block if_then_3:
+    call println(1) : Unit
+    goto if_join_5
+  block if_else_4:
+    call println(0) : Unit
+    goto if_join_5
+  block if_join_5:
+    return 0 : integer literal

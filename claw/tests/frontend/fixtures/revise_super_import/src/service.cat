@@ -1,0 +1,5 @@
+import super.{ math }
+
+share fn total() -> Int32 {
+    return math.add(20, 22)
+}

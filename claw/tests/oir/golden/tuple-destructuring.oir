@@ -1,0 +1,46 @@
+oir.module revise_tuple_destructuring
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_tuple_destructuring::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_tuple_destructuring::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn once(value: Int32 [scalar]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_tuple_destructuring::once ffi=false]
+  block entry:
+    call println(value) : Unit
+    return value : Int32
+oir.fn make_pair() -> Tuple[Int32, Int32] [direct] [abi=claw link=internal symbol=revise_tuple_destructuring::make_pair ffi=false]
+  block entry:
+    val %t0: Tuple[Int32, Int32]
+    %t1 = call once(1) : Int32
+    store_field %t0.0 <- %t1 : Int32
+    %t2 = call once(2) : Int32
+    store_field %t0.1 <- %t2 : Int32
+    return %t0 : Tuple[Int32, Int32]
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_tuple_destructuring::main ffi=false]
+  block entry:
+    %t0 = call make_pair() : Tuple[Int32, Int32]
+    val pair: Tuple[Int32, Int32] = %t0
+    %t1 = field pair.0 : Int32
+    val left: Int32 = %t1
+    %t2 = field pair.1 : Int32
+    val right: Int32 = %t2
+    %t3 = add left, right : Int32
+    call println(%t3) : Unit
+    val %t4: Tuple[Int32, Int32]
+    %t5 = call once(5) : Int32
+    store_field %t4.0 <- %t5 : Int32
+    %t6 = call once(6) : Int32
+    store_field %t4.1 <- %t6 : Int32
+    %t7 = field %t4.1 : Int32
+    val kept: Int32 = %t7
+    call println(kept) : Unit
+    val %t8: Tuple[Int32]
+    %t9 = call once(7) : Int32
+    store_field %t8.0 <- %t9 : Int32
+    %t10 = field %t8.0 : Int32
+    val only: Int32 = %t10
+    call println(only) : Unit
+    return unit : Unit

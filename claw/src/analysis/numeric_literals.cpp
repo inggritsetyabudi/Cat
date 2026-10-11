@@ -154,6 +154,18 @@ bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& t
     return false;
 }
 
+bool integerLiteralFitsNegatedTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target) {
+    if (targetName.rfind("Int", 0) == 0) {
+        const auto bits = integerLikeBitWidth(targetName);
+        UInt128 value = 0;
+        if (!bits.has_value() || !tryParseUnsignedDecimal(magnitude, &value)) {
+            return false;
+        }
+        return value <= (UInt128{1} << (*bits - 1));
+    }
+    return integerLiteralFitsTarget(magnitude, targetName, target);
+}
+
 bool floatLiteralFitsTarget(const std::string& magnitude, const std::string& targetName) {
     if (!isFloatTypeName(targetName)) {
         return false;

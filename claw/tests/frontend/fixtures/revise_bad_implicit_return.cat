@@ -1,0 +1,8 @@
+fn missing_return() -> Int32 {
+    41
+    val ignored = 42
+}
+
+fn main() -> Int32 {
+    missing_return()
+}

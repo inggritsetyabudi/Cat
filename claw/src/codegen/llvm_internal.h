@@ -341,13 +341,17 @@ struct PendingChoiceBinding {
     LirValue source;
     std::string variantName;
     std::vector<std::string> bindingNames;
+    std::vector<std::string> bindingKeys;
 };
 
 struct PendingIterBinding {
     LirValue iterable;
     std::string itemName;
+    std::string indexName;
     std::string itemType;
     std::string stateKey;
+    std::string itemBindingKey;
+    std::string indexBindingKey;
 };
 
 struct ConcreteChoiceCaseInfo {
@@ -375,7 +379,13 @@ struct AbiLayout {
 struct IteratorState {
     std::string indexSlot;
     std::string itemSlot;
+    std::string rangeCurrentSlot;
+    std::string rangeEndSlot;
+    std::string rangeInclusiveSlot;
+    std::string rangeFinishedSlot;
+    std::string visibleIndexSlot;
     size_t itemAlign = 1;
+    bool isRange = false;
 };
 
 struct FunctionState {
@@ -385,6 +395,7 @@ struct FunctionState {
     std::unordered_map<std::string, std::string> namedValues;
     std::unordered_map<std::string, std::string> namedAddresses;
     std::unordered_map<std::string, std::string> valueTypes;
+    std::unordered_set<std::string> allocatedLocalNames;
     std::optional<std::string> returnSlot;
     std::unordered_map<std::string, std::vector<PendingChoiceBinding>> pendingChoiceBindings;
     std::unordered_map<std::string, std::vector<PendingIterBinding>> pendingIterBindings;
@@ -462,6 +473,12 @@ private:
         std::string_view itemName,
         std::string_view itemType,
         FunctionState& state);
+    IteratorState& ensureRangeIteratorState(
+        std::string_view stateKey,
+        std::string_view itemName,
+        std::string_view indexName,
+        std::string_view itemType,
+        FunctionState& state);
     void materializeIterBinding(
         const PendingIterBinding& binding,
         FunctionState& state,
@@ -508,6 +525,10 @@ private:
         std::string_view currentBlockLabel,
         FunctionState& state,
         std::vector<std::string>& lines);
+    void emitRangeScanInit(
+        const LirRangeScanInitInst& value,
+        FunctionState& state,
+        std::vector<std::string>& lines);
     void constructChoiceValueAtAddress(
         std::string_view address,
         const std::string& typeText,
@@ -517,11 +538,19 @@ private:
         std::vector<std::string>& lines);
     void emitBoundsCheck(const LirBoundsCheckInst& value, FunctionState& state, std::vector<std::string>& lines);
     void emitSwitch(const LirSwitchInst& value, FunctionState& state, std::vector<std::string>& lines);
-    bool emitLift(const LirLiftInst& value, FunctionState& state, std::vector<std::string>& lines);
+    bool emitTry(const LirTryInst& value, FunctionState& state, std::vector<std::string>& lines);
     void emitChoiceMakeInst(const LirChoiceMakeInst& value, FunctionState& state, std::vector<std::string>& lines);
     void emitBuiltinCall(const LirCallInst& value, FunctionState& state, std::vector<std::string>& lines);
     void emitCallInst(const LirCallInst& value, FunctionState& state, std::vector<std::string>& lines);
     void emitStoreField(const LirStoreFieldInst& value, FunctionState& state, std::vector<std::string>& lines);
+    std::string emitIndexAddress(
+        const LirValue& object,
+        const LirValue& index,
+        const std::string& elementType,
+        FunctionState& state,
+        std::vector<std::string>& lines);
+    void emitIndexLoad(const LirIndexInst& value, FunctionState& state, std::vector<std::string>& lines);
+    void emitIndexStore(const LirStoreIndexInst& value, FunctionState& state, std::vector<std::string>& lines);
     std::string ensureValue(const LirValue& value, FunctionState& state, std::vector<std::string>& lines);
     std::string symbolForDirectCall(std::string_view callee) const;
     std::string emitFunction(const LirFunction& fn);
@@ -532,7 +561,3 @@ private:
 std::string llvmFunctionLinkage(const SymbolLinkInfo& linkage);
 
 } // namespace claw::codegen
-
-
-
-

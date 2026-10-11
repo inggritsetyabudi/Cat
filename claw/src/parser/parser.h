@@ -54,19 +54,19 @@ private:
 
     std::unique_ptr<BlockStmt> parseBlock();
     std::unique_ptr<Stmt> parseStatement();
-    std::unique_ptr<GiveStmt> parseGive();
+    std::unique_ptr<ReturnStmt> parseReturn();
     std::unique_ptr<Stmt> parseBinding(bool isMutable);
-    std::unique_ptr<WhenStmt> parseWhen();
+    std::unique_ptr<IfStmt> parseIf();
     std::unique_ptr<LoopStmt> parseLoop();
     std::unique_ptr<ScanStmt> parseScan();
     std::unique_ptr<ScopeStmt> parseScope();
     std::unique_ptr<PickStmt> parsePick();
-    std::unique_ptr<LiftStmt> parseLift();
+    std::unique_ptr<PickPattern> parsePickPattern();
 
-    std::unique_ptr<Expr> parseExpression();
-    std::unique_ptr<Expr> parseComparison();
-    std::unique_ptr<Expr> parseBinary();
-    std::unique_ptr<Expr> parseFactor();
+    std::unique_ptr<IfExpr> parseIfExpression();
+    std::unique_ptr<PickExpr> parsePickExpression();
+
+    std::unique_ptr<Expr> parseExpression(int minBindingPower = 0);
     std::unique_ptr<Expr> parseUnary();
     std::unique_ptr<Expr> parsePostfix();
     std::unique_ptr<Expr> parsePrimary();
@@ -74,5 +74,3 @@ private:
 };
 
 } // namespace claw::frontend
-
-

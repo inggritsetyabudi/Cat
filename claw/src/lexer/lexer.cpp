@@ -99,19 +99,17 @@ Token Lexer::readIdentifierOrKeyword() {
 
     static const std::unordered_map<std::string, TokenKind> keywords = {
         {"fn", TokenKind::KwFn}, {"val", TokenKind::KwVal}, {"var", TokenKind::KwVar},
-        {"hold", TokenKind::KwHold}, {"slot", TokenKind::KwSlot},
-        {"return", TokenKind::KwReturn}, {"give", TokenKind::KwGive},
+        {"return", TokenKind::KwReturn},
         {"if", TokenKind::KwIf}, {"else", TokenKind::KwElse},
-        {"when", TokenKind::KwWhen}, {"otherwise", TokenKind::KwOtherwise},
         {"loop", TokenKind::KwLoop}, {"scan", TokenKind::KwScan}, {"stop", TokenKind::KwStop},
         {"skip", TokenKind::KwSkip}, {"shape", TokenKind::KwShape}, {"choice", TokenKind::KwChoice},
         {"view", TokenKind::KwView}, {"scope", TokenKind::KwScope},
         {"import", TokenKind::KwImport}, {"share", TokenKind::KwShare}, {"super", TokenKind::KwSuper},
-        {"pub", TokenKind::KwPub}, {"modules", TokenKind::KwModules},
-        {"pick", TokenKind::KwPick}, {"lift", TokenKind::KwLift}, {"raw", TokenKind::KwRaw},
-        {"as", TokenKind::KwAs}, {"over", TokenKind::KwOver}, {"of", TokenKind::KwOf},
+        {"pick", TokenKind::KwPick}, {"raw", TokenKind::KwRaw},
+        {"as", TokenKind::KwAs}, {"over", TokenKind::KwOver},
+        {"and", TokenKind::KwAnd}, {"or", TokenKind::KwOr}, {"not", TokenKind::KwNot},
+        {"in", TokenKind::KwIn},
         {"fail", TokenKind::KwFail}, {"ref", TokenKind::KwRef}, {"mut", TokenKind::KwMut}, {"try", TokenKind::KwTry},
-        {"look", TokenKind::KwLook}, {"edit", TokenKind::KwEdit}, {"realm", TokenKind::KwRealm},
         {"foreign", TokenKind::KwForeign}, {"static", TokenKind::KwStatic},
         {"contract", TokenKind::KwContract}, {"implements", TokenKind::KwImplements},
         {"with", TokenKind::KwWith}, {"self", TokenKind::KwSelf},
@@ -127,7 +125,7 @@ Token Lexer::readIdentifierOrKeyword() {
         pos - startPos);
 }
 
-Token Lexer::readNumber() {
+Token Lexer::readNumber(bool allowFraction) {
     const size_t startLine = line;
     const size_t startColumn = column;
     const size_t startPos = pos;
@@ -138,7 +136,7 @@ Token Lexer::readNumber() {
     }
 
     bool isFloat = false;
-    if (!isAtEnd() && peek() == '.' && std::isdigit(static_cast<unsigned char>(peekAhead(1)))) {
+    if (allowFraction && !isAtEnd() && peek() == '.' && std::isdigit(static_cast<unsigned char>(peekAhead(1)))) {
         isFloat = true;
         text += advance();
         while (!isAtEnd() && std::isdigit(static_cast<unsigned char>(peek()))) {
@@ -231,7 +229,8 @@ std::vector<Token> Lexer::tokenize() {
             continue;
         }
         if (std::isdigit(static_cast<unsigned char>(c))) {
-            tokens.push_back(readNumber());
+            const bool allowFraction = tokens.empty() || tokens.back().kind != TokenKind::Dot;
+            tokens.push_back(readNumber(allowFraction));
             continue;
         }
         if (c == '"') {
@@ -278,6 +277,9 @@ std::vector<Token> Lexer::tokenize() {
                 if (!isAtEnd() && peek() == '>') {
                     advance();
                     tokens.push_back(makeToken(TokenKind::Arrow, "->", startLine, startColumn, pos - startPos));
+                } else if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    tokens.push_back(makeToken(TokenKind::MinusEqual, "-=", startLine, startColumn, pos - startPos));
                 } else {
                     tokens.push_back(makeToken(TokenKind::Minus, "-", startLine, startColumn, 1));
                 }
@@ -286,7 +288,17 @@ std::vector<Token> Lexer::tokenize() {
                 tokens.push_back(makeToken(TokenKind::Comma, ",", startLine, startColumn, 1));
                 break;
             case '.':
-                tokens.push_back(makeToken(TokenKind::Dot, ".", startLine, startColumn, 1));
+                if (!isAtEnd() && peek() == '.') {
+                    advance();
+                    if (!isAtEnd() && peek() == '=') {
+                        advance();
+                        tokens.push_back(makeToken(TokenKind::DotDotEqual, "..=", startLine, startColumn, pos - startPos));
+                    } else {
+                        tokens.push_back(makeToken(TokenKind::DotDot, "..", startLine, startColumn, pos - startPos));
+                    }
+                } else {
+                    tokens.push_back(makeToken(TokenKind::Dot, ".", startLine, startColumn, 1));
+                }
                 break;
             case '!':
                 if (!isAtEnd() && peek() == '=') {
@@ -313,13 +325,36 @@ std::vector<Token> Lexer::tokenize() {
                 }
                 break;
             case '+':
-                tokens.push_back(makeToken(TokenKind::Plus, "+", startLine, startColumn, 1));
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    tokens.push_back(makeToken(TokenKind::PlusEqual, "+=", startLine, startColumn, pos - startPos));
+                } else {
+                    tokens.push_back(makeToken(TokenKind::Plus, "+", startLine, startColumn, 1));
+                }
                 break;
             case '*':
-                tokens.push_back(makeToken(TokenKind::Star, "*", startLine, startColumn, 1));
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    tokens.push_back(makeToken(TokenKind::StarEqual, "*=", startLine, startColumn, pos - startPos));
+                } else {
+                    tokens.push_back(makeToken(TokenKind::Star, "*", startLine, startColumn, 1));
+                }
                 break;
             case '/':
-                tokens.push_back(makeToken(TokenKind::Slash, "/", startLine, startColumn, 1));
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    tokens.push_back(makeToken(TokenKind::SlashEqual, "/=", startLine, startColumn, pos - startPos));
+                } else {
+                    tokens.push_back(makeToken(TokenKind::Slash, "/", startLine, startColumn, 1));
+                }
+                break;
+            case '%':
+                if (!isAtEnd() && peek() == '=') {
+                    advance();
+                    tokens.push_back(makeToken(TokenKind::PercentEqual, "%=", startLine, startColumn, pos - startPos));
+                } else {
+                    tokens.push_back(makeToken(TokenKind::Percent, "%", startLine, startColumn, 1));
+                }
                 break;
             default:
                 tokens.push_back(makeToken(TokenKind::Error, std::string(1, c), startLine, startColumn, 1));
@@ -332,4 +367,3 @@ std::vector<Token> Lexer::tokenize() {
 }
 
 } // namespace claw::frontend
-

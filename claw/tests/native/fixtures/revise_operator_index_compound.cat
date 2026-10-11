@@ -1,0 +1,9 @@
+fn next_index() -> USize {
+    println(9)
+    return 0
+}
+
+share fn update(values: ref mut Span[Int32]) -> Int32 {
+    values[next_index()] += 1
+    return values[0]
+}

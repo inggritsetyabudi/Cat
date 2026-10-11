@@ -1,0 +1,5 @@
+import super.{ ghost }
+
+share fn value() -> Int32 {
+    return 1
+}

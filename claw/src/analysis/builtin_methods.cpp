@@ -62,9 +62,6 @@ const std::vector<BuiltinMethodSpec>& builtinMethodSpecs() {
         auto addReserveEditMethod = [&](const std::string& receiverName) {
             entries.push_back(BuiltinMethodSpec{receiverName, "reserve", "edit", {makePlainType("USize")}, makePlainType("Unit")});
         };
-        auto addTruncateEditMethod = [&](const std::string& receiverName) {
-            entries.push_back(BuiltinMethodSpec{receiverName, "truncate", "edit", {makePlainType("USize")}, makePlainType("Unit")});
-        };
         auto addShrinkToFitEditMethod = [&](const std::string& receiverName) {
             entries.push_back(BuiltinMethodSpec{receiverName, "shrink_to_fit", "edit", {}, makePlainType("Unit")});
         };
@@ -110,9 +107,6 @@ const std::vector<BuiltinMethodSpec>& builtinMethodSpecs() {
         addReserveEditMethod("Map");
         addReserveEditMethod("Set");
         addReserveEditMethod("Queue");
-
-        addTruncateEditMethod("Vec");
-        addTruncateEditMethod("Queue");
 
         addShrinkToFitEditMethod("Vec");
         addShrinkToFitEditMethod("Map");

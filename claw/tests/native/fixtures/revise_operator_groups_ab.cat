@@ -1,0 +1,48 @@
+fn observe(value: Bool) -> Bool {
+    println(99)
+    return value
+}
+
+shape Meter {
+    value: Int32
+}
+
+fn main() -> Int32 {
+    var total: Int32 = 20
+    total += 10
+    total -= 4
+    total *= 2
+    total /= 4
+    total %= 4
+    total += -3
+    println(total)
+
+    val remainder: Int32 = -20 % 6
+    println(remainder)
+    val subtraction_left_assoc: Int32 = 10 - 3 - 2
+    println(subtraction_left_assoc)
+    val division_left_assoc: Int32 = 48 / 4 / 3
+    println(division_left_assoc)
+    val arithmetic_precedence: Int32 = 2 + 3 * 4
+    println(arithmetic_precedence)
+    val comparisons = 1 + 2 * 3 == 7 and 2 <= 2 and 3 > 2 and 3 >= 3 and 4 != 5
+    println(comparisons)
+
+    var meter = Meter { value: 1 }
+    meter.value += 4
+    println(meter.value)
+
+    val negated = not false
+    println(negated)
+    val logical_precedence = true or false and observe(false)
+    val skipped_and = false and observe(true)
+    val skipped_or = true or observe(false)
+    val evaluated_and = true and observe(false)
+    val evaluated_or = false or observe(true)
+    println(logical_precedence)
+    println(skipped_and)
+    println(skipped_or)
+    println(evaluated_and)
+    println(evaluated_or)
+    return 0
+}

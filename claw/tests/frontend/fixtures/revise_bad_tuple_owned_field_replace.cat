@@ -1,0 +1,4 @@
+fn main() {
+    var pair = (Anchor.new(1), Anchor.new(2))
+    pair.0 = Anchor.new(3)
+}

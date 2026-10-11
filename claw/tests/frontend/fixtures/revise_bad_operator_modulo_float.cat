@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val invalid = 5.0 % 2.0
+    return 0
+}

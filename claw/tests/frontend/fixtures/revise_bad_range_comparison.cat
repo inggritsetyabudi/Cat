@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val range = 1..3
+    val equal = range == range
+    0
+}

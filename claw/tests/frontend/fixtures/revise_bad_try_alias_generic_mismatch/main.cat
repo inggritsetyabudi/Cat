@@ -1,0 +1,8 @@
+import src.problems.{ Problem as LocalProblem, produce }
+
+fn mismatch() -> Result[Int32, LocalProblem[Int32]] {
+    val value = try produce()
+    return Ok(value)
+}
+
+fn main() {}

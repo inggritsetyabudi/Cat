@@ -1,0 +1,29 @@
+fn produce() -> Result[Int32, Str] {
+    return Ok(7)
+}
+
+fn fail_produce() -> Result[Int32, Str] {
+    return Fail("inner")
+}
+
+fn read_failure() -> Int32 {
+    val err: Str = "outer"
+    val result = try fail_produce() else err {
+        println(err)
+        return 0
+    }
+    return result
+}
+
+fn main() -> Int32 {
+    val number = 99
+    if true {
+        val number = try produce() else err {
+            return 0
+        }
+        println(number)
+    }
+    println(number)
+    println(read_failure())
+    0
+}

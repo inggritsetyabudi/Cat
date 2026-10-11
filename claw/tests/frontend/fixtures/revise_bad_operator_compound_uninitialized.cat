@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    var count: Int32
+    count += 1
+    return 0
+}

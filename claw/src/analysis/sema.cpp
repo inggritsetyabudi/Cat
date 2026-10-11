@@ -6,9 +6,11 @@
 #include "ast/ast.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <cctype>
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <stdexcept>
 #include <unordered_set>
@@ -33,8 +35,61 @@ ResolvedType makeOwnedType(const std::string& name) {
     return type;
 }
 
+bool isPlainTupleDestructuringField(const ResolvedType& type) {
+    if (!type.isPlain() || type.isOwned() || type.isView() || type.name == "Span" || type.isUnknown() ||
+        type.isOpaqueExternal() || type.isGeneric || !type.scopeName.empty() || !type.viewScope.empty()) {
+        return false;
+    }
+    for (const auto& parameter : type.params) {
+        if (!isPlainTupleDestructuringField(parameter)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isSupportedTupleDestructuringField(const ResolvedType& type) {
+    if (isPlainTupleDestructuringField(type)) {
+        return true;
+    }
+    if (type.isView() || type.isUnknown() || type.isOpaqueExternal() || type.isGeneric ||
+        !type.scopeName.empty() || !type.viewScope.empty()) {
+        return false;
+    }
+    if (type.name == "Tuple" && type.isOwned()) {
+        return std::all_of(type.params.begin(), type.params.end(), isSupportedTupleDestructuringField);
+    }
+    if (type.name == "Anchor" && type.isOwned() && type.params.size() == 1) {
+        return isPlainTupleDestructuringField(type.params.front());
+    }
+    return false;
+}
+
+bool containsOwnedTupleValue(const ResolvedType& type) {
+    if (type.name == "Tuple" && type.isOwned()) {
+        return true;
+    }
+    return std::any_of(type.params.begin(), type.params.end(), containsOwnedTupleValue);
+}
+
+std::optional<size_t> parseTupleProjectionIndex(std::string_view text) {
+    if (text.empty()) {
+        return std::nullopt;
+    }
+    size_t index = 0;
+    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), index);
+    if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
+        return std::nullopt;
+    }
+    return index;
+}
+
 bool startsWithUppercase(const std::string& name) {
     return !name.empty() && std::isupper(static_cast<unsigned char>(name.front())) != 0;
+}
+
+bool startsWithLowercase(const std::string& name) {
+    return !name.empty() && std::islower(static_cast<unsigned char>(name.front())) != 0;
 }
 
 bool isRawAddressTypeName(const std::string& name) {
@@ -71,9 +126,53 @@ bool isAnchorStaticConstructorCall(const Expr* callee) {
     return objectIdent && objectIdent->name == "Anchor" && member->member == "new";
 }
 
+bool isStaticStringLiteral(const Expr* expr) {
+    return dynamic_cast<const StringExpr*>(expr) != nullptr;
+}
+
+bool projectsFromOwnedTemporary(const SemanticAnalyzer& sema, const Expr* expr) {
+    const Expr* owner = nullptr;
+    if (const auto* member = dynamic_cast<const MemberExpr*>(expr)) {
+        owner = member->object.get();
+    } else if (const auto* index = dynamic_cast<const IndexExpr*>(expr)) {
+        owner = index->object.get();
+    }
+
+    if (!owner || sema.isPlaceExpression(owner) || isStaticStringLiteral(owner)) {
+        return false;
+    }
+    const auto* ownerType = sema.lookupExprType(owner);
+    return ownerType && ownerType->isOwned() && ownerType->name != "Arena";
+}
+
+bool callsBorrowingMethodOnOwnedTemporary(const SemanticAnalyzer& sema, const Expr* expr) {
+    const auto* call = dynamic_cast<const CallExpr*>(expr);
+    const auto* member = call ? dynamic_cast<const MemberExpr*>(call->callee.get()) : nullptr;
+    if (!member) {
+        return false;
+    }
+
+    const auto method = sema.lookupMethodSignature(call->callee.get());
+    const Expr* receiver = member->object.get();
+    const auto* receiverType = sema.lookupExprType(receiver);
+    return method && method->receiverType.isView() && receiverType && receiverType->isOwned() &&
+        receiverType->name != "Arena" && !sema.isPlaceExpression(receiver) && !isStaticStringLiteral(receiver);
+}
+
+bool containsAnchorPayload(const ResolvedType& type) {
+    if (canonicalTypeName(type.name) == "Anchor") {
+        return true;
+    }
+    return std::any_of(type.params.begin(), type.params.end(), containsAnchorPayload);
+}
+
 bool isAnchorPayloadTypeAllowed(const ResolvedType& type) {
     if (type.isUnknown() || type.isOpaqueExternal() || type.isView() ||
         !type.scopeName.empty() || !type.viewScope.empty()) {
+        return false;
+    }
+
+    if (containsAnchorPayload(type)) {
         return false;
     }
 
@@ -85,6 +184,10 @@ bool isAnchorPayloadTypeAllowed(const ResolvedType& type) {
 }
 
 std::string anchorPayloadTypeError(const ResolvedType& type) {
+    if (containsAnchorPayload(type)) {
+        return "Anchor.new(...) cannot store payload type `" + type.describe() +
+            "` because it contains a nested Anchor; dropping the outer Anchor does not recursively destroy its payload. Recursive Anchor payload destruction is not supported.";
+    }
     return "Anchor.new(...) requires an owned payload with stable ownership. " +
         type.describe() + " cannot be anchored directly.";
 }
@@ -123,6 +226,10 @@ ResolvedType asViewType(const ResolvedType& base, const std::string& viewKind) {
 SemanticAnalyzer::SemanticAnalyzer(std::vector<ImportedBinding> importedBindings, TargetSpec target)
     : importedBindings(std::move(importedBindings)), target(std::move(target)) {}
 
+const std::vector<Diagnostic>& SemanticAnalyzer::warnings() const {
+    return semanticWarnings;
+}
+
 const AnalysisResult& SemanticAnalyzer::result() const {
     return analysisResult;
 }
@@ -130,6 +237,20 @@ const AnalysisResult& SemanticAnalyzer::result() const {
 const ResolvedType* SemanticAnalyzer::lookupExprType(const Expr* expr) const {
     const auto it = analysisResult.exprTypes.find(expr);
     return it != analysisResult.exprTypes.end() ? &it->second : nullptr;
+}
+
+bool SemanticAnalyzer::isPlaceExpression(const Expr* expr) const {
+    if (const auto* ident = dynamic_cast<const IdentExpr*>(expr)) {
+        return analysisResult.choiceConstructors.find(ident) == analysisResult.choiceConstructors.end();
+    }
+    if (const auto* member = dynamic_cast<const MemberExpr*>(expr)) {
+        return isPlaceExpression(member->object.get());
+    }
+    if (const auto* index = dynamic_cast<const IndexExpr*>(expr)) {
+        return isPlaceExpression(index->object.get());
+    }
+    // Current AST forms other than identifiers and projections are rvalues.
+    return false;
 }
 
 const FunctionSignature* SemanticAnalyzer::lookupFunctionSignature(const FnDecl* fn) const {
@@ -236,6 +357,54 @@ void SemanticAnalyzer::reportError(const SourceSpan& span, const std::string& ms
 
 void SemanticAnalyzer::reportError(const AstNode* node, const std::string& msg) {
     reportError(node ? node->span : SourceSpan{}, msg);
+}
+
+void SemanticAnalyzer::reportWarning(const AstNode* node, const std::string& msg) {
+    Diagnostic diagnostic{"semantic", msg, node ? node->span : SourceSpan{}};
+    diagnostic.severity = DiagnosticSeverity::Warning;
+    semanticWarnings.push_back(std::move(diagnostic));
+}
+
+void SemanticAnalyzer::warnNonTailValueExpression(const Stmt* stmt) {
+    const auto* expressionStmt = dynamic_cast<const ExprStmt*>(stmt);
+    if (!expressionStmt || !expressionStmt->expr) {
+        return;
+    }
+
+    const Expr* expr = expressionStmt->expr.get();
+    const auto* type = lookupExprType(expr);
+    if (!type || type->isUnknown() || type->isOpaqueExternal() || typeIsMustUse(*type)) {
+        return;
+    }
+
+    if (projectsFromOwnedTemporary(*this, expr)) {
+        reportError(
+            expressionStmt,
+            "Cannot discard an expression projected from an owned temporary because its owner cannot be safely destroyed on this path.");
+        return;
+    }
+    if (callsBorrowingMethodOnOwnedTemporary(*this, expr)) {
+        reportError(
+            expressionStmt,
+            "Cannot discard a call on an owned temporary receiver because the borrowed receiver cannot be safely destroyed on this path.");
+        return;
+    }
+    if (type->name == "Unit" || type->name == "Never") {
+        return;
+    }
+
+    if (type->isOwned() && !isPlaceExpression(expr) && !isStaticStringLiteral(expr) &&
+        type->name != "Anchor" && type->name != "Arena") {
+        reportError(
+            expressionStmt,
+            "Cannot discard owned temporary of type `" + type->describe() +
+                "` because no safe destructor is available.");
+        return;
+    }
+
+    reportWarning(
+        expressionStmt,
+        "Non-final expression value is ignored; only the final expression in a block returns implicitly.");
 }
 
 bool SemanticAnalyzer::typeContainsBorrowedStorage(const ResolvedType& type) const {
@@ -448,53 +617,98 @@ bool SemanticAnalyzer::validateScopedViewType(const ResolvedType& type, const As
 }
 
 bool SemanticAnalyzer::validateAnchorPayloadType(const ResolvedType& type, const AstNode* node, std::string_view context) {
-    auto validateNested = [&](const auto& self, const ResolvedType& current) -> bool {
+    std::unordered_set<std::string> visitedTypes;
+    auto validateNested = [&](const auto& self, const ResolvedType& current, bool insideAnchorPayload) -> bool {
         if (current.isUnknown()) {
             return true;
         }
-        if (current.isOpaqueExternal()) {
-            reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
-                " because Anchor[T] requires a concrete owned payload, not an opaque external value.");
-            return false;
+        if (canonicalTypeName(current.name) == "Anchor") {
+            if (insideAnchorPayload) {
+                reportError(node, "`" + type.describe() + "` is unsupported because an Anchor payload cannot contain another Anchor (found nested type `" + current.describe() + "`); dropping the outer Anchor only frees its own storage. Recursive payload destruction is not supported.");
+                return false;
+            }
+            if (current.params.size() != 1) {
+                reportError(node, "Anchor[T] requires exactly one payload type.");
+                return false;
+            }
+            return self(self, current.params.front(), true);
         }
-        if (current.isView()) {
-            reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
-                " because Anchor[T] requires an owned payload. Store an owned value instead of `" + current.describe() + "`.");
-            return false;
-        }
-        if (!current.scopeName.empty() || !current.viewScope.empty()) {
-            const std::string scopeName = !current.scopeName.empty() ? current.scopeName : current.viewScope;
-            reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
-                " because Anchor[T] cannot hold scoped type `" + current.describe() +
-                "` bound to scope `" + scopeName + "`.");
-            return false;
-        }
-        if (current.name == "Span") {
-            reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
-                " because Anchor[T] cannot hold Span[T]. Keep the Span borrow local or store the owned collection instead.");
-            return false;
-        }
-        if (isRawAddressType(current)) {
-            reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
-                " because Anchor[T] cannot hold raw address types.");
-            return false;
-        }
-        for (const auto& param : current.params) {
-            if (!self(self, param)) {
+        if (insideAnchorPayload) {
+            if (current.isOpaqueExternal()) {
+                reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
+                    " because Anchor[T] requires a concrete owned payload, not an opaque external value.");
+                return false;
+            }
+            if (current.isView()) {
+                reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
+                    " because Anchor[T] requires an owned payload. Store an owned value instead of `" + current.describe() + "`.");
+                return false;
+            }
+            if (!current.scopeName.empty() || !current.viewScope.empty()) {
+                const std::string scopeName = !current.scopeName.empty() ? current.scopeName : current.viewScope;
+                reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
+                    " because Anchor[T] cannot hold scoped type `" + current.describe() +
+                    "` bound to scope `" + scopeName + "`.");
+                return false;
+            }
+            if (canonicalTypeName(current.name) == "Span") {
+                reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
+                    " because Anchor[T] cannot hold Span[T]. Keep the Span borrow local or store the owned collection instead.");
+                return false;
+            }
+            if (isRawAddressType(current)) {
+                reportError(node, "`" + type.describe() + "` cannot be used in " + std::string(context) +
+                    " because Anchor[T] cannot hold raw address types.");
                 return false;
             }
         }
+
+        const std::string visitKey = current.nominalIdentity + "|" + current.describe() +
+            (insideAnchorPayload ? "|anchor-payload" : "|ordinary-type");
+        if (!visitedTypes.insert(visitKey).second) {
+            return true;
+        }
+
+        for (const auto& param : current.params) {
+            if (!self(self, param, insideAnchorPayload)) {
+                return false;
+            }
+        }
+
+        if (const ShapeInfo* shape = lookupShape(current.name)) {
+            const auto bindings = buildTypeBindings(shape->typeParams, current.params);
+            for (const auto& fieldName : shape->fieldOrder) {
+                const auto fieldIt = shape->fields.find(fieldName);
+                if (fieldIt == shape->fields.end()) {
+                    continue;
+                }
+                const ResolvedType fieldType = substituteType(fieldIt->second, bindings);
+                if (!self(self, fieldType, insideAnchorPayload)) {
+                    return false;
+                }
+            }
+        }
+
+        if (const ChoiceInfo* choice = lookupChoice(current.name)) {
+            const auto bindings = buildTypeBindings(choice->typeParams, current.params);
+            for (const auto& variantName : choice->variantOrder) {
+                const auto variantIt = choice->variants.find(variantName);
+                if (variantIt == choice->variants.end()) {
+                    continue;
+                }
+                for (const auto& payloadType : variantIt->second.payloadTypes) {
+                    const ResolvedType specializedPayload = substituteType(payloadType, bindings);
+                    if (!self(self, specializedPayload, insideAnchorPayload)) {
+                        return false;
+                    }
+                }
+            }
+        }
+
         return true;
     };
 
-    if (type.name != "Anchor") {
-        return true;
-    }
-    if (type.params.size() != 1) {
-        reportError(node, "Anchor[T] requires exactly one payload type.");
-        return false;
-    }
-    return validateNested(validateNested, type.params.front());
+    return validateNested(validateNested, type, false);
 }
 const Symbol* SemanticAnalyzer::resolveBorrowSourceSymbol(const Expr* expr) const {
     if (!expr) {
@@ -702,6 +916,8 @@ void SemanticAnalyzer::analyze(RealmDecl* realm) {
         realm->declarations.insert(realm->declarations.begin(), std::move(resultChoice));
     }
 
+    validateNameCasing(realm);
+
     enterSemanticScope();
     registerPrelude();
     registerImports(realm);
@@ -719,6 +935,178 @@ void SemanticAnalyzer::analyze(RealmDecl* realm) {
         throw DiagnosticError(
             "Semantic analysis failed with " + std::to_string(diagnostics.size()) + " errors.",
             diagnostics);
+    }
+}
+
+void SemanticAnalyzer::validateNameCasing(const RealmDecl* realm) {
+    const auto requireCase = [this](
+                                const std::string& name,
+                                const SourceSpan& span,
+                                bool requireUppercase,
+                                std::string_view category,
+                                bool allowDiscard = false) {
+        if (allowDiscard && name == "_") {
+            return;
+        }
+
+        const bool valid = requireUppercase ? startsWithUppercase(name) : startsWithLowercase(name);
+        if (!valid) {
+            reportError(
+                span,
+                std::string(category) + " '" + name + "' must start with " +
+                    (requireUppercase ? "an uppercase" : "a lowercase") + " letter.");
+        }
+    };
+
+    const auto requireTypeParameters = [&](const std::vector<std::string>& names, const SourceSpan& span) {
+        for (const auto& name : names) {
+            requireCase(name, span, true, "Type parameter");
+        }
+    };
+
+    std::function<void(const Expr*)> requireExpr;
+    std::function<void(const BlockStmt*)> requireBlock;
+    requireBlock = [&](const BlockStmt* block) {
+        if (!block) {
+            return;
+        }
+
+        for (const auto& stmt : block->statements) {
+            if (const auto* binding = dynamic_cast<const BindingStmt*>(stmt.get())) {
+                if (binding->tuplePatternNames.empty()) {
+                    requireCase(binding->name, binding->span, false, "Variable name", true);
+                } else {
+                    for (const auto& name : binding->tuplePatternNames) {
+                        requireCase(name, binding->span, false, "Variable name", true);
+                    }
+                }
+                requireExpr(binding->value.get());
+            } else if (const auto* tryStmt = dynamic_cast<const TryStmt*>(stmt.get())) {
+                requireCase(tryStmt->name, tryStmt->span, false, "Variable name", true);
+                if (!tryStmt->failName.empty()) {
+                    requireCase(tryStmt->failName, tryStmt->span, false, "Variable name", true);
+                }
+                requireExpr(tryStmt->expr.get());
+                requireBlock(tryStmt->failBlock.get());
+            } else if (const auto* ifStmt = dynamic_cast<const IfStmt*>(stmt.get())) {
+                requireExpr(ifStmt->condition.get());
+                requireBlock(ifStmt->thenBlock.get());
+                requireBlock(ifStmt->elseBlock.get());
+            } else if (const auto* loop = dynamic_cast<const LoopStmt*>(stmt.get())) {
+                requireExpr(loop->condition.get());
+                requireBlock(loop->body.get());
+            } else if (const auto* scan = dynamic_cast<const ScanStmt*>(stmt.get())) {
+                requireCase(scan->itemName, scan->span, false, "Variable name", true);
+                requireExpr(scan->iterable.get());
+                requireBlock(scan->body.get());
+            } else if (const auto* scope = dynamic_cast<const ScopeStmt*>(stmt.get())) {
+                requireCase(scope->name, scope->span, false, "Scope name");
+                requireBlock(scope->body.get());
+            } else if (const auto* pick = dynamic_cast<const PickStmt*>(stmt.get())) {
+                requireExpr(pick->value.get());
+                for (const auto& branch : pick->branches) {
+                    for (const auto& name : branch.bindings) {
+                        requireCase(name, branch.span, false, "Variable name", true);
+                    }
+                    requireBlock(branch.body.get());
+                }
+            } else if (const auto* raw = dynamic_cast<const RawStmt*>(stmt.get())) {
+                requireBlock(raw->body.get());
+            } else if (const auto* exprStmt = dynamic_cast<const ExprStmt*>(stmt.get())) {
+                requireExpr(exprStmt->expr.get());
+            } else if (const auto* ret = dynamic_cast<const ReturnStmt*>(stmt.get())) {
+                requireExpr(ret->value.get());
+            } else if (const auto* assign = dynamic_cast<const AssignStmt*>(stmt.get())) {
+                requireExpr(assign->target.get());
+                requireExpr(assign->value.get());
+            }
+        }
+    };
+    requireExpr = [&](const Expr* expr) {
+        if (!expr) {
+            return;
+        }
+        if (const auto* binary = dynamic_cast<const BinaryExpr*>(expr)) {
+            requireExpr(binary->left.get());
+            requireExpr(binary->right.get());
+        } else if (const auto* unary = dynamic_cast<const UnaryExpr*>(expr)) {
+            requireExpr(unary->operand.get());
+        } else if (const auto* call = dynamic_cast<const CallExpr*>(expr)) {
+            requireExpr(call->callee.get());
+            for (const auto& arg : call->args) requireExpr(arg.get());
+        } else if (const auto* member = dynamic_cast<const MemberExpr*>(expr)) {
+            requireExpr(member->object.get());
+        } else if (const auto* index = dynamic_cast<const IndexExpr*>(expr)) {
+            requireExpr(index->object.get());
+            requireExpr(index->index.get());
+        } else if (const auto* borrow = dynamic_cast<const BorrowExpr*>(expr)) {
+            requireExpr(borrow->target.get());
+        } else if (const auto* shape = dynamic_cast<const ShapeInitExpr*>(expr)) {
+            for (const auto& field : shape->fields) requireExpr(field.value.get());
+        } else if (const auto* ifExpr = dynamic_cast<const IfExpr*>(expr)) {
+            requireExpr(ifExpr->condition.get());
+            requireBlock(ifExpr->thenBlock.get());
+            requireBlock(ifExpr->elseBlock.get());
+        } else if (const auto* pickExpr = dynamic_cast<const PickExpr*>(expr)) {
+            requireExpr(pickExpr->value.get());
+            for (const auto& branch : pickExpr->branches) {
+                for (const auto& name : branch.bindings) {
+                    requireCase(name, branch.span, false, "Variable name", true);
+                }
+                requireBlock(branch.body.get());
+            }
+        }
+    };
+
+    const auto requireFunction = [&](const FnDecl* fn) {
+        if (!fn) {
+            return;
+        }
+        requireCase(fn->name, fn->span, false, "Function name");
+        for (const auto& param : fn->params) {
+            requireCase(param.name, param.span, false, "Parameter name", true);
+        }
+        requireBlock(fn->body.get());
+    };
+
+    for (const auto& decl : realm->declarations) {
+        if (const auto* shape = dynamic_cast<const ShapeDecl*>(decl.get())) {
+            requireCase(shape->name, shape->span, true, "Type name");
+            requireTypeParameters(shape->typeParams, shape->span);
+            if (shape->isViewShape) {
+                requireCase(shape->scopeParamName, shape->span, false, "Scope name");
+            }
+            for (const auto& field : shape->fields) {
+                requireCase(field.name, field.span, false, "Field name");
+            }
+        } else if (const auto* choice = dynamic_cast<const ChoiceDecl*>(decl.get())) {
+            requireCase(choice->name, choice->span, true, "Type name");
+            requireTypeParameters(choice->typeParams, choice->span);
+            for (const auto& variant : choice->variants) {
+                for (const auto& payload : variant.payloads) {
+                    requireCase(payload.name, payload.span, false, "Field name", true);
+                }
+            }
+        } else if (const auto* contract = dynamic_cast<const ContractDecl*>(decl.get())) {
+            requireCase(contract->name, contract->span, true, "Type name");
+            requireTypeParameters(contract->typeParams, contract->span);
+            for (const auto& method : contract->methods) {
+                requireFunction(method.get());
+            }
+        } else if (const auto* fn = dynamic_cast<const FnDecl*>(decl.get())) {
+            requireFunction(fn);
+        } else if (const auto* stat = dynamic_cast<const StaticDecl*>(decl.get())) {
+            requireCase(stat->name, stat->span, false, "Variable name");
+        } else if (const auto* impl = dynamic_cast<const ImplementsDecl*>(decl.get())) {
+            requireCase(impl->typeName, impl->span, true, "Type name");
+            if (impl->contractName.has_value()) {
+                requireCase(*impl->contractName, impl->span, true, "Type name");
+            }
+            requireTypeParameters(impl->typeParams, impl->span);
+            for (const auto& method : impl->methods) {
+                requireFunction(method.get());
+            }
+        }
     }
 }
 
@@ -776,6 +1164,7 @@ void SemanticAnalyzer::registerImports(const RealmDecl* realm) {
                 analysisResult.shapesByName[binding.name] = *binding.shapeInfo;
             }
         }
+        typeCatalog.registerNominalIdentity(binding.name, binding.nominalIdentity);
 
         auto sym = std::make_shared<Symbol>();
         sym->name = binding.name;
@@ -840,8 +1229,10 @@ void SemanticAnalyzer::declareTopLevel(const RealmDecl* realm) {
             } else {
                 typeCatalog.registerShapeName(shape->name, shape->typeParams.size());
             }
+            typeCatalog.registerNominalIdentity(shape->name, nominalTypeIdentity(realm->name, shape->name));
         } else if (auto* choice = dynamic_cast<ChoiceDecl*>(decl.get())) {
             typeCatalog.registerChoiceName(choice->name, choice->typeParams.size());
+            typeCatalog.registerNominalIdentity(choice->name, nominalTypeIdentity(realm->name, choice->name));
         }
     }
 
@@ -1089,6 +1480,12 @@ void SemanticAnalyzer::validateNamedLayouts(const RealmDecl* realm) {
                     const auto fieldIt = info->fields.find(field.name);
                     if (fieldIt == info->fields.end()) {
                         continue;
+                    }
+                    if (containsOwnedTupleValue(fieldIt->second)) {
+                        reportError(
+                            field.span,
+                            "Shape fields cannot contain tuples with owned fields until shape drop glue is available.");
+                        hadSpecificError = true;
                     }
                     hadSpecificError = validateOwnedLayoutDependency(shape->name, fieldIt->second, field.span, stack) || hadSpecificError;
                 }
@@ -1436,14 +1833,14 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
 
         if (!fn->body->statements.empty()) {
             if (auto* tailExprStmt = dynamic_cast<ExprStmt*>(fn->body->statements.back().get())) {
-                hasImplicitTailReturn = true;
                 const ResolvedType valueType = tailExprStmt->expr
                     ? (lookupExprType(tailExprStmt->expr.get()) ? *lookupExprType(tailExprStmt->expr.get()) : makeUnknownType())
                     : makePlainType("Unit");
+                hasImplicitTailReturn = valueType.name != "Never";
 
-                if (valueType.isOpaqueExternal()) {
+                if (valueType.name != "Never" && valueType.isOpaqueExternal()) {
                     reportError(tailExprStmt->expr.get(), opaqueExternalValueUseMessage(valueType, "implicit return value"));
-                } else if (typeContainsScopeName(valueType) &&
+                } else if (valueType.name != "Never" && typeContainsScopeName(valueType) &&
                            !typeContainsScopeName(currentSignature ? currentSignature->returnType : makeUnknownType())) {
                     std::vector<std::string> valueScopes;
                     collectNamedScopeNames(valueType, valueScopes);
@@ -1464,7 +1861,7 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
                             "Implicit return cannot let value `" + valueType.describe() +
                                 "` escape because it contains borrowed storage bound to scope `" + scopeName + "`.");
                     }
-                } else if (currentSignature && currentSignature->returnType.isView()) {
+                } else if (valueType.name != "Never" && currentSignature && currentSignature->returnType.isView()) {
                     if (!canBorrowAsView(valueType, currentSignature->returnType)) {
                         reportError(
                             tailExprStmt,
@@ -1486,14 +1883,15 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
                     } else if (!currentViewReturnSeen) {
                         currentViewReturnSeen = true;
                     }
-                } else if (currentSignature && currentFunction && !canAssignType(valueType, currentSignature->returnType)) {
+                } else if (valueType.name != "Never" && currentSignature && currentFunction &&
+                           !canAssignType(valueType, currentSignature->returnType)) {
                     reportError(
                         tailExprStmt,
                         "Implicit return type mismatch in function '" + currentFunction->name + "': expected " +
                             currentSignature->returnType.describe() + ", got " + valueType.describe());
                 }
 
-                if (rawDepth == 0 && isRawAddressType(valueType)) {
+                if (valueType.name != "Never" && rawDepth == 0 && isRawAddressType(valueType)) {
                     reportError(tailExprStmt, "Raw address values may only appear inside raw blocks.");
                 }
             }
@@ -1598,6 +1996,19 @@ void SemanticAnalyzer::analyzeChoiceDecl(ChoiceDecl* choice) {
     std::unordered_set<std::string> seenVariants;
 
     for (const auto& variant : choice->variants) {
+        const bool reservedCapitalizedVariant =
+            (choice->name == "Result" && (variant.tag == "Ok" || variant.tag == "Fail")) ||
+            (choice->name == "Maybe" && (variant.tag == "Some" || variant.tag == "None"));
+        if (!reservedCapitalizedVariant && !startsWithLowercase(variant.tag)) {
+            std::string lowercaseSuggestion = variant.tag;
+            lowercaseSuggestion.front() = static_cast<char>(
+                std::tolower(static_cast<unsigned char>(lowercaseSuggestion.front())));
+            reportError(
+                variant.span,
+                "Choice variant '" + variant.tag + "' must start with a lowercase letter; use '" +
+                    lowercaseSuggestion + "'.");
+        }
+
         if (!seenVariants.insert(variant.tag).second) {
             reportError(variant.span, "Duplicate variant in choice '" + choice->name + "': " + variant.tag);
             continue;
@@ -1606,6 +2017,11 @@ void SemanticAnalyzer::analyzeChoiceDecl(ChoiceDecl* choice) {
         ChoiceVariantInfo variantInfo;
         for (const auto& payload : variant.payloads) {
             ResolvedType payloadType = resolveTypeNode(payload.type.get(), localTypeParams);
+            if (containsOwnedTupleValue(payloadType)) {
+                reportError(
+                    payload.span,
+                    "Choice payloads cannot contain tuples with owned fields until choice drop glue is available.");
+            }
             if (!validateScopedViewType(payloadType, payload.type.get(), "choice payloads")) {
                 variantInfo.payloadTypes.push_back(std::move(payloadType));
                 continue;
@@ -1632,13 +2048,240 @@ void SemanticAnalyzer::analyzeChoiceDecl(ChoiceDecl* choice) {
 }
 
 void SemanticAnalyzer::analyzeBlock(BlockStmt* block) {
-    for (auto& stmt : block->statements) {
-        analyzeStmt(stmt.get());
+    for (size_t i = 0; i < block->statements.size(); ++i) {
+        Stmt* stmt = block->statements[i].get();
+        analyzeStmt(stmt);
+        if (i + 1 < block->statements.size()) {
+            warnNonTailValueExpression(stmt);
+        }
+    }
+}
+
+ResolvedType SemanticAnalyzer::analyzeBlockValue(BlockStmt* block, const ResolvedType* expectedType) {
+    if (!block) {
+        return makePlainType("Unit");
+    }
+
+    for (size_t i = 0; i < block->statements.size(); ++i) {
+        Stmt* stmt = block->statements[i].get();
+        if (i + 1 == block->statements.size()) {
+            if (auto* tail = dynamic_cast<ExprStmt*>(stmt)) {
+                return tail->expr
+                    ? analyzeExpr(tail->expr.get(), expectedType, false, true)
+                    : makePlainType("Unit");
+            }
+        }
+
+        analyzeStmt(stmt);
+        warnNonTailValueExpression(stmt);
+        if (stmtDefinitelyTerminates(stmt)) {
+            return makePlainType("Never");
+        }
+    }
+
+    return makePlainType("Unit");
+}
+
+ResolvedType SemanticAnalyzer::unifyBranchTypes(
+    const AstNode* owner,
+    const std::vector<ResolvedType>& branchTypes,
+    const ResolvedType* expectedType,
+    std::string_view construct) {
+    bool hasValueBranch = false;
+    ResolvedType commonType = makeUnknownType();
+
+    for (const auto& branchType : branchTypes) {
+        if (branchType.name == "Never") {
+            continue;
+        }
+        if (branchType.isOpaqueExternal()) {
+            return makeUnknownType();
+        }
+
+        if (expectedType) {
+            const bool compatible = expectedType->isView()
+                ? canBorrowAsView(branchType, *expectedType)
+                : canAssignType(branchType, *expectedType);
+            if (!compatible) {
+                reportError(
+                    owner,
+                    "Branch type mismatch in " + std::string(construct) + ": expected " +
+                        expectedType->describe() + ", got " + branchType.describe() + ".");
+            }
+            commonType = *expectedType;
+            hasValueBranch = true;
+            continue;
+        }
+
+        ResolvedType candidate = normalizeInferredLiteralType(branchType);
+        if (!hasValueBranch || commonType.isUnknown()) {
+            commonType = candidate;
+            hasValueBranch = true;
+            continue;
+        }
+
+        if (sameType(commonType, candidate)) {
+            continue;
+        }
+        if (canAssignType(candidate, commonType)) {
+            continue;
+        }
+        if (canAssignType(commonType, candidate)) {
+            commonType = candidate;
+            continue;
+        }
+
+        reportError(
+            owner,
+            "Incompatible branch types in " + std::string(construct) + ": " +
+                commonType.describe() + " and " + candidate.describe() + ".");
+        commonType = makeUnknownType();
+    }
+
+    return hasValueBranch ? commonType : makePlainType("Never");
+}
+
+void SemanticAnalyzer::applyBlockTailType(BlockStmt* block, const ResolvedType& type) {
+    if (!block || block->statements.empty() || type.name == "Never" || type.isUnknown()) {
+        return;
+    }
+    auto* tail = dynamic_cast<ExprStmt*>(block->statements.back().get());
+    if (!tail || !tail->expr) {
+        return;
+    }
+    const auto* actualType = lookupExprType(tail->expr.get());
+    if (actualType && (isIntegerLiteralType(*actualType) || canAssignType(*actualType, type))) {
+        analysisResult.exprTypes[tail->expr.get()] = type;
+    }
+}
+
+bool SemanticAnalyzer::analyzeTuplePickPattern(
+    const PickPattern* pattern,
+    const ResolvedType& type,
+    const std::string& path) {
+    if (!pattern) {
+        return true;
+    }
+
+    if (pattern->kind == PickPatternKind::Tuple) {
+        if (type.name != "Tuple") {
+            reportError(
+                pattern->span,
+                "Tuple pick pattern at " + path + " requires a tuple value, got " + type.describe() + ".");
+            return false;
+        }
+        if (!isPlainTupleDestructuringField(type)) {
+            reportError(
+                pattern->span,
+                "Tuple pick patterns currently support only plain, concrete, non-view fields; got " +
+                    type.describe() + ".");
+            return false;
+        }
+        if (pattern->elements.size() != type.params.size()) {
+            reportError(
+                pattern->span,
+                "Tuple pick pattern at " + path + " expects " + std::to_string(pattern->elements.size()) +
+                    " field(s), but the tuple has " + std::to_string(type.params.size()) + ".");
+            return false;
+        }
+
+        bool valid = true;
+        for (size_t i = 0; i < pattern->elements.size(); ++i) {
+            const std::string childPath = path + "." + std::to_string(i);
+            const bool childValid = analyzeTuplePickPattern(pattern->elements[i].get(), type.params[i], childPath);
+            valid = childValid && valid;
+        }
+        return valid;
+    }
+
+    if (!isPlainTupleDestructuringField(type)) {
+        reportError(
+            pattern->span,
+            "Tuple pick patterns currently support only plain, concrete, non-view fields; element " + path +
+                " has type " + type.describe() + ".");
+        return false;
+    }
+
+    return true;
+}
+
+void SemanticAnalyzer::bindTuplePickPattern(PickPattern* pattern, const ResolvedType& type) {
+    if (!pattern) {
+        return;
+    }
+
+    if (pattern->kind == PickPatternKind::Tuple) {
+        for (size_t i = 0; i < pattern->elements.size(); ++i) {
+            bindTuplePickPattern(pattern->elements[i].get(), type.params[i]);
+        }
+    } else if (pattern->kind == PickPatternKind::Binding) {
+        defineVariable(
+            pattern->name,
+            type,
+            false,
+            "Duplicate pick binding: " + pattern->name,
+            pattern->span,
+            std::nullopt,
+            nullptr,
+            &pattern->backendBindingKey);
     }
 }
 
 void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
     if (auto* bind = dynamic_cast<BindingStmt*>(stmt)) {
+        if (!bind->tuplePatternNames.empty()) {
+            if (bind->isMutable) {
+                reportError(bind, "Tuple destructuring is currently supported only for immutable `val` bindings.");
+            }
+            if (!bind->value) {
+                reportError(bind, "Tuple destructuring requires an initializer.");
+                return;
+            }
+
+            const ResolvedType valueType = analyzeExpr(bind->value.get());
+            if (valueType.isOpaqueExternal()) {
+                reportError(bind->value.get(), opaqueExternalValueUseMessage(valueType, "tuple destructuring"));
+                return;
+            }
+            if (valueType.name != "Tuple") {
+                reportError(bind, "Tuple destructuring requires a tuple value, got " + valueType.describe() + ".");
+                return;
+            }
+            if (valueType.isView() || !valueType.viewKind.empty()) {
+                reportError(bind, "Tuple destructuring consumes the tuple value and cannot destructure a view tuple.");
+                return;
+            }
+            if (valueType.params.size() != bind->tuplePatternNames.size()) {
+                reportError(
+                    bind,
+                    "Tuple destructuring expects " + std::to_string(bind->tuplePatternNames.size()) +
+                        " binding(s), but the tuple has " + std::to_string(valueType.params.size()) + " field(s).");
+                return;
+            }
+
+            for (size_t i = 0; i < bind->tuplePatternNames.size(); ++i) {
+                const ResolvedType& fieldType = valueType.params[i];
+                if (!isSupportedTupleDestructuringField(fieldType)) {
+                    reportError(
+                        bind,
+                        "Tuple destructuring currently supports plain fields and Anchor[T] fields with plain T; element " +
+                            std::to_string(i) + " has type " + fieldType.describe() + ".");
+                }
+                const std::string& name = bind->tuplePatternNames[i];
+                if (name != "_") {
+                    defineVariable(
+                        name,
+                        fieldType,
+                        false,
+                        "Duplicate variable declaration: " + name,
+                        bind->span,
+                        std::nullopt,
+                        bind);
+                }
+            }
+            return;
+        }
+
         const ResolvedType declaredType = bind->type ? resolveTypeNode(bind->type.get(), {}) : makeUnknownType();
         const ResolvedType valueType = bind->value
             ? analyzeExpr(bind->value.get(), bind->type ? &declaredType : nullptr)
@@ -1732,7 +2375,9 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
         ResolvedType failType = makeUnknownType();
 
         if (tryStmt->isMutable) {
-            reportError(tryStmt, "`try` bindings currently require `val`. Mutable `var = try ...` is not supported yet.");
+            reportError(
+                tryStmt,
+                "`try` is only allowed in a `val` initializer. Use `val t = try ...` and then `var x = t`.");
         }
 
         if (outcomeType.isOpaqueExternal()) {
@@ -1789,7 +2434,10 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                     failType,
                     false,
                     "Duplicate try failure binding: " + tryStmt->failName,
-                    tryStmt->span);
+                    tryStmt->span,
+                    std::nullopt,
+                    nullptr,
+                    &tryStmt->failBindingKey);
                 analyzeBlock(tryStmt->failBlock.get());
                 exitSemanticScope();
             }
@@ -1812,13 +2460,27 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             finalType,
             false,
             "Duplicate variable declaration: " + tryStmt->name,
-            tryStmt->span);
+            tryStmt->span,
+            std::nullopt,
+            nullptr,
+            &tryStmt->backendBindingKey);
         return;
     }
 
     if (auto* assign = dynamic_cast<AssignStmt*>(stmt)) {
         const ResolvedType targetType = assign->target ? analyzeExpr(assign->target.get()) : makeUnknownType();
         const ResolvedType valueType = assign->value ? analyzeExpr(assign->value.get(), &targetType) : makeUnknownType();
+
+        if (assign->op != "=") {
+            const bool integerTarget = isIntegerLikeTypeName(targetType.name) || isIntegerLiteralType(targetType);
+            const bool numericTarget = isNumericTypeName(targetType.name) || isNumericLiteralType(targetType);
+            if ((assign->op == "%=" && !integerTarget) || (assign->op != "%=" && !numericTarget)) {
+                reportError(
+                    assign,
+                    "Compound assignment '" + assign->op + "' requires " +
+                        (assign->op == "%=" ? "an integer target." : "a numeric target."));
+            }
+        }
 
         if (rawDepth == 0 && (isRawAddressType(valueType) || isRawAddressType(targetType))) {
             reportError(assign, "Raw address values may only appear inside raw blocks.");
@@ -1916,6 +2578,13 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                 reportError(assign, "Member assignment requires mutable storage or a ref mut view.");
             }
 
+            if (const auto* objectType = lookupExprType(member->object.get());
+                objectType && objectType->name == "Tuple" && targetType.isOwned()) {
+                reportError(
+                    assign,
+                    "Replacing an owned tuple field directly is unsupported; destructure the tuple and rebuild it instead.");
+            }
+
             if (opaqueAssignedValue) {
                 reportError(assign->value.get(), opaqueExternalValueUseMessage(valueType, "member assignment"));
             } else if (!canAssignType(valueType, targetType)) {
@@ -1924,18 +2593,33 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                     "Assigned value type mismatch for member access: expected " +
                         targetType.describe() + ", got " + valueType.describe());
             }
+        } else if (auto* index = dynamic_cast<IndexExpr*>(assign->target.get())) {
+            const auto* indexObjectType = lookupExprType(index->object.get());
+            if (indexObjectType && indexObjectType->name == "Str") {
+                reportError(assign, "Indexed assignment is not supported for Str; string indexing is read-only.");
+            } else if (!canBorrowExprAsEdit(index)) {
+                reportError(assign, "Index assignment requires mutable storage or a ref mut view.");
+            }
+            if (opaqueAssignedValue) {
+                reportError(assign->value.get(), opaqueExternalValueUseMessage(valueType, "index assignment"));
+            } else if (!canAssignType(valueType, targetType)) {
+                reportError(
+                    assign,
+                    "Assigned value type mismatch for index access: expected " +
+                        targetType.describe() + ", got " + valueType.describe());
+            }
         } else {
             reportError(assign, "Unsupported assignment target.");
         }
         return;
     }
 
-    if (auto* give = dynamic_cast<GiveStmt*>(stmt)) {
-        const ResolvedType valueType = give->value
-            ? analyzeExpr(give->value.get(), currentSignature ? &currentSignature->returnType : nullptr)
+    if (auto* returnStmt = dynamic_cast<ReturnStmt*>(stmt)) {
+        const ResolvedType valueType = returnStmt->value
+            ? analyzeExpr(returnStmt->value.get(), currentSignature ? &currentSignature->returnType : nullptr)
             : makePlainType("Unit");
         if (valueType.isOpaqueExternal()) {
-            reportError(give->value.get(), opaqueExternalValueUseMessage(valueType, "return value"));
+            reportError(returnStmt->value.get(), opaqueExternalValueUseMessage(valueType, "return value"));
         } else if (typeContainsScopeName(valueType) &&
                    !(currentSignature && typeContainsScopeName(currentSignature->returnType))) {
             std::vector<std::string> valueScopes;
@@ -1943,56 +2627,67 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             const std::string scopeName = valueScopes.empty() ? std::string{} : valueScopes.front();
             if (!valueType.viewScope.empty()) {
                 reportError(
-                    give,
+                    returnStmt,
                     "Scoped ref `" + valueType.describe() + "` cannot leave `scope " + valueType.viewScope +
                         "`. Return an owned value instead or keep the borrow inside that scope.");
             } else if (!valueType.scopeName.empty()) {
                 reportError(
-                    give,
+                    returnStmt,
                     "Cannot return value `" + valueType.describe() + "` because it is bound to scope `" +
                         valueType.scopeName + "`. Return owned data or keep the borrowed aggregate inside the scope.");
             } else {
                 reportError(
-                    give,
+                    returnStmt,
                     "Cannot return value `" + valueType.describe() +
                         "` because it contains borrowed storage bound to scope `" + scopeName + "`.");
             }
         } else if (currentSignature && currentSignature->returnType.isView()) {
             if (!canBorrowAsView(valueType, currentSignature->returnType)) {
                 reportError(
-                    give,
+                    returnStmt,
                     "Return type mismatch in function '" + currentFunction->name + "': expected " +
                         currentSignature->returnType.describe() + ", got " + valueType.describe());
             }
-            const auto sourceParamIndex = give->value ? resolveViewSourceParam(give->value.get()) : std::nullopt;
+            const auto sourceParamIndex = returnStmt->value ? resolveViewSourceParam(returnStmt->value.get()) : std::nullopt;
             if (!sourceParamIndex.has_value()) {
-                reportError(give, "Returned ref value must come from one of the function's ref parameters. Return an owned value instead, use Anchor[T] for stable storage, or keep the borrow inside a scope block.");
+                reportError(returnStmt, "Returned ref value must come from one of the function's ref parameters. Return an owned value instead, use Anchor[T] for stable storage, or keep the borrow inside a scope block.");
             } else if (sourceParamIndex.value() != SIZE_MAX) {
                 if (!currentViewReturnSeen) {
                     currentViewReturnSourceParam = sourceParamIndex;
                     currentViewReturnSeen = true;
                 } else if (currentViewReturnSourceParam != sourceParamIndex && currentViewReturnSourceParam.value_or(SIZE_MAX) != SIZE_MAX) {
-                    reportError(give, "All returned ref values in a function must come from the same parameter.");
+                    reportError(returnStmt, "All returned ref values in a function must come from the same parameter.");
                 }
             } else if (!currentViewReturnSeen) {
                 currentViewReturnSeen = true;
             }
         } else if (currentSignature && currentFunction && !canAssignType(valueType, currentSignature->returnType)) {
             reportError(
-                give,
+                returnStmt,
                 "Return type mismatch in function '" + currentFunction->name + "': expected " +
                     currentSignature->returnType.describe() + ", got " + valueType.describe());
         }
 
         if (rawDepth == 0 && isRawAddressType(valueType)) {
-            reportError(give, "Raw address values may only appear inside raw blocks.");
+            reportError(returnStmt, "Raw address values may only appear inside raw blocks.");
         }
         return;
     }
 
     if (auto* exprStmt = dynamic_cast<ExprStmt*>(stmt)) {
         if (exprStmt->expr) {
-            const ResolvedType exprType = analyzeExpr(exprStmt->expr.get());
+            const bool isTail = isImplicitTailExpr(exprStmt);
+            const bool valueTail = isTail && currentSignature && currentSignature->returnType.name != "Unit";
+            const bool isControlValue = dynamic_cast<IfExpr*>(exprStmt->expr.get()) ||
+                                        dynamic_cast<PickExpr*>(exprStmt->expr.get());
+            const bool isTupleReturn = currentSignature && currentSignature->returnType.name == "Tuple" &&
+                                       currentSignature->returnType.viewKind.empty();
+            const bool isTupleLiteral = dynamic_cast<TupleExpr*>(exprStmt->expr.get()) != nullptr;
+            const bool needsTupleReturnContext = valueTail && isTupleReturn && isTupleLiteral;
+            const ResolvedType* expectedType = valueTail && (isControlValue || needsTupleReturnContext)
+                ? &currentSignature->returnType
+                : nullptr;
+            const ResolvedType exprType = analyzeExpr(exprStmt->expr.get(), expectedType, false, valueTail);
             if (rawDepth == 0 && isRawAddressType(exprType)) {
                 reportError(exprStmt, "Raw address values may only appear inside raw blocks.");
             }
@@ -2005,21 +2700,21 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
         return;
     }
 
-    if (auto* when = dynamic_cast<WhenStmt*>(stmt)) {
-        const ResolvedType conditionType = analyzeExpr(when->condition.get());
+    if (auto* ifStmt = dynamic_cast<IfStmt*>(stmt)) {
+        const ResolvedType conditionType = analyzeExpr(ifStmt->condition.get());
         if (conditionType.isOpaqueExternal()) {
-            reportError(when->condition.get(), opaqueExternalValueUseMessage(conditionType, "'when' condition"));
+            reportError(ifStmt->condition.get(), opaqueExternalValueUseMessage(conditionType, "'if' condition"));
         } else if (!isConditionLike(conditionType)) {
-            reportError(when->condition.get(), "'when' condition must be Bool, got " + conditionType.describe());
+            reportError(ifStmt->condition.get(), "'if' condition must be Bool, got " + conditionType.describe());
         }
 
         enterSemanticScope();
-        analyzeBlock(when->thenBlock.get());
+        analyzeBlock(ifStmt->thenBlock.get());
         exitSemanticScope();
 
-        if (when->elseBlock) {
+        if (ifStmt->elseBlock) {
             enterSemanticScope();
-            analyzeBlock(when->elseBlock.get());
+            analyzeBlock(ifStmt->elseBlock.get());
             exitSemanticScope();
         }
         return;
@@ -2058,7 +2753,35 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
 
         enterSemanticScope();
         ++loopDepth;
+        scan->itemBindingKey = "$scan.binding." + std::to_string(nextScanBindingIdentity++);
         defineVariable(scan->itemName, itemType, false, "Duplicate scan variable: " + scan->itemName, scan->span);
+        if (auto* currentScope = scopes.currentScope()) {
+            if (const auto itemSymbol = currentScope->lookupLocal(scan->itemName)) {
+                itemSymbol->backendBindingKey = scan->itemBindingKey;
+            }
+        }
+        if (!scan->indexName.empty()) {
+            const ResolvedType indexType = makePlainType("USize");
+            scan->indexBindingKey = "$scan.binding." + std::to_string(nextScanBindingIdentity++);
+            analysisResult.scanIndexTypes[scan] = indexType;
+            const bool isInt32Range = iterableType.name == "Range" && iterableType.params.size() == 1 &&
+                iterableType.params.front().name == "Int32" && iterableType.params.front().isPlain() &&
+                !iterableType.params.front().isGeneric && iterableType.params.front().params.empty();
+            if (!isInt32Range) {
+                reportError(scan, "An indexed scan is currently supported only over Range[Int32].");
+            }
+            defineVariable(
+                scan->indexName,
+                indexType,
+                false,
+                "Duplicate scan variable: " + scan->indexName,
+                scan->span);
+            if (auto* currentScope = scopes.currentScope()) {
+                if (const auto indexSymbol = currentScope->lookupLocal(scan->indexName)) {
+                    indexSymbol->backendBindingKey = scan->indexBindingKey;
+                }
+            }
+        }
         analyzeBlock(scan->body.get());
         --loopDepth;
         exitSemanticScope();
@@ -2085,8 +2808,68 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
         if (valueType.isOpaqueExternal()) {
             reportError(pick->value.get(), opaqueExternalValueUseMessage(valueType, "pick value"));
         }
+        if (valueType.name == "Tuple" && valueType.isOwned() &&
+            !dynamic_cast<IdentExpr*>(pick->value.get())) {
+            reportError(pick->value.get(), "Pick over a temporary owned tuple is unsupported; bind it to a local first.");
+        }
+        const bool tupleValue = valueType.name == "Tuple";
+        if (tupleValue) {
+            bool tuplePatternSeen = false;
+            bool wildcardSeen = false;
+            for (size_t branchIndex = 0; branchIndex < pick->branches.size(); ++branchIndex) {
+                const auto& branch = pick->branches[branchIndex];
+                const bool isWildcard = branch.tag == "_";
+
+                if (tuplePatternSeen) {
+                    reportError(branch.span, "Unreachable pick branch after an irrefutable tuple pattern.");
+                }
+                if (wildcardSeen) {
+                    if (isWildcard) {
+                        reportError(branch.span, "Duplicate pick branch: _");
+                    } else {
+                        reportError(branch.span, "Unreachable pick branch after the '_' catch-all branch.");
+                    }
+                }
+
+                if (isWildcard) {
+                    if (branchIndex + 1 != pick->branches.size()) {
+                        reportError(branch.span, "The '_' catch-all branch must be the last branch in a pick.");
+                    }
+                    if (!branch.bindings.empty()) {
+                        reportError(branch.span, "The '_' catch-all branch cannot bind payload values.");
+                    }
+                    wildcardSeen = true;
+                }
+
+                enterSemanticScope();
+                if (branch.tuplePattern && !wildcardSeen) {
+                    if (analyzeTuplePickPattern(branch.tuplePattern.get(), valueType, "value")) {
+                        bindTuplePickPattern(branch.tuplePattern.get(), valueType);
+                    } else {
+                        for (const auto& binding : branch.bindings) {
+                            defineVariable(binding, makeUnknownType(), false, "Duplicate pick binding: " + binding, branch.span);
+                        }
+                    }
+                    tuplePatternSeen = true;
+                } else if (branch.tuplePattern) {
+                    for (const auto& binding : branch.bindings) {
+                        defineVariable(binding, makeUnknownType(), false, "Duplicate pick binding: " + binding, branch.span);
+                    }
+                } else if (!isWildcard && !branch.tuplePattern && !wildcardSeen) {
+                    reportError(branch.span, "A pick over a tuple must use a tuple pattern or the '_' catch-all.");
+                }
+                analyzeBlock(branch.body.get());
+                exitSemanticScope();
+            }
+
+            if (!wildcardSeen && !tuplePatternSeen) {
+                reportError(pick, "Non-exhaustive pick for tuple type '" + valueType.describe() + "'.");
+            }
+            return;
+        }
         const ChoiceInfo* choiceInfo = (valueType.isUnknown() || valueType.isOpaqueExternal()) ? nullptr : lookupChoice(valueType.name);
         std::unordered_set<std::string> seenTags;
+        bool wildcardSeen = false;
 
         std::unordered_map<std::string, ResolvedType> choiceBindings;
         if (choiceInfo) {
@@ -2096,19 +2879,44 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                 "choice '" + valueType.name + "'");
         }
 
-        for (const auto& branch : pick->branches) {
-            if (!seenTags.insert(branch.tag).second) {
+        for (size_t branchIndex = 0; branchIndex < pick->branches.size(); ++branchIndex) {
+            auto& branch = pick->branches[branchIndex];
+            const bool isWildcard = branch.tag == "_";
+            if (isWildcard) {
+                if (wildcardSeen) {
+                    reportError(branch.span, "Duplicate pick branch: _");
+                }
+                if (branchIndex + 1 != pick->branches.size()) {
+                    reportError(branch.span, "The '_' catch-all branch must be the last branch in a pick.");
+                }
+                if (!branch.bindings.empty()) {
+                    reportError(branch.span, "The '_' catch-all branch cannot bind payload values.");
+                }
+                wildcardSeen = true;
+            } else if (wildcardSeen) {
+                reportError(branch.span, "Unreachable pick branch after the '_' catch-all branch.");
+            } else if (!seenTags.insert(branch.tag).second) {
                 reportError(branch.span, "Duplicate pick branch: " + branch.tag);
             }
 
             enterSemanticScope();
 
-            if (choiceInfo) {
+            if (branch.tuplePattern) {
+                analyzeTuplePickPattern(branch.tuplePattern.get(), valueType, "value");
+                for (const auto& binding : branch.bindings) {
+                    defineVariable(binding, makeUnknownType(), false, "Duplicate pick binding: " + binding, branch.span);
+                }
+            } else if (choiceInfo && isWildcard) {
+                for (const auto& binding : branch.bindings) {
+                    defineVariable(binding, makeUnknownType(), false, "Duplicate pick binding: " + binding, branch.span);
+                }
+            } else if (choiceInfo && !wildcardSeen) {
                 const auto variantIt = choiceInfo->variants.find(branch.tag);
                 if (variantIt == choiceInfo->variants.end()) {
                     reportError(branch.span, "Unknown choice variant '" + branch.tag + "' for type '" + valueType.name + "'.");
                 } else {
                     const auto& payloadTypes = variantIt->second.payloadTypes;
+                    branch.bindingKeys.resize(branch.bindings.size());
                     if (payloadTypes.size() != branch.bindings.size()) {
                         reportError(
                             branch.span,
@@ -2124,7 +2932,10 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                             payloadType,
                             false,
                             "Duplicate pick binding: " + branch.bindings[i],
-                            branch.span);
+                            branch.span,
+                            std::nullopt,
+                            nullptr,
+                            &branch.bindingKeys[i]);
                     }
                 }
             } else {
@@ -2137,42 +2948,9 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             exitSemanticScope();
         }
 
-        if (choiceInfo && seenTags.size() != choiceInfo->variantOrder.size()) {
+        if (choiceInfo && !wildcardSeen && seenTags.size() != choiceInfo->variantOrder.size()) {
             reportError(pick, "Non-exhaustive pick for choice type '" + valueType.name + "'.");
         }
-        return;
-    }
-
-    if (auto* lift = dynamic_cast<LiftStmt*>(stmt)) {
-        const ResolvedType outcomeType = analyzeExpr(lift->expr.get());
-        ResolvedType okType = makeUnknownType();
-        ResolvedType failType = makeUnknownType();
-
-        if (outcomeType.isOpaqueExternal()) {
-            reportError(lift->expr.get(), opaqueExternalValueUseMessage(outcomeType, "lift operand"));
-        } else if (!outcomeType.isUnknown()) {
-            if (outcomeType.name != "Result" || outcomeType.params.size() != 2) {
-                reportError(lift->expr.get(), "'lift' requires a Result value, got " + outcomeType.describe());
-            } else {
-                const auto* outcomeInfo = lookupChoice(outcomeType.name);
-                if (!outcomeInfo || !choice_utils::isOutcomeLikeChoice(*outcomeInfo)) {
-                    reportError(lift->expr.get(), "'lift' requires Result to define Ok(T) and Fail(E) single-payload variants.");
-                }
-                okType = outcomeType.params[0];
-                failType = outcomeType.params[1];
-            }
-        }
-
-        if (!blockDefinitelyTerminates(lift->failBlock.get())) {
-            reportError(lift, "'lift' failure block must terminate the current control path.");
-        }
-
-        enterSemanticScope();
-        defineVariable(lift->failName, failType, false, "Duplicate lift failure binding: " + lift->failName, lift->span);
-        analyzeBlock(lift->failBlock.get());
-        exitSemanticScope();
-
-        defineVariable(lift->valueName, okType, false, "Duplicate lift success binding: " + lift->valueName, lift->span);
         return;
     }
 
@@ -2200,26 +2978,35 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
     }
 }
 
-ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expectedType) {
+ResolvedType SemanticAnalyzer::analyzeExpr(
+    Expr* expr,
+    const ResolvedType* expectedType,
+    bool allowNegativeIntegerMagnitude,
+    bool valueRequired) {
     ResolvedType type = makeUnknownType();
 
     if (dynamic_cast<BoolExpr*>(expr)) {
         type = makePlainType("Bool");
     } else if (auto* intExpr = dynamic_cast<IntExpr*>(expr)) {
         const auto literal = splitNumericLiteralText(intExpr->value);
+        const auto fitsTarget = [&](const std::string& targetName) {
+            return allowNegativeIntegerMagnitude
+                ? integerLiteralFitsNegatedTarget(literal.magnitude, targetName, target)
+                : integerLiteralFitsTarget(literal.magnitude, targetName, target);
+        };
         if (!literal.suffix.empty()) {
             const auto suffixType = resolveNumericLiteralSuffixType(literal.suffix);
             if (!suffixType.has_value()) {
                 reportError(intExpr, "Unknown numeric literal suffix: " + literal.suffix);
             } else {
                 type = *suffixType;
-                if (!integerLiteralFitsTarget(literal.magnitude, type.name, target)) {
+                if (!fitsTarget(type.name)) {
                     reportError(intExpr, "Integer literal '" + literal.magnitude + "' does not fit target type " + type.name + ".");
                 }
             }
         } else if (shouldUseExpectedIntegerType(expectedType) || shouldUseExpectedFloatType(expectedType)) {
             type = *expectedType;
-            if (!integerLiteralFitsTarget(literal.magnitude, type.name, target)) {
+            if (!fitsTarget(type.name)) {
                 const std::string detail = shouldUseExpectedFloatType(expectedType)
                     ? "does not fit exactly in target type "
                     : "does not fit target type ";
@@ -2253,6 +3040,267 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
         }
     } else if (dynamic_cast<StringExpr*>(expr)) {
         type = makeOwnedType("Str");
+    } else if (auto* tupleExpr = dynamic_cast<TupleExpr*>(expr)) {
+        if (tupleExpr->elements.empty()) {
+            type = makePlainType("Unit");
+        } else {
+            ResolvedType tupleType;
+            tupleType.name = "Tuple";
+            tupleType.category = TypeCategory::Plain;
+            const bool expectedTuple = expectedType && expectedType->name == "Tuple" && expectedType->viewKind.empty();
+            const bool expectedArityMatches = expectedTuple && expectedType->params.size() == tupleExpr->elements.size();
+            if (expectedTuple && !expectedArityMatches) {
+                reportError(
+                    tupleExpr,
+                    "Tuple literal has " + std::to_string(tupleExpr->elements.size()) +
+                        " element(s), but the expected tuple type has " +
+                        std::to_string(expectedType->params.size()) + ".");
+            }
+
+            bool hasUnsupportedElement = false;
+            bool hasOwnedElement = false;
+            for (size_t i = 0; i < tupleExpr->elements.size(); ++i) {
+                const ResolvedType* expectedElement = expectedArityMatches ? &expectedType->params[i] : nullptr;
+                ResolvedType elementType = analyzeExpr(tupleExpr->elements[i].get(), expectedElement);
+                if (isNumericLiteralType(elementType)) {
+                    elementType = normalizeInferredLiteralType(elementType);
+                    analysisResult.exprTypes[tupleExpr->elements[i].get()] = elementType;
+                }
+                if (!isSupportedTupleDestructuringField(elementType)) {
+                    reportError(
+                        tupleExpr->elements[i].get(),
+                        "Tuple fields must be concrete plain values or Anchor[T] with concrete plain T; views, Span, generic fields, and other owned types are not supported.");
+                    hasUnsupportedElement = true;
+                }
+                hasOwnedElement = elementType.isOwned() || hasOwnedElement;
+                tupleType.params.push_back(std::move(elementType));
+            }
+            if (hasUnsupportedElement || hasOwnedElement) {
+                tupleType.category = TypeCategory::Owned;
+            }
+            type = std::move(tupleType);
+        }
+    } else if (auto* ifExpr = dynamic_cast<IfExpr*>(expr)) {
+        const ResolvedType conditionType = analyzeExpr(ifExpr->condition.get());
+        if (conditionType.isOpaqueExternal()) {
+            reportError(ifExpr->condition.get(), opaqueExternalValueUseMessage(conditionType, "'if' condition"));
+        } else if (!isConditionLike(conditionType)) {
+            reportError(ifExpr->condition.get(), "'if' condition must be Bool, got " + conditionType.describe());
+        }
+
+        if (!ifExpr->elseBlock && valueRequired) {
+            reportError(ifExpr, "'if' as a value requires an 'else' branch.");
+        }
+
+        if (!valueRequired) {
+            enterSemanticScope();
+            analyzeBlock(ifExpr->thenBlock.get());
+            exitSemanticScope();
+            if (ifExpr->elseBlock) {
+                enterSemanticScope();
+                analyzeBlock(ifExpr->elseBlock.get());
+                exitSemanticScope();
+            }
+            type = makePlainType("Unit");
+        } else {
+            std::vector<ResolvedType> branchTypes;
+            enterSemanticScope();
+            branchTypes.push_back(analyzeBlockValue(ifExpr->thenBlock.get(), expectedType));
+            exitSemanticScope();
+            if (ifExpr->elseBlock) {
+                enterSemanticScope();
+                branchTypes.push_back(analyzeBlockValue(ifExpr->elseBlock.get(), expectedType));
+                exitSemanticScope();
+            }
+            type = ifExpr->elseBlock
+                ? unifyBranchTypes(ifExpr, branchTypes, expectedType, "if expression")
+                : branchTypes.front();
+            applyBlockTailType(ifExpr->thenBlock.get(), type);
+            applyBlockTailType(ifExpr->elseBlock.get(), type);
+        }
+    } else if (auto* pickExpr = dynamic_cast<PickExpr*>(expr)) {
+        const ResolvedType pickedType = analyzeExpr(pickExpr->value.get());
+        if (pickedType.isOpaqueExternal()) {
+            reportError(pickExpr->value.get(), opaqueExternalValueUseMessage(pickedType, "pick value"));
+        }
+        if (pickedType.name == "Tuple" && pickedType.isOwned() &&
+            !dynamic_cast<IdentExpr*>(pickExpr->value.get())) {
+            reportError(pickExpr->value.get(), "Pick over a temporary owned tuple is unsupported; bind it to a local first.");
+        }
+        const bool tupleValue = pickedType.name == "Tuple";
+
+        const ChoiceInfo* choiceInfo = (pickedType.isUnknown() || pickedType.isOpaqueExternal())
+            ? nullptr
+            : lookupChoice(pickedType.name);
+        if (valueRequired && !choiceInfo && !tupleValue) {
+            reportError(pickExpr, "A pick expression requires a choice type to prove exhaustiveness.");
+        }
+
+        if (tupleValue) {
+            bool tuplePatternSeen = false;
+            bool wildcardSeen = false;
+            std::vector<ResolvedType> branchTypes;
+            for (size_t branchIndex = 0; branchIndex < pickExpr->branches.size(); ++branchIndex) {
+                const auto& branch = pickExpr->branches[branchIndex];
+                const bool isWildcard = branch.tag == "_";
+
+                if (tuplePatternSeen) {
+                    reportError(branch.span, "Unreachable pick branch after an irrefutable tuple pattern.");
+                }
+                if (wildcardSeen) {
+                    if (isWildcard) {
+                        reportError(branch.span, "Duplicate pick branch: _");
+                    } else {
+                        reportError(branch.span, "Unreachable pick branch after the '_' catch-all branch.");
+                    }
+                }
+
+                if (isWildcard) {
+                    if (branchIndex + 1 != pickExpr->branches.size()) {
+                        reportError(branch.span, "The '_' catch-all branch must be the last branch in a pick.");
+                    }
+                    if (!branch.bindings.empty()) {
+                        reportError(branch.span, "The '_' catch-all branch cannot bind payload values.");
+                    }
+                    wildcardSeen = true;
+                }
+
+                enterSemanticScope();
+                if (branch.tuplePattern && !wildcardSeen) {
+                    if (analyzeTuplePickPattern(branch.tuplePattern.get(), pickedType, "value")) {
+                        bindTuplePickPattern(branch.tuplePattern.get(), pickedType);
+                    } else {
+                        for (const auto& binding : branch.bindings) {
+                            defineVariable(binding, makeUnknownType(), false, "Duplicate pick binding: " + binding, branch.span);
+                        }
+                    }
+                    tuplePatternSeen = true;
+                } else if (branch.tuplePattern) {
+                    for (const auto& binding : branch.bindings) {
+                        defineVariable(binding, makeUnknownType(), false, "Duplicate pick binding: " + binding, branch.span);
+                    }
+                } else if (!isWildcard && !branch.tuplePattern && !wildcardSeen) {
+                    reportError(branch.span, "A pick over a tuple must use a tuple pattern or the '_' catch-all.");
+                }
+
+                if (valueRequired) {
+                    branchTypes.push_back(analyzeBlockValue(branch.body.get(), expectedType));
+                } else {
+                    analyzeBlock(branch.body.get());
+                }
+                exitSemanticScope();
+            }
+
+            if (!wildcardSeen && !tuplePatternSeen) {
+                reportError(pickExpr, "Non-exhaustive pick for tuple type '" + pickedType.describe() + "'.");
+            }
+            if (valueRequired) {
+                type = unifyBranchTypes(pickExpr, branchTypes, expectedType, "pick expression");
+                for (const auto& branch : pickExpr->branches) {
+                    applyBlockTailType(branch.body.get(), type);
+                }
+            } else {
+                type = makePlainType("Unit");
+            }
+        } else {
+        std::unordered_map<std::string, ResolvedType> choiceBindings;
+        if (choiceInfo) {
+            choiceBindings = buildTypeBindingsChecked(
+                choiceInfo->typeParams,
+                pickedType.params,
+                "choice '" + pickedType.name + "'");
+        }
+
+        std::unordered_set<std::string> seenTags;
+        bool wildcardSeen = false;
+        std::vector<ResolvedType> branchTypes;
+        for (size_t branchIndex = 0; branchIndex < pickExpr->branches.size(); ++branchIndex) {
+            auto& branch = pickExpr->branches[branchIndex];
+            const bool isWildcard = branch.tag == "_";
+            if (isWildcard) {
+                if (wildcardSeen) {
+                    reportError(branch.span, "Duplicate pick branch: _");
+                }
+                if (branchIndex + 1 != pickExpr->branches.size()) {
+                    reportError(branch.span, "The '_' catch-all branch must be the last branch in a pick.");
+                }
+                if (!branch.bindings.empty()) {
+                    reportError(branch.span, "The '_' catch-all branch cannot bind payload values.");
+                }
+                wildcardSeen = true;
+            } else if (wildcardSeen) {
+                reportError(branch.span, "Unreachable pick branch after the '_' catch-all branch.");
+            } else if (branch.tuplePattern) {
+                // The non-tuple path below reports the value/pattern mismatch.
+            } else if (!seenTags.insert(branch.tag).second) {
+                reportError(branch.span, "Duplicate pick branch: " + branch.tag);
+            }
+
+            enterSemanticScope();
+            if (branch.tuplePattern) {
+                analyzeTuplePickPattern(branch.tuplePattern.get(), pickedType, "value");
+                for (const auto& binding : branch.bindings) {
+                    defineVariable(binding, makeUnknownType(), false, "Duplicate pick binding: " + binding, branch.span);
+                }
+            } else if (choiceInfo && isWildcard) {
+                for (const auto& binding : branch.bindings) {
+                    defineVariable(binding, makeUnknownType(), false, "Duplicate pick binding: " + binding, branch.span);
+                }
+            } else if (choiceInfo && !wildcardSeen) {
+                const auto variantIt = choiceInfo->variants.find(branch.tag);
+                if (variantIt == choiceInfo->variants.end()) {
+                    reportError(branch.span, "Unknown choice variant '" + branch.tag + "' for type '" + pickedType.name + "'.");
+                } else {
+                    const auto& payloadTypes = variantIt->second.payloadTypes;
+                    branch.bindingKeys.resize(branch.bindings.size());
+                    if (payloadTypes.size() != branch.bindings.size()) {
+                        reportError(
+                            branch.span,
+                            "Branch '" + branch.tag + "' expects " + std::to_string(payloadTypes.size()) +
+                                " binding(s), got " + std::to_string(branch.bindings.size()));
+                    }
+                    for (size_t i = 0; i < branch.bindings.size(); ++i) {
+                        const ResolvedType payloadType = i < payloadTypes.size()
+                            ? substituteType(payloadTypes[i], choiceBindings)
+                            : makeUnknownType();
+                        defineVariable(
+                            branch.bindings[i],
+                            payloadType,
+                            false,
+                            "Duplicate pick binding: " + branch.bindings[i],
+                            branch.span,
+                            std::nullopt,
+                            nullptr,
+                            &branch.bindingKeys[i]);
+                    }
+                }
+            } else {
+                for (const auto& binding : branch.bindings) {
+                    defineVariable(binding, makeUnknownType(), false, "Duplicate pick binding: " + binding, branch.span);
+                }
+            }
+
+            if (valueRequired) {
+                branchTypes.push_back(analyzeBlockValue(branch.body.get(), expectedType));
+            } else {
+                analyzeBlock(branch.body.get());
+            }
+            exitSemanticScope();
+        }
+
+        if (choiceInfo && !wildcardSeen && seenTags.size() != choiceInfo->variantOrder.size()) {
+            reportError(pickExpr, "Non-exhaustive pick for choice type '" + pickedType.name + "'.");
+        }
+
+        if (valueRequired) {
+            type = unifyBranchTypes(pickExpr, branchTypes, expectedType, "pick expression");
+            for (const auto& branch : pickExpr->branches) {
+                applyBlockTailType(branch.body.get(), type);
+            }
+        } else {
+            type = makePlainType("Unit");
+        }
+        }
     } else if (auto* shapeInit = dynamic_cast<ShapeInitExpr*>(expr)) {
         const ShapeInfo* shapeInfo = lookupShape(shapeInit->name);
         if (!shapeInfo) {
@@ -2379,8 +3427,10 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             type.scopeName = actualScopeName;
         }
     } else if (auto* ident = dynamic_cast<IdentExpr*>(expr)) {
+        const ChoiceInfo* expectedChoiceInfo = nullptr;
         if (expectedType && !expectedType->isUnknown() && !expectedType->isOpaqueExternal()) {
             if (const auto* choiceInfo = lookupChoice(expectedType->name)) {
+                expectedChoiceInfo = choiceInfo;
                 if (const auto variantInfo = choice_utils::resolveChoiceVariantInfo(*choiceInfo, *expectedType, ident->name)) {
                     if (!variantInfo->payloadTypes.empty()) {
                         reportError(
@@ -2400,11 +3450,19 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             }
         }
 
+        ident->backendBindingKey.clear();
         const auto sym = lookupSymbol(ident->name);
         if (!sym) {
-            reportError(ident, "Undefined variable: " + ident->name);
+            if (expectedChoiceInfo) {
+                reportError(
+                    ident,
+                    "Unknown choice variant '" + ident->name + "' for type '" + expectedType->name + "'.");
+            } else {
+                reportError(ident, "Undefined variable: " + ident->name);
+            }
         } else if (sym->kind == SymbolKind::Variable || sym->kind == SymbolKind::Shape) {
             type = sym->type;
+            ident->backendBindingKey = sym->backendBindingKey;
         } else {
             type = makeUnknownType(ident->name);
         }
@@ -2472,7 +3530,85 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
         type.viewKind = borrow->isMutable ? "edit" : "look";
         type.viewScope = borrow->scopeName;
         type.category = TypeCategory::View;
+    } else if (auto* unary = dynamic_cast<UnaryExpr*>(expr)) {
+        const auto* negatedIntegerLiteral = dynamic_cast<IntExpr*>(unary->operand.get());
+        const bool allowNegativeMagnitude = unary->op == "-" && negatedIntegerLiteral;
+        const ResolvedType operandType = analyzeExpr(unary->operand.get(), expectedType, allowNegativeMagnitude);
+        if (unary->op == "-") {
+            if (operandType.isUnknown() || isNumericTypeName(operandType.name) || isNumericLiteralType(operandType)) {
+                type = isNumericLiteralType(operandType) ? normalizeInferredLiteralType(operandType) : operandType;
+                if (allowNegativeMagnitude && isIntegerLiteralType(operandType)) {
+                    const auto literal = splitNumericLiteralText(negatedIntegerLiteral->value);
+                    if (literal.suffix.empty() && !shouldUseExpectedIntegerType(expectedType) && !shouldUseExpectedFloatType(expectedType)) {
+                        if (!integerLiteralFitsNegatedTarget(literal.magnitude, "Int32", target)) {
+                            reportError(
+                                negatedIntegerLiteral,
+                                "Integer literal '" + literal.magnitude + "' does not fit target type Int32.");
+                        }
+                        type = defaultIntegerLiteralType();
+                        analysisResult.exprTypes[unary->operand.get()] = type;
+                    }
+                }
+            } else {
+                reportError(unary, "Unary operator '-' requires a numeric operand, got " + operandType.describe() + ".");
+                type = makeUnknownType();
+            }
+        } else if (unary->op == "not") {
+            if (!operandType.isUnknown() && operandType.name != "Bool") {
+                reportError(unary, "Unary operator 'not' requires Bool, got " + operandType.describe() + ".");
+                type = makeUnknownType();
+            } else {
+                type = makePlainType("Bool");
+            }
+        }
     } else if (auto* binary = dynamic_cast<BinaryExpr*>(expr)) {
+        if (binary->op == ".." || binary->op == "..=") {
+            const ResolvedType int32Type = makePlainType("Int32");
+            const ResolvedType leftType = analyzeExpr(binary->left.get(), &int32Type);
+            const ResolvedType rightType = analyzeExpr(binary->right.get(), &int32Type);
+            const auto isInt32 = [](const ResolvedType& operandType) {
+                return operandType.name == "Int32" && operandType.isPlain() && operandType.params.empty();
+            };
+            if (isInt32(leftType) && isInt32(rightType)) {
+                type = makePlainType("Range");
+                type.params.push_back(int32Type);
+            } else {
+                if (!leftType.isUnknown() && !rightType.isUnknown()) {
+                    reportError(
+                        binary,
+                        "Range bounds currently support only Int32, got " + leftType.describe() + " and " +
+                            rightType.describe() + ".");
+                }
+                type = makeUnknownType();
+            }
+            analysisResult.exprTypes[expr] = type;
+            return type;
+        }
+
+        if (binary->op == "in") {
+            const ResolvedType int32Type = makePlainType("Int32");
+            const ResolvedType leftType = analyzeExpr(binary->left.get(), &int32Type);
+            const ResolvedType rightType = analyzeExpr(binary->right.get());
+            const bool validLeft = leftType.name == "Int32" && leftType.isPlain() && leftType.params.empty();
+            const bool validRight = rightType.name == "Range" && rightType.isPlain() && rightType.params.size() == 1 &&
+                rightType.params.front().name == "Int32" && rightType.params.front().isPlain() &&
+                !rightType.params.front().isGeneric;
+            if (validLeft && validRight) {
+                type = makePlainType("Bool");
+            } else {
+                if (!leftType.isUnknown() && !rightType.isUnknown()) {
+                    reportError(
+                        binary,
+                        "Operator `in` currently requires an Int32 left operand and Range[Int32] right operand, got " +
+                            leftType.describe() + " and " + rightType.describe() + ".");
+                }
+                type = makeUnknownType();
+            }
+            analysisResult.exprTypes[expr] = type;
+            return type;
+        }
+
+        const bool isLogical = binary->op == "and" || binary->op == "or";
         const bool isComparison = binary->op == "==" || binary->op == "!=" || binary->op == "<" || binary->op == "<=" ||
             binary->op == ">" || binary->op == ">=";
         const ResolvedType* operandExpected = (expectedType && isConcreteNumericType(*expectedType)) ? expectedType : nullptr;
@@ -2512,7 +3648,15 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             opMethodSig = lookupFunctionSignature(leftType.name + "." + opMethod);
         }
 
-        if (leftType.isOpaqueExternal() || rightType.isOpaqueExternal()) {
+        if (isLogical) {
+            if (!leftType.isUnknown() && leftType.name != "Bool") {
+                reportError(binary->left.get(), "Logical operator '" + binary->op + "' requires Bool operands, got " + leftType.describe() + ".");
+            }
+            if (!rightType.isUnknown() && rightType.name != "Bool") {
+                reportError(binary->right.get(), "Logical operator '" + binary->op + "' requires Bool operands, got " + rightType.describe() + ".");
+            }
+            type = makePlainType("Bool");
+        } else if (leftType.isOpaqueExternal() || rightType.isOpaqueExternal()) {
             type = makeUnknownType();
         } else if (opMethodSig != nullptr) {
             if (isComparison) {
@@ -2520,6 +3664,9 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             } else {
                 type = opMethodSig->returnType;
             }
+        } else if (isComparison && (leftType.name == "Range" || rightType.name == "Range")) {
+            reportError(binary, "Range values support `in` membership only; range comparisons are not supported.");
+            type = makeUnknownType();
         } else if (isComparison) {
             if (!leftType.isUnknown() && !rightType.isUnknown() &&
                 !canAssignType(rightType, leftType) && !canAssignType(leftType, rightType) &&
@@ -2527,6 +3674,19 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                 reportError(binary, "Incompatible comparison operands: " + leftType.describe() + " and " + rightType.describe());
             }
             type = makePlainType("Bool");
+        } else if (!leftType.isUnknown() && !rightType.isUnknown() && binary->op == "%") {
+            const bool integerOperands = sameType(leftType, rightType) &&
+                (isIntegerLikeTypeName(leftType.name) || isIntegerLiteralType(leftType)) &&
+                (isIntegerLikeTypeName(rightType.name) || isIntegerLiteralType(rightType));
+            if (integerOperands) {
+                type = leftType;
+            } else {
+                reportError(
+                    binary,
+                    "Modulo operator '%' requires integer operands of the same type, got " +
+                        leftType.describe() + " and " + rightType.describe() + ".");
+                type = makeUnknownType();
+            }
         } else if (!leftType.isUnknown() && !rightType.isUnknown()) {
             if (sameType(leftType, rightType) && isNumericTypeName(leftType.name)) {
                 type = leftType;
@@ -2559,6 +3719,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                 expectedPayloadType = &expectedType->params.front();
             }
 
+            bool canValidatePayloadGraph = false;
             if (call->args.size() != 1) {
                 reportError(call, "Anchor.new(...) expects exactly 1 argument.");
             }
@@ -2572,8 +3733,11 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                 if (rawDepth == 0 && isRawAddressType(payloadType)) {
                     reportError(call->args.front().get(), "Raw address values may only appear inside raw blocks.");
                 }
-                if (!payloadType.isUnknown() && !payloadType.isOpaqueExternal() && !isAnchorPayloadTypeAllowed(payloadType)) {
-                    reportError(call->args.front().get(), anchorPayloadTypeError(payloadType));
+                if (!payloadType.isUnknown() && !payloadType.isOpaqueExternal()) {
+                    canValidatePayloadGraph = isAnchorPayloadTypeAllowed(payloadType);
+                    if (!canValidatePayloadGraph) {
+                        reportError(call->args.front().get(), anchorPayloadTypeError(payloadType));
+                    }
                 }
                 if (expectedPayloadType && !payloadType.isOpaqueExternal() &&
                     !canPassArgumentType(call->args.front().get(), payloadType, *expectedPayloadType)) {
@@ -2590,6 +3754,9 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
             } else {
                 type = makeOwnedType("Anchor");
                 type.params.push_back(normalizeInferredLiteralType(payloadType));
+            }
+            if (canValidatePayloadGraph && !validateAnchorPayloadType(type, call, "Anchor.new payloads")) {
+                type = makeUnknownType();
             }
             analysisResult.exprTypes[expr] = type;
             return type;
@@ -2899,6 +4066,19 @@ ResolvedType SemanticAnalyzer::analyzeExpr(Expr* expr, const ResolvedType* expec
                 reportError(member->object.get(), opaqueExternalValueUseMessage(objectType, "member access"));
             } else if (lookupMethodSignature(objectType, member->member).has_value()) {
                 type = makeUnknownType(member->member);
+            } else if (objectType.name == "Tuple") {
+                const auto index = parseTupleProjectionIndex(member->member);
+                if (!index.has_value()) {
+                    reportError(member, "Tuple projection requires a numeric index such as `.0`.");
+                } else if (*index >= objectType.params.size()) {
+                    reportError(
+                        member,
+                        "Tuple projection index " + std::to_string(*index) + " is out of range for a tuple with " +
+                            std::to_string(objectType.params.size()) + " element(s).");
+                } else {
+                    member->member = std::to_string(*index);
+                    type = adaptMemberType(objectType, objectType.params[*index]);
+                }
             } else {
                 const ShapeInfo* shape = lookupShape(objectType.name);
                 if (!shape) {
@@ -3162,7 +4342,8 @@ void SemanticAnalyzer::defineVariable(
     const std::string& duplicateMessage,
     const SourceSpan& duplicateSpan,
     std::optional<size_t> viewSourceParamIndex,
-    const BindingStmt* bindingDecl) {
+    BindingStmt* bindingDecl,
+    std::string* backendBindingKeyOut) {
     auto sym = std::make_shared<Symbol>();
     sym->name = name;
     sym->kind = SymbolKind::Variable;
@@ -3172,6 +4353,27 @@ void SemanticAnalyzer::defineVariable(
     sym->viewSourceParamIndex = viewSourceParamIndex;
     sym->declaredNamedScopes = activeNamedScopes;
     sym->lexicalDepth = lexicalScopeDepth;
+
+    if ((bindingDecl != nullptr || backendBindingKeyOut != nullptr) && scopes.lookup(name) != nullptr) {
+        sym->backendBindingKey = "$local.binding." + std::to_string(nextLocalBindingIdentity++);
+        if (bindingDecl != nullptr) {
+            if (bindingDecl->tuplePatternNames.empty()) {
+                bindingDecl->backendBindingKey = sym->backendBindingKey;
+            } else {
+                bindingDecl->tuplePatternBindingKeys.resize(bindingDecl->tuplePatternNames.size());
+                for (size_t i = 0; i < bindingDecl->tuplePatternNames.size(); ++i) {
+                    if (bindingDecl->tuplePatternNames[i] == name) {
+                        bindingDecl->tuplePatternBindingKeys[i] = sym->backendBindingKey;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (backendBindingKeyOut != nullptr) {
+        *backendBindingKeyOut = sym->backendBindingKey;
+    }
 
     if (!scopes.define(name, sym)) {
         reportError(duplicateSpan, duplicateMessage);
@@ -3192,13 +4394,38 @@ bool SemanticAnalyzer::blockDefinitelyTerminates(const BlockStmt* block) const {
 }
 
 bool SemanticAnalyzer::stmtDefinitelyTerminates(const Stmt* stmt) const {
-    if (dynamic_cast<const GiveStmt*>(stmt) || dynamic_cast<const StopStmt*>(stmt) || dynamic_cast<const SkipStmt*>(stmt)) {
+    if (dynamic_cast<const ReturnStmt*>(stmt) || dynamic_cast<const StopStmt*>(stmt) || dynamic_cast<const SkipStmt*>(stmt)) {
         return true;
     }
 
-    if (auto* when = dynamic_cast<const WhenStmt*>(stmt)) {
-        return when->elseBlock && blockDefinitelyTerminates(when->thenBlock.get()) &&
-               blockDefinitelyTerminates(when->elseBlock.get());
+    if (const auto* binding = dynamic_cast<const BindingStmt*>(stmt)) {
+        const auto* valueType = binding->value ? lookupExprType(binding->value.get()) : nullptr;
+        return valueType && valueType->name == "Never";
+    }
+
+    if (const auto* assignment = dynamic_cast<const AssignStmt*>(stmt)) {
+        const auto* valueType = assignment->value ? lookupExprType(assignment->value.get()) : nullptr;
+        return valueType && valueType->name == "Never";
+    }
+
+    if (auto* exprStmt = dynamic_cast<const ExprStmt*>(stmt)) {
+        if (auto* ifExpr = dynamic_cast<const IfExpr*>(exprStmt->expr.get())) {
+            return ifExpr->elseBlock && blockDefinitelyTerminates(ifExpr->thenBlock.get()) &&
+                   blockDefinitelyTerminates(ifExpr->elseBlock.get());
+        }
+        if (auto* pickExpr = dynamic_cast<const PickExpr*>(exprStmt->expr.get())) {
+            return !pickExpr->branches.empty() && std::all_of(
+                pickExpr->branches.begin(),
+                pickExpr->branches.end(),
+                [&](const PickBranch& branch) { return blockDefinitelyTerminates(branch.body.get()); });
+        }
+        const auto* exprType = lookupExprType(exprStmt->expr.get());
+        return exprType && exprType->name == "Never";
+    }
+
+    if (auto* ifStmt = dynamic_cast<const IfStmt*>(stmt)) {
+        return ifStmt->elseBlock && blockDefinitelyTerminates(ifStmt->thenBlock.get()) &&
+               blockDefinitelyTerminates(ifStmt->elseBlock.get());
     }
 
     if (auto* pick = dynamic_cast<const PickStmt*>(stmt)) {

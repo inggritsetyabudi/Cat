@@ -120,22 +120,52 @@ void LlvmEmitter::emitCallInst(const LirCallInst& value, FunctionState& state, s
 }
 
 void LlvmEmitter::emitStoreField(const LirStoreFieldInst& value, FunctionState& state, std::vector<std::string>& lines) {
-    const auto* layoutField = findShapeFieldLayout(value.object.type, value.field);
-    if (layoutField == nullptr) {
-        throw std::runtime_error("LLVM lowering only supports field assignment on concrete shapes, got '" + value.object.type + "'.");
+    size_t fieldAlign = 1;
+    const ParsedTypeName objectType = parseTypeName(value.object.type);
+    if (objectType.base == "Tuple") {
+        const size_t index = findShapeFieldIndex(value.object.type, value.field);
+        const auto elementLayout = abiLayoutForType(objectType.args[index]);
+        if (!elementLayout.has_value()) {
+            throw std::runtime_error("LLVM lowering could not resolve tuple element layout for '" + value.object.type + "'.");
+        }
+        fieldAlign = elementLayout->align;
+    } else {
+        const auto* layoutField = findShapeFieldLayout(value.object.type, value.field);
+        if (layoutField == nullptr) {
+            throw std::runtime_error("LLVM lowering only supports field assignment on concrete shapes, got '" + value.object.type + "'.");
+        }
+        fieldAlign = layoutField->alignBytes;
     }
 
     const std::string fieldAddress = emitFieldAddress(value.object, value.field, state, lines);
     const std::string operand = ensureValue(value.value, state, lines);
-    storeValueToAddress(fieldAddress, value.value.type, operand, layoutField->alignBytes, lines);
+    storeValueToAddress(fieldAddress, value.value.type, operand, fieldAlign, lines);
 }
 
 std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
     FunctionState state{fn};
     for (const auto& block : fn.blocks) {
         for (const auto& inst : block.insts) {
-            if (const auto* iter = std::get_if<LirIterNextInst>(&inst)) {
-                ensureIteratorState(block.label + "::" + iter->itemName, iter->itemName, iter->itemType, state);
+            if (const auto* init = std::get_if<LirRangeScanInitInst>(&inst)) {
+                ensureRangeIteratorState(
+                    init->stateKey,
+                    init->itemName,
+                    init->indexName,
+                    init->itemType,
+                    state);
+            } else if (const auto* iter = std::get_if<LirIterNextInst>(&inst)) {
+                const std::string iterableBase =
+                    canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(iter->iterable.type)));
+                if (iterableBase == "Range") {
+                    ensureRangeIteratorState(
+                        block.label + "::" + iter->itemName,
+                        iter->itemName,
+                        iter->indexName,
+                        iter->itemType,
+                        state);
+                } else {
+                    ensureIteratorState(block.label + "::" + iter->itemName, iter->itemName, iter->itemType, state);
+                }
             }
         }
     }
@@ -188,19 +218,28 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                 [&](const LirObjectInst& value) {
                     const auto layout = abiLayoutForType(value.type);
                     const size_t align = layout.has_value() ? layout->align : 1;
-                    const std::string pointerName = localName(value.name + ".addr");
-                    state.stackPointers[value.name] = pointerName;
-                    state.valueTypes[value.name] = value.type;
+                    const std::string bindingKey = value.bindingKey.empty() ? value.name : value.bindingKey;
+                    std::string pointerName = localName(value.name + ".addr");
+                    if (!state.allocatedLocalNames.insert(pointerName).second) {
+                        do {
+                            pointerName = state.temp(value.name + ".addr");
+                        } while (!state.allocatedLocalNames.insert(pointerName).second);
+                    }
+                    state.stackPointers[bindingKey] = pointerName;
+                    state.valueTypes[bindingKey] = value.type;
                     blockLines.push_back("  " + pointerName + " = alloca " + llvmType(value.type) + ", align " + std::to_string(align));
                 },
                 [&](const LirStoreInst& value) {
-                    const auto targetIt = state.stackPointers.find(value.target);
+                    const std::string targetKey = value.targetBindingKey.empty()
+                        ? value.target
+                        : value.targetBindingKey;
+                    const auto targetIt = state.stackPointers.find(targetKey);
                     if (targetIt == state.stackPointers.end()) {
-                        throw std::runtime_error("LLVM lowering expected stack storage for '" + value.target + "'.");
+                        throw std::runtime_error("LLVM lowering expected stack storage for '" + targetKey + "'.");
                     }
-                    const std::string targetType = valueTypeForName(value.target, state).empty()
+                    const std::string targetType = valueTypeForName(targetKey, state).empty()
                         ? value.value.type
-                        : valueTypeForName(value.target, state);
+                        : valueTypeForName(targetKey, state);
                     const auto layout = abiLayoutForType(targetType);
                     const size_t align = layout.has_value() ? layout->align : 1;
                     const std::string operand = ensureValue(value.value, state, blockLines);
@@ -232,12 +271,14 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     if (baseType == "Anchor") {
                         const std::string freeSymbol = quoteGlobal("claw.runtime.anchor.free");
                         addRuntimeDecl("declare void " + freeSymbol + "(ptr)");
-                        const std::string operand = ensureValue(LirValue{value.name, value.type, false}, state, blockLines);
+                        const std::string operand = ensureValue(
+                            LirValue{value.name, value.type, false, value.bindingKey}, state, blockLines);
                         blockLines.push_back("  call void " + freeSymbol + "(ptr " + operand + ")");
                     } else if (baseType == "Arena") {
                         const std::string freeSymbol = quoteGlobal("claw.runtime.arena.free");
                         addRuntimeDecl("declare void " + freeSymbol + "(ptr)");
-                        const std::string operand = ensureValue(LirValue{value.name, value.type, false}, state, blockLines);
+                        const std::string operand = ensureValue(
+                            LirValue{value.name, value.type, false, value.bindingKey}, state, blockLines);
                         blockLines.push_back("  call void " + freeSymbol + "(ptr " + operand + ")");
                     } else {
                         blockLines.push_back("  ; drop " + value.name + " : " + value.type);
@@ -258,6 +299,9 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     blockLines.push_back("  br label %" + blockLabel(value.targetLabel));
                     hasTerminator = true;
                 },
+                [&](const LirRangeScanInitInst& value) {
+                    emitRangeScanInit(value, state, blockLines);
+                },
                 [&](const LirCallInst& value) {
                     if (value.safety == LirSafetyTag::UnsafeBoundary) {
                         if (!block.rawRegion.has_value()) {
@@ -268,6 +312,27 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     }
                     emitCallInst(value, state, blockLines);
                 },
+                [&](const LirUnaryInst& value) {
+                    const std::string resultType = llvmType(value.type);
+                    const std::string operand = ensureValue(value.operand, state, blockLines);
+                    const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(value.type)));
+                    std::ostringstream line;
+                    line << "  " << localName(value.result) << " = ";
+                    if (value.op == "-") {
+                        if (isFloatingType(baseType)) {
+                            line << "fneg " << resultType << " " << operand;
+                        } else {
+                            line << "sub " << resultType << " 0, " << operand;
+                        }
+                    } else if (value.op == "not") {
+                        line << "xor i1 " << operand << ", true";
+                    } else {
+                        throw std::runtime_error("LLVM lowering does not yet support unary op '" + value.op + "'.");
+                    }
+                    blockLines.push_back(line.str());
+                    state.valueTypes[value.result] = value.type;
+                    state.namedValues[value.result] = localName(value.result);
+                },
                 [&](const LirBinaryInst& value) {
                     const std::string resultType = llvmType(value.type);
                     const std::string operandType = llvmType(value.left.type);
@@ -276,6 +341,46 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(value.left.type)));
                     std::ostringstream line;
                     line << "  " << localName(value.result) << " = ";
+                    if (value.op == "range_exclusive" || value.op == "range_inclusive") {
+                        const std::string withStart = state.temp("range.start");
+                        const std::string withEnd = state.temp("range.end");
+                        blockLines.push_back(
+                            "  " + withStart + " = insertvalue " + resultType + " zeroinitializer, " +
+                            operandType + " " + left + ", 0");
+                        blockLines.push_back(
+                            "  " + withEnd + " = insertvalue " + resultType + " " + withStart + ", " +
+                            operandType + " " + right + ", 1");
+                        blockLines.push_back(
+                            "  " + localName(value.result) + " = insertvalue " + resultType + " " + withEnd +
+                            ", i1 " + std::string(value.op == "range_inclusive" ? "true" : "false") + ", 2");
+                        state.valueTypes[value.result] = value.type;
+                        state.namedValues[value.result] = localName(value.result);
+                        return;
+                    }
+                    if (value.op == "in") {
+                        const std::string rangeType = llvmType(value.right.type);
+                        const std::string start = state.temp("range.start");
+                        const std::string end = state.temp("range.end");
+                        const std::string inclusive = state.temp("range.inclusive");
+                        const std::string aboveStart = state.temp("range.above.start");
+                        const std::string belowExclusiveEnd = state.temp("range.below.exclusive.end");
+                        const std::string belowInclusiveEnd = state.temp("range.below.inclusive.end");
+                        const std::string belowEnd = state.temp("range.below.end");
+                        blockLines.push_back("  " + start + " = extractvalue " + rangeType + " " + right + ", 0");
+                        blockLines.push_back("  " + end + " = extractvalue " + rangeType + " " + right + ", 1");
+                        blockLines.push_back("  " + inclusive + " = extractvalue " + rangeType + " " + right + ", 2");
+                        blockLines.push_back("  " + aboveStart + " = icmp sge i32 " + left + ", " + start);
+                        blockLines.push_back("  " + belowExclusiveEnd + " = icmp slt i32 " + left + ", " + end);
+                        blockLines.push_back("  " + belowInclusiveEnd + " = icmp sle i32 " + left + ", " + end);
+                        blockLines.push_back(
+                            "  " + belowEnd + " = select i1 " + inclusive + ", i1 " + belowInclusiveEnd +
+                            ", i1 " + belowExclusiveEnd);
+                        blockLines.push_back(
+                            "  " + localName(value.result) + " = and i1 " + aboveStart + ", " + belowEnd);
+                        state.valueTypes[value.result] = value.type;
+                        state.namedValues[value.result] = localName(value.result);
+                        return;
+                    }
                     if (value.op == "add") {
                         line << (isFloatingType(baseType) ? "fadd " : "add ") << resultType;
                     } else if (value.op == "sub") {
@@ -288,6 +393,8 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                         } else {
                             line << (isSignedIntegerType(baseType) ? "sdiv " : "udiv ") << resultType;
                         }
+                    } else if (value.op == "rem") {
+                        line << (isSignedIntegerType(baseType) ? "srem " : "urem ") << resultType;
                     } else if (value.op == "eq" || value.op == "neq" || value.op == "lt" || value.op == "lte" || value.op == "gt" || value.op == "gte") {
                         if (baseType == "Str" || baseType == "Span") {
                             if (value.op == "eq" || value.op == "neq") {
@@ -338,16 +445,32 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     state.namedValues[value.result] = localName(value.result);
                 },
                 [&](const LirFieldInst& value) {
-                    const auto* layoutField = findShapeFieldLayout(value.object.type, value.field);
-                    if (layoutField == nullptr) {
-                        throw std::runtime_error("LLVM lowering only supports field access on concrete shapes, got '" + value.object.type + "'.");
+                    size_t fieldAlign = 1;
+                    if (parseTypeName(value.object.type).base == "Tuple") {
+                        const auto elementLayout = abiLayoutForType(value.type);
+                        if (!elementLayout.has_value()) {
+                            throw std::runtime_error("LLVM lowering could not resolve tuple element layout for '" + value.type + "'.");
+                        }
+                        fieldAlign = elementLayout->align;
+                    } else {
+                        const auto* layoutField = findShapeFieldLayout(value.object.type, value.field);
+                        if (layoutField == nullptr) {
+                            throw std::runtime_error("LLVM lowering only supports field access on concrete shapes, got '" + value.object.type + "'.");
+                        }
+                        fieldAlign = layoutField->alignBytes;
                     }
                     const std::string fieldAddress = emitFieldAddress(value.object, value.field, state, blockLines);
                     blockLines.push_back(
                         "  " + localName(value.result) + " = load " + llvmType(value.type) + ", ptr " + fieldAddress +
-                        ", align " + std::to_string(layoutField->alignBytes));
+                        ", align " + std::to_string(fieldAlign));
                     state.valueTypes[value.result] = value.type;
                     state.namedValues[value.result] = localName(value.result);
+                },
+                [&](const LirIndexInst& value) {
+                    emitIndexLoad(value, state, blockLines);
+                },
+                [&](const LirStoreIndexInst& value) {
+                    emitIndexStore(value, state, blockLines);
                 },
                 [&](const LirPhiInst& value) {
                     state.valueTypes[value.result] = value.type;
@@ -374,8 +497,8 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     emitSwitch(value, state, blockLines);
                     hasTerminator = true;
                 },
-                [&](const LirLiftInst& value) {
-                    if (emitLift(value, state, blockLines)) {
+                [&](const LirTryInst& value) {
+                    if (emitTry(value, state, blockLines)) {
                         hasTerminator = true;
                     }
                 },
@@ -505,8 +628,3 @@ std::string LlvmEmitter::emit() {
 }
 
 } // namespace claw::codegen
-
-
-
-
-

@@ -1,0 +1,5 @@
+shape point {
+    value: Int32,
+}
+
+fn main() {}

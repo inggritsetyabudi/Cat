@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val minimum: Int32 = -2147483648
+    println(minimum)
+    return 0
+}

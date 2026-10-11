@@ -1,0 +1,73 @@
+fn index_code(index: USize) -> Int32 {
+    if index == 0 {
+        100
+    } else if index == 1 {
+        101
+    } else if index == 2 {
+        102
+    } else {
+        199
+    }
+}
+
+fn scan_start() -> Int32 {
+    println("scan-start")
+    return 2
+}
+
+fn scan_end() -> Int32 {
+    println("scan-end")
+    return 4
+}
+
+fn main() -> Int32 {
+    scan item over 1..4 {
+        println(item)
+    }
+
+    val stored: Range[Int32] = 6..8
+    scan item over stored {
+        println(item)
+    }
+
+    scan item over scan_start()..scan_end() {
+        println(item)
+    }
+
+    scan item, index over 3..=5 {
+        println(item)
+        println(index_code(index))
+    }
+
+    scan item, index over 10..=14 {
+        if index == 1 {
+            skip
+        }
+        if index == 4 {
+            stop
+        }
+        println(item)
+        println(index_code(index))
+    }
+
+    println("empty")
+    scan item over 4..4 {
+        println(98)
+    }
+    scan item over 5..=4 {
+        println(99)
+    }
+
+    println("exclusive-max")
+    scan item, index over 2147483646..2147483647 {
+        println(item)
+        println(index_code(index))
+    }
+
+    println("inclusive-max")
+    scan item, index over 2147483647..=2147483647 {
+        println(item)
+        println(index_code(index))
+    }
+    0
+}

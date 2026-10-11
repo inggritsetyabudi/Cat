@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val repeated = 1
+    val repeated = 2
+    repeated
+}

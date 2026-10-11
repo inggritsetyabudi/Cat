@@ -1,0 +1,5 @@
+shape GenericPair[T] {
+    pair: (T, Int32)
+}
+
+fn main() {}

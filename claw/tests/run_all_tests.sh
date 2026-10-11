@@ -3,6 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+echo "=== Running C@ PRD Doc-Test Suite (tagged slice) ==="
+bash "$SCRIPT_DIR/docs/run_doc_tests.sh"
+
+echo ""
 echo "=== Running C@ Frontend Test Suite ==="
 bash "$SCRIPT_DIR/frontend/run_frontend_tests.sh"
 

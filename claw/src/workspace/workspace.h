@@ -65,19 +65,12 @@ public:
     LoadedProject load(const std::filesystem::path& inputPath);
 
 private:
-    struct ModuleManifest {
-        std::filesystem::path path;
-        std::string source;
-        std::unordered_set<std::string> publishedModules;
-    };
-
     struct ExportSummary {
         std::unordered_map<std::string, ImportedBinding> sharedItems;
     };
 
     LoadedProject project;
     std::unordered_map<std::string, size_t> unitIndexByPath;
-    std::unordered_map<std::string, ModuleManifest> manifestCache;
     std::unordered_map<std::string, ExportSummary> exportCache;
     std::unordered_set<std::string> loadStack;
 
@@ -88,8 +81,6 @@ private:
     std::string readFileText(const std::filesystem::path& path) const;
     ProjectConfig loadProjectConfig(const std::filesystem::path& path) const;
     std::unique_ptr<RealmDecl> parseSourceFile(const std::filesystem::path& path, const std::string& source) const;
-    ModuleManifest loadManifest(const std::filesystem::path& path);
-    std::optional<ModuleManifest> tryLoadManifest(const std::filesystem::path& path);
     void validateRealmPath(LoadedUnit& unit) const;
     ExportSummary buildExportSummary(const LoadedUnit& unit);
     size_t loadUnitRecursive(const std::filesystem::path& sourcePath);

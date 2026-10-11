@@ -29,6 +29,7 @@ struct LirValue {
     std::string text;
     std::string type;
     bool isUnit = false;
+    std::string bindingKey;
 };
 
 struct LirParam {
@@ -46,6 +47,7 @@ struct LirSwitchCase {
     std::string tag;
     std::vector<std::string> bindings;
     std::string targetLabel;
+    std::vector<std::string> bindingKeys;
 };
 
 struct LirShapeField {
@@ -63,6 +65,7 @@ struct LirObjectInst {
     std::string name;
     std::string type;
     std::string storage;
+    std::string bindingKey;
 };
 
 struct LirPhiInst {
@@ -74,6 +77,7 @@ struct LirPhiInst {
 struct LirBoundsCheckInst {
     std::string kind;
     std::string subject;
+    std::optional<LirValue> receiver;
     std::vector<LirValue> args;
     std::string failLabel;
 };
@@ -81,6 +85,7 @@ struct LirBoundsCheckInst {
 struct LirStoreInst {
     std::string target;
     LirValue value;
+    std::string targetBindingKey;
 };
 
 struct LirStoreFieldInst {
@@ -101,6 +106,7 @@ struct LirDiscardInst {
 struct LirDropInst {
     std::string name;
     std::string type;
+    std::string bindingKey;
 };
 
 struct LirBranchInst {
@@ -115,25 +121,40 @@ struct LirGotoInst {
 
 struct LirIterNextInst {
     std::string itemName;
+    std::string indexName;
     std::string itemType;
     LirValue iterable;
     std::string bodyLabel;
     std::string exitLabel;
+    std::string itemBindingKey;
+    std::string indexBindingKey;
+};
+
+struct LirRangeScanInitInst {
+    std::string stateKey;
+    std::string itemName;
+    std::string indexName;
+    std::string itemType;
+    LirValue iterable;
+    std::string itemBindingKey;
+    std::string indexBindingKey;
 };
 
 struct LirSwitchInst {
     LirValue value;
     std::vector<LirSwitchCase> cases;
-    std::string defectLabel;
+    std::string defaultLabel;
 };
 
-struct LirLiftInst {
+struct LirTryInst {
     LirValue value;
     std::string okName;
     std::string failName;
     std::string successLabel;
     std::string failLabel;
     bool autoPropagate = false;
+    std::string okBindingKey;
+    std::string failBindingKey;
 };
 
 struct LirChoiceMakeInst {
@@ -169,6 +190,7 @@ struct LirCallInst {
     LirSafetyTag safety = LirSafetyTag::None;
     std::string hook;
     std::optional<LirExternalCallInfo> externalInfo;
+    std::optional<LirValue> builtinReceiver;
 };
 
 struct LirFieldInst {
@@ -177,6 +199,26 @@ struct LirFieldInst {
     std::string field;
     std::string type;
     LirSafetyTag safety = LirSafetyTag::ProvenSafe;
+};
+
+struct LirIndexInst {
+    std::string result;
+    LirValue object;
+    LirValue index;
+    std::string type;
+};
+
+struct LirStoreIndexInst {
+    LirValue object;
+    LirValue index;
+    LirValue value;
+};
+
+struct LirUnaryInst {
+    std::string result;
+    std::string op;
+    LirValue operand;
+    std::string type;
 };
 
 struct LirBinaryInst {
@@ -203,14 +245,18 @@ using LirInst = std::variant<
     LirDropInst,
     LirBranchInst,
     LirGotoInst,
+    LirRangeScanInitInst,
     LirIterNextInst,
     LirSwitchInst,
-    LirLiftInst,
+    LirTryInst,
     LirChoiceMakeInst,
     LirBreakInst,
     LirContinueInst,
     LirCallInst,
     LirFieldInst,
+    LirIndexInst,
+    LirStoreIndexInst,
+    LirUnaryInst,
     LirBinaryInst,
     LirDefectInst>;
 

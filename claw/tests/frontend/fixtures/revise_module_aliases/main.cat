@@ -1,0 +1,7 @@
+import src.math as left_math
+import support.math as right_math
+
+fn main() {
+    println(left_math.add(20, 22))
+    println(right_math.add(10, 12))
+}

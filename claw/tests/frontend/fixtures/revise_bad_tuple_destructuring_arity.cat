@@ -1,0 +1,3 @@
+fn main() {
+    val (left, right) = (1, 2, 3)
+}

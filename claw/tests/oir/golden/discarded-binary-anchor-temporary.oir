@@ -1,0 +1,88 @@
+oir.module revise_discarded_binary_anchor_temporary
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.shape Operand [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::Operand ffi=false]
+  layout repr=claw-internal kind=aggregate size=4 align=4 pass=direct ffi=false
+  field value: Int32 @offset=0 size=4 align=4
+oir.fn Operand.add(self: ref Operand [borrow], other: ref Operand [borrow]) -> Anchor[Str] [direct] [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::Operand.add ffi=false]
+  block entry:
+    call println("method-once") : Unit
+    %t0 = call Anchor.new("sum") : Anchor[Str]
+    return %t0 : Anchor[Str]
+oir.choice Route [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::Route ffi=false]
+  layout repr=claw-internal kind=tagged size=8 align=4 pass=direct ffi=false tag=4 payload_offset=4 payload_size=4
+  case first(Int32) @payload_offset=4 size=4 align=4
+  case second(Int32) @payload_offset=4 size=4 align=4
+oir.fn make_left() -> Operand [direct] [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::make_left ffi=false]
+  block entry:
+    call println("left-once") : Unit
+    val %t0: Operand
+    store_field %t0.value <- 1 : Int32
+    return %t0 : Operand
+oir.fn make_right() -> Operand [direct] [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::make_right ffi=false]
+  block entry:
+    call println("right-once") : Unit
+    val %t0: Operand
+    store_field %t0.value <- 2 : Int32
+    return %t0 : Operand
+oir.fn make_if_anchor(flag: Bool [scalar]) -> Anchor[Str] [direct] [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::make_if_anchor ffi=false]
+  block entry:
+    var %t0: Anchor[Str]
+    branch flag -> if_then_0, if_else_1
+  block if_then_0:
+    call println("if-once") : Unit
+    %t1 = call Anchor.new("if-payload") : Anchor[Str]
+    store %t0 <- %t1 : Anchor[Str]
+    goto if_join_2
+  block if_else_1:
+    call println("unselected-if") : Unit
+    %t2 = call Anchor.new("unused") : Anchor[Str]
+    store %t0 <- %t2 : Anchor[Str]
+    goto if_join_2
+  block if_join_2:
+    return %t0 : Anchor[Str]
+oir.fn make_pick_anchor(route: Route [direct]) -> Anchor[Str] [direct] [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::make_pick_anchor ffi=false]
+  block entry:
+    var %t0: Anchor[Str]
+    pick route : Route
+    case first(value) -> pick_first_1
+    case second(value) -> pick_second_2
+  block pick_first_1:
+    call println("pick-once") : Unit
+    %t1 = call Anchor.new("pick-payload") : Anchor[Str]
+    store %t0 <- %t1 : Anchor[Str]
+    goto pick_join_0
+  block pick_second_2:
+    call println("unselected-pick") : Unit
+    %t2 = call Anchor.new("unused") : Anchor[Str]
+    store %t0 <- %t2 : Anchor[Str]
+    goto pick_join_0
+  block pick_join_0:
+    drop route : Route
+    return %t0 : Anchor[Str]
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_discarded_binary_anchor_temporary::main ffi=false]
+  block entry:
+    %t0 = call make_left() : Operand
+    %t1 = call make_right() : Operand
+    %t2 = call Operand.add(%t0, %t1) : Anchor[Str]
+    discard %t2 : Anchor[Str]
+    drop %t2 : Anchor[Str]
+    %t3 = call make_if_anchor(true) : Anchor[Str]
+    discard %t3 : Anchor[Str]
+    drop %t3 : Anchor[Str]
+    %t4 = first(42) : Route
+    %t5 = call make_pick_anchor(%t4) : Anchor[Str]
+    discard %t5 : Anchor[Str]
+    drop %t5 : Anchor[Str]
+    %t6 = call Anchor.new("retained-place") : Anchor[Str]
+    val retained: Anchor[Str] = %t6
+    discard retained : Anchor[Str]
+    call println("finished") : Unit
+    drop retained : Anchor[Str]
+    return 0 : integer literal

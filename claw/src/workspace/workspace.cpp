@@ -25,6 +25,14 @@ ResolvedType makePlainResolvedType(const std::string& name) {
     return type;
 }
 
+bool hasLowercaseInitial(const std::string& name) {
+    return !name.empty() && std::islower(static_cast<unsigned char>(name.front())) != 0;
+}
+
+bool hasUppercaseInitial(const std::string& name) {
+    return !name.empty() && std::isupper(static_cast<unsigned char>(name.front())) != 0;
+}
+
 TypeCatalog buildExportTypeCatalog(const LoadedUnit& unit) {
     TypeCatalog catalog;
 
@@ -46,6 +54,7 @@ TypeCatalog buildExportTypeCatalog(const LoadedUnit& unit) {
                     ? std::optional<size_t>(binding.choiceInfo->typeParams.size())
                     : std::nullopt);
         }
+        catalog.registerNominalIdentity(binding.name, binding.nominalIdentity);
     }
 
     if (!unit.ast) {
@@ -54,13 +63,21 @@ TypeCatalog buildExportTypeCatalog(const LoadedUnit& unit) {
 
     for (const auto& decl : unit.ast->declarations) {
         if (auto* shape = dynamic_cast<const ShapeDecl*>(decl.get())) {
+            if (!shape->isShared) {
+                continue;
+            }
             if (shape->isViewShape) {
                 catalog.registerViewShapeName(shape->name, shape->scopeParamName);
             } else {
                 catalog.registerShapeName(shape->name, shape->typeParams.size());
             }
+            catalog.registerNominalIdentity(shape->name, nominalTypeIdentity(unit.path.lexically_normal().generic_string(), shape->name));
         } else if (auto* choice = dynamic_cast<const ChoiceDecl*>(decl.get())) {
+            if (!choice->isShared) {
+                continue;
+            }
             catalog.registerChoiceName(choice->name, choice->typeParams.size());
+            catalog.registerNominalIdentity(choice->name, nominalTypeIdentity(unit.path.lexically_normal().generic_string(), choice->name));
         }
     }
 
@@ -393,14 +410,6 @@ std::optional<std::filesystem::path> ProjectLoader::tryResolveNamespaceDir(const
         if (!std::filesystem::exists(candidateDir) || !std::filesystem::is_directory(candidateDir)) {
             return std::nullopt;
         }
-
-        if (currentDir != project.packageRoot) {
-            const auto manifestOpt = tryLoadManifest(currentDir / "modules.cat");
-            if (!manifestOpt.has_value() || manifestOpt->publishedModules.find(segment) == manifestOpt->publishedModules.end()) {
-                return std::nullopt;
-            }
-        }
-
         currentDir = candidateDir;
     }
     return normalizePath(currentDir);
@@ -423,13 +432,6 @@ std::optional<std::filesystem::path> ProjectLoader::tryResolveRealmFile(const st
         return std::nullopt;
     }
 
-    if (parentDir.value() != project.packageRoot) {
-        const auto manifestOpt = tryLoadManifest(parentDir.value() / "modules.cat");
-        if (!manifestOpt.has_value() || manifestOpt->publishedModules.find(segments.back()) == manifestOpt->publishedModules.end()) {
-            return std::nullopt;
-        }
-    }
-
     const auto candidate = normalizePath(parentDir.value() / (segments.back() + ".cat"));
     if (!std::filesystem::exists(candidate) || !std::filesystem::is_regular_file(candidate)) {
         return std::nullopt;
@@ -443,8 +445,15 @@ std::filesystem::path ProjectLoader::resolveSiblingModule(
     const std::filesystem::path& importerPath,
     const std::string& name,
     SourceSpan span) {
+    if (!hasLowercaseInitial(name)) {
+        throwDiagnostic(
+            importerPath,
+            "module",
+            "Module name '" + name + "' must start with a lowercase letter.",
+            span);
+    }
     const auto candidate = normalizePath(importerPath.parent_path() / (name + ".cat"));
-    if (!std::filesystem::exists(candidate)) {
+    if (!std::filesystem::exists(candidate) || !std::filesystem::is_regular_file(candidate)) {
         throwDiagnostic(
             importerPath,
             "module",
@@ -475,6 +484,12 @@ void ProjectLoader::validateRealmPath(LoadedUnit& unit) const {
         const std::string segment = part.string();
         if (segment == ".") {
             continue;
+        }
+        if (!hasLowercaseInitial(segment)) {
+            throwDiagnostic(
+                unit.path,
+                "module",
+                "Module name segment '" + segment + "' must start with a lowercase letter.");
         }
         if (!expectedRealm.empty()) {
             expectedRealm += ".";
@@ -539,6 +554,7 @@ ProjectLoader::ExportSummary ProjectLoader::buildExportSummary(const LoadedUnit&
             ImportedBinding binding;
             binding.name = shape->name;
             binding.kind = SymbolKind::Shape;
+            binding.nominalIdentity = nominalTypeIdentity(unit.path.lexically_normal().generic_string(), shape->name);
 
             ShapeInfo info;
             info.isViewShape = shape->isViewShape;
@@ -558,6 +574,7 @@ ProjectLoader::ExportSummary ProjectLoader::buildExportSummary(const LoadedUnit&
             ImportedBinding binding;
             binding.name = choice->name;
             binding.kind = SymbolKind::Choice;
+            binding.nominalIdentity = nominalTypeIdentity(unit.path.lexically_normal().generic_string(), choice->name);
 
             ChoiceInfo info;
             info.typeParams = choice->typeParams;
@@ -587,12 +604,12 @@ ProjectLoader::ExportSummary ProjectLoader::buildExportSummary(const LoadedUnit&
 size_t ProjectLoader::loadUnitRecursive(const std::filesystem::path& sourcePath) {
     const auto normalized = normalizePath(sourcePath);
     const std::string key = normalized.string();
+    if (loadStack.find(key) != loadStack.end()) {
+        throwDiagnostic(normalized, "module", "Cyclic module dependency detected.");
+    }
     const auto existing = unitIndexByPath.find(key);
     if (existing != unitIndexByPath.end()) {
         return existing->second;
-    }
-    if (loadStack.find(key) != loadStack.end()) {
-        throwDiagnostic(normalized, "module", "Cyclic module dependency detected.");
     }
 
     loadStack.insert(key);
@@ -726,6 +743,15 @@ std::vector<ImportedBinding> ProjectLoader::resolveImports(const LoadedUnit& uni
         }
 
         const auto baseSegments = splitRealmPath(imp.modulePath);
+        for (const auto& segment : baseSegments) {
+            if (!hasLowercaseInitial(segment)) {
+                throwDiagnostic(
+                    importerPath,
+                    "module",
+                    "Module name segment '" + segment + "' must start with a lowercase letter.",
+                    imp.span);
+            }
+        }
         if (refersToWorkspaceEntryRealm(baseSegments)) {
             throwDiagnostic(
                 importerPath,
@@ -737,11 +763,16 @@ std::vector<ImportedBinding> ProjectLoader::resolveImports(const LoadedUnit& uni
             const auto resolved = tryResolveRealmFile(baseSegments);
             if (resolved.has_value()) {
                 const size_t moduleIndex = loadUnitRecursive(resolved.value());
-                bindings.push_back(makeModuleBinding(baseSegments.back(), moduleIndex));
+                const std::string bindingName = imp.alias.empty() ? baseSegments.back() : imp.alias;
+                bindings.push_back(makeModuleBinding(bindingName, moduleIndex));
                 continue;
             }
             if (isExternalRoot(baseSegments)) {
-                bindings.push_back(makeExternalModuleBinding(baseSegments.front()));
+                auto binding = makeExternalModuleBinding(baseSegments.front());
+                if (!imp.alias.empty()) {
+                    binding.name = imp.alias;
+                }
+                bindings.push_back(std::move(binding));
                 continue;
             }
             throwDiagnostic(importerPath, "module", "Unable to resolve imported module '" + imp.modulePath + "'.", imp.span);
@@ -769,17 +800,16 @@ std::vector<ImportedBinding> ProjectLoader::resolveImports(const LoadedUnit& uni
 
         std::vector<std::string> namespaceSegments = baseSegments;
         if (const auto namespaceDir = tryResolveNamespaceDir(namespaceSegments)) {
-            const auto namespaceManifest = tryLoadManifest(namespaceDir.value() / "modules.cat");
             for (const auto& item : imp.items) {
-                if (!namespaceManifest.has_value() || namespaceManifest->publishedModules.find(item.name) == namespaceManifest->publishedModules.end()) {
+                if (!hasLowercaseInitial(item.name)) {
                     throwDiagnostic(
                         importerPath,
                         "module",
-                        "Namespace '" + imp.modulePath + "' does not publish module '" + item.name + "'.",
+                        "Module name '" + item.name + "' must start with a lowercase letter.",
                         imp.span);
                 }
                 const auto childFile = normalizePath(namespaceDir.value() / (item.name + ".cat"));
-                if (!std::filesystem::exists(childFile)) {
+                if (!std::filesystem::exists(childFile) || !std::filesystem::is_regular_file(childFile)) {
                     throwDiagnostic(importerPath, "module", "Missing module file for '" + imp.modulePath + "." + item.name + "'.", imp.span);
                 }
                 const size_t moduleIndex = loadUnitRecursive(childFile);
@@ -807,6 +837,23 @@ std::vector<ImportedBinding> ProjectLoader::resolveImports(const LoadedUnit& uni
         throwDiagnostic(importerPath, "module", "Unable to resolve import group rooted at '" + imp.modulePath + "'.", imp.span);
     }
 
+    for (const auto& binding : bindings) {
+        const bool isType = binding.kind == SymbolKind::Shape ||
+                            binding.kind == SymbolKind::Choice ||
+                            binding.kind == SymbolKind::Contract;
+        const bool validInitial = isType ? hasUppercaseInitial(binding.name) : hasLowercaseInitial(binding.name);
+        if (!validInitial) {
+            const std::string label = binding.kind == SymbolKind::Module
+                ? "Module name"
+                : (isType ? "Type name" : "Imported name");
+            throwDiagnostic(
+                importerPath,
+                "module",
+                label + " '" + binding.name + "' must start with " +
+                    (isType ? "an uppercase" : "a lowercase") + " letter.");
+        }
+    }
+
     return bindings;
 }
 
@@ -824,7 +871,6 @@ LoadedProject ProjectLoader::load(const std::filesystem::path& inputPath) {
     project = LoadedProject{};
     project.target = defaultTargetSpec();
     unitIndexByPath.clear();
-    manifestCache.clear();
     exportCache.clear();
     loadStack.clear();
 
@@ -856,22 +902,6 @@ LoadedProject ProjectLoader::load(const std::filesystem::path& inputPath) {
         return std::move(project);
     }
 
-    if (project.inputPath.filename() == "modules.cat") {
-        const auto workspaceRoot = findWorkspaceRoot(project.inputPath.parent_path());
-        if (!workspaceRoot.has_value()) {
-            throwDiagnostic(
-                project.inputPath,
-                "workspace",
-                "modules.cat is a folder module index. Build the workspace root that contains main.cat.");
-        }
-        project.packageRoot = *workspaceRoot;
-        project.configPath = detectWorkspaceConfig(project.packageRoot);
-        project.structuredPackage = true;
-        loadWorkspaceConfigIfPresent();
-        project.entryIndex = loadUnitRecursive(resolveWorkspaceEntryPath(project.packageRoot));
-        return std::move(project);
-    }
-
     if (project.inputPath.filename() == "main.cat") {
         project.packageRoot = normalizePath(project.inputPath.parent_path());
         project.configPath = detectWorkspaceConfig(project.packageRoot);
@@ -896,9 +926,3 @@ LoadedProject ProjectLoader::load(const std::filesystem::path& inputPath) {
 }
 
 } // namespace claw::workspace
-
-
-
-
-
-

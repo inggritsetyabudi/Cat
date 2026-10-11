@@ -2,12 +2,111 @@
 
 namespace claw::codegen {
 
+void LlvmEmitter::emitRangeScanInit(
+    const LirRangeScanInitInst& value,
+    FunctionState& state,
+    std::vector<std::string>& lines) {
+    IteratorState& iterState = ensureRangeIteratorState(
+        value.stateKey,
+        value.itemName,
+        value.indexName,
+        value.itemType,
+        state);
+    const std::string rangeValue = ensureValue(value.iterable, state, lines);
+    const std::string rangeType = llvmType(value.iterable.type);
+    const std::string start = state.temp("range.scan.start");
+    const std::string end = state.temp("range.scan.end");
+    const std::string inclusive = state.temp("range.scan.inclusive");
+    lines.push_back("  " + start + " = extractvalue " + rangeType + " " + rangeValue + ", 0");
+    lines.push_back("  " + end + " = extractvalue " + rangeType + " " + rangeValue + ", 1");
+    lines.push_back("  " + inclusive + " = extractvalue " + rangeType + " " + rangeValue + ", 2");
+    lines.push_back("  store i32 " + start + ", ptr " + iterState.rangeCurrentSlot + ", align 4");
+    lines.push_back("  store i32 " + end + ", ptr " + iterState.rangeEndSlot + ", align 4");
+    lines.push_back("  store i1 " + inclusive + ", ptr " + iterState.rangeInclusiveSlot + ", align 1");
+    lines.push_back("  store i64 0, ptr " + iterState.indexSlot + ", align 8");
+    lines.push_back("  store i1 false, ptr " + iterState.rangeFinishedSlot + ", align 1");
+}
+
 void LlvmEmitter::emitIterNext(
     const LirIterNextInst& value,
     std::string_view currentBlockLabel,
     FunctionState& state,
     std::vector<std::string>& lines) {
     const std::string iterableBase = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(value.iterable.type)));
+    if (iterableBase == "Range") {
+        const std::string stateKey = std::string(currentBlockLabel) + "::" + value.itemName;
+        IteratorState& iterState = ensureRangeIteratorState(
+            stateKey,
+            value.itemName,
+            value.indexName,
+            value.itemType,
+            state);
+        const std::string current = state.temp("range.scan.current");
+        const std::string end = state.temp("range.scan.end");
+        const std::string inclusive = state.temp("range.scan.inclusive");
+        const std::string finished = state.temp("range.scan.finished");
+        const std::string index = state.temp("range.scan.index");
+        const std::string exclusiveBound = state.temp("range.scan.exclusive_bound");
+        const std::string inclusiveBound = state.temp("range.scan.inclusive_bound");
+        const std::string withinBound = state.temp("range.scan.within_bound");
+        const std::string active = state.temp("range.scan.active");
+        const std::string hasItem = state.temp("range.scan.has_item");
+        const std::string atEnd = state.temp("range.scan.at_end");
+        const std::string finalInclusiveItem = state.temp("range.scan.final_inclusive");
+        const std::string prepareLabel = state.inlineLabel("range.scan.prepare");
+        const std::string finalLabel = state.inlineLabel("range.scan.final");
+        const std::string advanceLabel = state.inlineLabel("range.scan.advance");
+
+        lines.push_back("  " + current + " = load i32, ptr " + iterState.rangeCurrentSlot + ", align 4");
+        lines.push_back("  " + end + " = load i32, ptr " + iterState.rangeEndSlot + ", align 4");
+        lines.push_back("  " + inclusive + " = load i1, ptr " + iterState.rangeInclusiveSlot + ", align 1");
+        lines.push_back("  " + finished + " = load i1, ptr " + iterState.rangeFinishedSlot + ", align 1");
+        lines.push_back("  " + index + " = load i64, ptr " + iterState.indexSlot + ", align 8");
+        lines.push_back("  " + exclusiveBound + " = icmp slt i32 " + current + ", " + end);
+        lines.push_back("  " + inclusiveBound + " = icmp sle i32 " + current + ", " + end);
+        lines.push_back(
+            "  " + withinBound + " = select i1 " + inclusive + ", i1 " + inclusiveBound + ", i1 " + exclusiveBound);
+        lines.push_back("  " + active + " = icmp eq i1 " + finished + ", false");
+        lines.push_back("  " + hasItem + " = and i1 " + active + ", " + withinBound);
+        lines.push_back(
+            "  br i1 " + hasItem + ", label %" + prepareLabel + ", label %" + blockLabel(value.exitLabel));
+        lines.push_back(prepareLabel + ":");
+        lines.push_back(
+            "  store " + llvmType(value.itemType) + " " + current + ", ptr " + iterState.itemSlot +
+            ", align " + std::to_string(iterState.itemAlign));
+        if (!value.indexName.empty()) {
+            if (iterState.visibleIndexSlot.empty()) {
+                throw std::runtime_error("LLVM lowering could not allocate the indexed scan binding.");
+            }
+            lines.push_back("  store i64 " + index + ", ptr " + iterState.visibleIndexSlot + ", align 8");
+        }
+        lines.push_back("  " + atEnd + " = icmp eq i32 " + current + ", " + end);
+        lines.push_back("  " + finalInclusiveItem + " = and i1 " + inclusive + ", " + atEnd);
+        lines.push_back(
+            "  br i1 " + finalInclusiveItem + ", label %" + finalLabel + ", label %" + advanceLabel);
+        lines.push_back(finalLabel + ":");
+        lines.push_back("  store i1 true, ptr " + iterState.rangeFinishedSlot + ", align 1");
+        lines.push_back("  br label %" + blockLabel(value.bodyLabel));
+        lines.push_back(advanceLabel + ":");
+        const std::string nextCurrent = state.temp("range.scan.next_current");
+        const std::string nextIndex = state.temp("range.scan.next_index");
+        lines.push_back("  " + nextCurrent + " = add i32 " + current + ", 1");
+        lines.push_back("  store i32 " + nextCurrent + ", ptr " + iterState.rangeCurrentSlot + ", align 4");
+        lines.push_back("  " + nextIndex + " = add i64 " + index + ", 1");
+        lines.push_back("  store i64 " + nextIndex + ", ptr " + iterState.indexSlot + ", align 8");
+        lines.push_back("  br label %" + blockLabel(value.bodyLabel));
+        state.pendingIterBindings[value.bodyLabel].push_back(
+            PendingIterBinding{
+                value.iterable,
+                value.itemName,
+                value.indexName,
+                value.itemType,
+                stateKey,
+                value.itemBindingKey,
+                value.indexBindingKey});
+        return;
+    }
+
     if (iterableBase != "Span" && iterableBase != "Str") {
         throw std::runtime_error(
             "LLVM lowering does not yet support iter_next over iterable type '" + value.iterable.type + "'.");
@@ -21,18 +120,30 @@ void LlvmEmitter::emitIterNext(
     lines.push_back("  " + indexValue + " = load i64, ptr " + iterState.indexSlot + ", align 8");
     const std::string hasItem = state.temp("iter.has_item");
     lines.push_back("  " + hasItem + " = icmp ult i64 " + indexValue + ", " + lengthValue);
-    state.pendingIterBindings[value.bodyLabel].push_back(PendingIterBinding{value.iterable, value.itemName, value.itemType, stateKey});
+    state.pendingIterBindings[value.bodyLabel].push_back(
+        PendingIterBinding{
+            value.iterable,
+            value.itemName,
+            value.indexName,
+            value.itemType,
+            stateKey,
+            value.itemBindingKey,
+            value.indexBindingKey});
     lines.push_back(
         "  br i1 " + hasItem + ", label %" + blockLabel(value.bodyLabel) + ", label %" + blockLabel(value.exitLabel));
 }
 
 void LlvmEmitter::emitBoundsCheck(const LirBoundsCheckInst& value, FunctionState& state, std::vector<std::string>& lines) {
-    const std::string receiverType = valueTypeForName(value.subject, state);
+    const std::string receiverType = value.receiver.has_value()
+        ? value.receiver->type
+        : valueTypeForName(value.subject, state);
     if (receiverType.empty()) {
         throw std::runtime_error("LLVM lowering could not resolve bounds-check receiver '" + value.subject + "'.");
     }
 
-    const std::string receiverValue = ensureNamedValue(value.subject, state, lines);
+    const std::string receiverValue = value.receiver.has_value()
+        ? ensureValue(*value.receiver, state, lines)
+        : ensureNamedValue(value.subject, state, lines);
     const std::string lengthValue = extractLength(receiverValue, receiverType, state, lines);
     const std::string failLabel = blockLabel(value.failLabel);
     const std::string continueLabel = state.inlineLabel("bounds.ok");
@@ -89,9 +200,16 @@ void LlvmEmitter::emitSwitch(const LirSwitchInst& value, FunctionState& state, s
     const std::string switchValue = ensureValue(value.value, state, lines);
     const std::string tagValue = state.temp("choice.tag");
     lines.push_back("  " + tagValue + " = extractvalue " + choice->llvmTypeText + " " + switchValue + ", 0");
-    lines.push_back("  switch i32 " + tagValue + ", label %" + blockLabel(value.defectLabel) + " [");
+    const auto wildcard = std::find_if(value.cases.begin(), value.cases.end(), [](const LirSwitchCase& item) {
+        return item.tag == "_";
+    });
+    const std::string fallbackLabel = wildcard == value.cases.end() ? value.defaultLabel : wildcard->targetLabel;
+    lines.push_back("  switch i32 " + tagValue + ", label %" + blockLabel(fallbackLabel) + " [");
 
     for (const auto& item : value.cases) {
+        if (item.tag == "_") {
+            continue;
+        }
         size_t tagIndex = choice->cases.size();
         for (size_t i = 0; i < choice->cases.size(); ++i) {
             if (choice->cases[i].name == item.tag) {
@@ -103,17 +221,20 @@ void LlvmEmitter::emitSwitch(const LirSwitchInst& value, FunctionState& state, s
             throw std::runtime_error("LLVM lowering could not resolve switch tag '" + item.tag + "' in choice '" + value.value.type + "'.");
         }
 
-        state.pendingChoiceBindings[item.targetLabel].push_back(PendingChoiceBinding{value.value, item.tag, item.bindings});
+        if (!item.bindings.empty()) {
+            state.pendingChoiceBindings[item.targetLabel].push_back(
+                PendingChoiceBinding{value.value, item.tag, item.bindings, item.bindingKeys});
+        }
         lines.push_back("    i32 " + std::to_string(tagIndex) + ", label %" + blockLabel(item.targetLabel));
     }
 
     lines.push_back("  ]");
 }
 
-bool LlvmEmitter::emitLift(const LirLiftInst& value, FunctionState& state, std::vector<std::string>& lines) {
+bool LlvmEmitter::emitTry(const LirTryInst& value, FunctionState& state, std::vector<std::string>& lines) {
     const auto choice = resolveChoiceType(value.value.type);
     if (!choice.has_value()) {
-        throw std::runtime_error("LLVM lowering does not yet support lift over type '" + value.value.type + "'.");
+        throw std::runtime_error("LLVM lowering does not yet support try over type '" + value.value.type + "'.");
     }
 
     const auto okIt = std::find_if(choice->cases.begin(), choice->cases.end(), [](const ConcreteChoiceCaseInfo& item) {
@@ -123,19 +244,19 @@ bool LlvmEmitter::emitLift(const LirLiftInst& value, FunctionState& state, std::
         return sameBackendIdentifier(item.name, "Fail");
     });
     if (okIt == choice->cases.end() || failIt == choice->cases.end()) {
-        throw std::runtime_error("LLVM lowering requires lift choices to define Ok(...) and Fail(...) variants for type '" + value.value.type + "'.");
+        throw std::runtime_error("LLVM lowering requires try choices to define Ok(...) and Fail(...) variants for type '" + value.value.type + "'.");
     }
     if (okIt->payloadTypes.size() != 1 || failIt->payloadTypes.size() != 1) {
-        throw std::runtime_error("LLVM lowering currently requires lift variants Ok(...) and Fail(...) to carry exactly one payload each for type '" + value.value.type + "'.");
+        throw std::runtime_error("LLVM lowering currently requires try variants Ok(...) and Fail(...) to carry exactly one payload each for type '" + value.value.type + "'.");
     }
 
-    const std::string liftedValue = ensureValue(value.value, state, lines);
-    const std::string tagValue = state.temp("lift.tag");
-    lines.push_back("  " + tagValue + " = extractvalue " + choice->llvmTypeText + " " + liftedValue + ", 0");
+    const std::string outcomeValue = ensureValue(value.value, state, lines);
+    const std::string tagValue = state.temp("try.tag");
+    lines.push_back("  " + tagValue + " = extractvalue " + choice->llvmTypeText + " " + outcomeValue + ", 0");
 
     const size_t okIndex = static_cast<size_t>(std::distance(choice->cases.begin(), okIt));
-    const std::string checkValue = state.temp("lift.is_ok");
-    const std::string successLabel = value.successLabel.empty() ? state.inlineLabel("lift.ok") : blockLabel(value.successLabel);
+    const std::string checkValue = state.temp("try.is_ok");
+    const std::string successLabel = value.successLabel.empty() ? state.inlineLabel("try.ok") : blockLabel(value.successLabel);
     const std::string failLabel = value.autoPropagate
         ? state.inlineLabel("try.fail")
         : blockLabel(value.failLabel);
@@ -179,16 +300,19 @@ bool LlvmEmitter::emitLift(const LirLiftInst& value, FunctionState& state, std::
             lines.push_back("  ret " + llvmType(state.function.returnType) + " " + operand);
         }
     } else {
-        state.pendingChoiceBindings[value.failLabel].push_back(PendingChoiceBinding{value.value, failIt->name, {value.failName}});
+        state.pendingChoiceBindings[value.failLabel].push_back(PendingChoiceBinding{
+            value.value, failIt->name, {value.failName}, {value.failBindingKey}});
     }
 
     if (!value.successLabel.empty()) {
-        state.pendingChoiceBindings[value.successLabel].push_back(PendingChoiceBinding{value.value, okIt->name, {value.okName}});
+        state.pendingChoiceBindings[value.successLabel].push_back(PendingChoiceBinding{
+            value.value, okIt->name, {value.okName}, {value.okBindingKey}});
         return true;
     }
 
     lines.push_back(successLabel + ":");
-    materializeChoiceBinding(PendingChoiceBinding{value.value, okIt->name, {value.okName}}, state, lines);
+    materializeChoiceBinding(
+        PendingChoiceBinding{value.value, okIt->name, {value.okName}, {value.okBindingKey}}, state, lines);
     return false;
 }
 
@@ -258,7 +382,6 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         return;
     }
 
-    const std::string receiverName = receiverSegment(value.callee);
     const std::string methodName = tailSegment(builtinTag);
     const auto storeResultType = [&]() {
         if (value.result.has_value()) {
@@ -266,16 +389,17 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         }
     };
 
-    if (receiverName.empty()) {
-        throw std::runtime_error("LLVM lowering expected a builtin receiver for '" + value.callee + "'.");
+    if (!value.builtinReceiver.has_value()) {
+        throw std::runtime_error("LLVM lowering expected an explicit builtin receiver value for '" + value.callee + "'.");
     }
 
-    const std::string receiverType = valueTypeForName(receiverName, state);
+    const LirValue& receiver = *value.builtinReceiver;
+    const std::string receiverType = receiver.type;
     if (receiverType.empty()) {
-        throw std::runtime_error("LLVM lowering could not resolve builtin receiver type for '" + receiverName + "'.");
+        throw std::runtime_error("LLVM lowering could not resolve builtin receiver type for '" + receiver.text + "'.");
     }
 
-    const std::string receiverValue = ensureNamedValue(receiverName, state, lines);
+    const std::string receiverValue = ensureValue(receiver, state, lines);
     const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(receiverType)));
 
     if (baseType == "Anchor" && methodName == "get") {
@@ -432,7 +556,7 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         if (!value.result.has_value()) {
             return;
         }
-        const std::string receiverAddress = ensureAddress(LirValue{receiverName, receiverType, false}, state, lines);
+        const std::string receiverAddress = ensureAddress(receiver, state, lines);
         const std::string argumentAddress = ensureAddress(value.args.front(), state, lines);
         const std::string symbol = quoteGlobal("claw.runtime.str." + methodName);
         addRuntimeDecl("declare i1 " + symbol + "(ptr, ptr)");

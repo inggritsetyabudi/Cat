@@ -17,6 +17,7 @@ struct AstNode {
 
 struct TypeNode : public AstNode {
     std::string name;
+    bool isTuple = false;
     std::string viewKind;
     std::string scopeName;
     std::string viewScope;
@@ -46,14 +47,24 @@ struct StringExpr : public Expr {
     std::string value;
 };
 
+struct TupleExpr : public Expr {
+    std::vector<std::unique_ptr<Expr>> elements;
+};
+
 struct IdentExpr : public Expr {
     std::string name;
+    std::string backendBindingKey;
 };
 
 struct BinaryExpr : public Expr {
     std::string op;
     std::unique_ptr<Expr> left;
     std::unique_ptr<Expr> right;
+};
+
+struct UnaryExpr : public Expr {
+    std::string op;
+    std::unique_ptr<Expr> operand;
 };
 
 struct CallExpr : public Expr {
@@ -99,11 +110,12 @@ struct ExprStmt : public Stmt {
     std::unique_ptr<Expr> expr;
 };
 
-struct GiveStmt : public Stmt {
+struct ReturnStmt : public Stmt {
     std::unique_ptr<Expr> value;
 };
 
 struct AssignStmt : public Stmt {
+    std::string op = "=";
     std::unique_ptr<Expr> target;
     std::unique_ptr<Expr> value;
 };
@@ -111,8 +123,11 @@ struct AssignStmt : public Stmt {
 struct BindingStmt : public Stmt {
     bool isMutable = false;
     std::string name;
+    std::vector<std::string> tuplePatternNames;
     std::unique_ptr<TypeNode> type;
     std::unique_ptr<Expr> value;
+    std::string backendBindingKey;
+    std::vector<std::string> tuplePatternBindingKeys;
 };
 
 struct TryStmt : public Stmt {
@@ -123,9 +138,17 @@ struct TryStmt : public Stmt {
     bool autoPropagate = false;
     std::string failName;
     std::unique_ptr<BlockStmt> failBlock;
+    std::string backendBindingKey;
+    std::string failBindingKey;
 };
 
-struct WhenStmt : public Stmt {
+struct IfStmt : public Stmt {
+    std::unique_ptr<Expr> condition;
+    std::unique_ptr<BlockStmt> thenBlock;
+    std::unique_ptr<BlockStmt> elseBlock;
+};
+
+struct IfExpr : public Expr {
     std::unique_ptr<Expr> condition;
     std::unique_ptr<BlockStmt> thenBlock;
     std::unique_ptr<BlockStmt> elseBlock;
@@ -138,6 +161,9 @@ struct LoopStmt : public Stmt {
 
 struct ScanStmt : public Stmt {
     std::string itemName;
+    std::string indexName;
+    std::string itemBindingKey;
+    std::string indexBindingKey;
     std::unique_ptr<Expr> iterable;
     std::unique_ptr<BlockStmt> body;
 };
@@ -150,11 +176,27 @@ struct ScopeStmt : public Stmt {
 struct StopStmt : public Stmt {};
 struct SkipStmt : public Stmt {};
 
+enum class PickPatternKind {
+    Wildcard,
+    Binding,
+    Tuple,
+};
+
+struct PickPattern {
+    SourceSpan span;
+    PickPatternKind kind = PickPatternKind::Wildcard;
+    std::string name;
+    std::vector<std::unique_ptr<PickPattern>> elements;
+    std::string backendBindingKey;
+};
+
 struct PickBranch {
     SourceSpan span;
     std::string tag;
     std::vector<std::string> bindings;
     std::unique_ptr<BlockStmt> body;
+    std::unique_ptr<PickPattern> tuplePattern;
+    std::vector<std::string> bindingKeys;
 };
 
 struct PickStmt : public Stmt {
@@ -162,12 +204,11 @@ struct PickStmt : public Stmt {
     std::vector<PickBranch> branches;
 };
 
-struct LiftStmt : public Stmt {
-    std::unique_ptr<Expr> expr;
-    std::string valueName;
-    std::string failName;
-    std::unique_ptr<BlockStmt> failBlock;
+struct PickExpr : public Expr {
+    std::unique_ptr<Expr> value;
+    std::vector<PickBranch> branches;
 };
+
 
 struct RawStmt : public Stmt {
     std::unique_ptr<BlockStmt> body;
@@ -243,6 +284,7 @@ struct StaticDecl : public Decl {
 struct ImportDecl {
     SourceSpan span;
     std::string modulePath;
+    std::string alias;
     std::vector<ImportItem> items;
     bool isSuper = false;
 };
@@ -254,5 +296,3 @@ struct RealmDecl : public AstNode {
 };
 
 } // namespace claw::frontend
-
-

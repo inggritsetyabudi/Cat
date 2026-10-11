@@ -28,17 +28,17 @@ oir.fn Vector2.equal(self: ref Vector2 [borrow], other: ref Vector2 [borrow]) ->
     %t0 = field self.x : Int32
     %t1 = field other.x : Int32
     %t2 = eq %t0, %t1 : Bool
-    branch %t2 -> when_then_0, when_join_1
-  block when_then_0:
+    branch %t2 -> if_then_0, if_join_1
+  block if_then_0:
     %t3 = field self.y : Int32
     %t4 = field other.y : Int32
     %t5 = eq %t3, %t4 : Bool
-    branch %t5 -> when_then_2, when_join_3
-  block when_then_2:
+    branch %t5 -> if_then_2, if_join_3
+  block if_then_2:
     return true : Bool
-  block when_join_3:
-    goto when_join_1
-  block when_join_1:
+  block if_join_3:
+    goto if_join_1
+  block if_join_1:
     return false : Bool
 oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_operator_overload::main ffi=false]
   block entry:

@@ -26,6 +26,8 @@ struct OirValue {
     std::string text;
     std::string type;
     bool isUnit = false;
+    bool terminates = false;
+    std::string bindingKey;
 };
 
 struct OirParam {
@@ -48,18 +50,21 @@ struct OirPickCase {
     std::string tag;
     std::vector<std::string> bindings;
     std::string targetLabel;
+    std::vector<std::string> bindingKeys;
 };
 
-struct OirHoldInst {
+struct OirBindingInst {
     bool isMutable = false;
     std::string name;
     std::string type;
     std::optional<OirValue> init;
+    std::string bindingKey;
 };
 
 struct OirStoreInst {
     std::string target;
     OirValue value;
+    std::string targetBindingKey;
 };
 
 struct OirStoreFieldInst {
@@ -79,6 +84,7 @@ struct OirDiscardInst {
 struct OirDropInst {
     std::string name;
     std::string type;
+    std::string bindingKey;
 };
 
 struct OirBranchInst {
@@ -93,10 +99,23 @@ struct OirGotoInst {
 
 struct OirScanInst {
     std::string itemName;
+    std::string indexName;
     std::string itemType;
     OirValue iterable;
     std::string bodyLabel;
     std::string exitLabel;
+    std::string itemBindingKey;
+    std::string indexBindingKey;
+};
+
+struct OirRangeScanInitInst {
+    std::string stateKey;
+    std::string itemName;
+    std::string indexName;
+    std::string itemType;
+    OirValue iterable;
+    std::string itemBindingKey;
+    std::string indexBindingKey;
 };
 
 struct OirPickInst {
@@ -104,12 +123,14 @@ struct OirPickInst {
     std::vector<OirPickCase> cases;
 };
 
-struct OirLiftInst {
+struct OirTryInst {
     OirValue value;
     std::string okName;
     std::string failName;
     std::string failLabel;
     bool autoPropagate = false;
+    std::string okBindingKey;
+    std::string failBindingKey;
 };
 
 struct OirChoiceMakeInst {
@@ -142,12 +163,33 @@ struct OirCallInst {
     std::string type;
     std::optional<std::string> builtinTag;
     std::optional<OirExternalCallInfo> externalInfo;
+    std::optional<OirValue> builtinReceiver;
 };
 
 struct OirFieldInst {
     std::string result;
     OirValue object;
     std::string field;
+    std::string type;
+};
+
+struct OirIndexInst {
+    std::string result;
+    OirValue object;
+    OirValue index;
+    std::string type;
+};
+
+struct OirStoreIndexInst {
+    OirValue object;
+    OirValue index;
+    OirValue value;
+};
+
+struct OirUnaryInst {
+    std::string result;
+    std::string op;
+    OirValue operand;
     std::string type;
 };
 
@@ -160,7 +202,7 @@ struct OirBinaryInst {
 };
 
 using OirInst = std::variant<
-    OirHoldInst,
+    OirBindingInst,
     OirStoreInst,
     OirStoreFieldInst,
     OirReturnInst,
@@ -168,14 +210,18 @@ using OirInst = std::variant<
     OirDropInst,
     OirBranchInst,
     OirGotoInst,
+    OirRangeScanInitInst,
     OirScanInst,
     OirPickInst,
-    OirLiftInst,
+    OirTryInst,
     OirChoiceMakeInst,
     OirStopInst,
     OirSkipInst,
     OirCallInst,
     OirFieldInst,
+    OirIndexInst,
+    OirStoreIndexInst,
+    OirUnaryInst,
     OirBinaryInst>;
 
 struct OirBlock {
@@ -246,6 +292,7 @@ public:
     std::string emit(const RealmDecl* realm) const;
     bool blockDefinitelyTerminates(const BlockStmt* block) const;
     bool stmtDefinitelyTerminates(const Stmt* stmt) const;
+    bool exprDefinitelyTerminates(const Expr* expr) const;
 
 private:
     const SemanticAnalyzer& sema;
