@@ -1,0 +1,23 @@
+fn make_anchor() -> Result[Anchor[Str], Str] {
+    return Ok(Anchor.new("owned"))
+}
+
+fn consume_result(result: Result[Anchor[Str], Str]) {
+    pick result {
+        Ok(anchor) { println(anchor.get()) }
+        Fail(error) { println(error) }
+    }
+}
+
+fn bad_reuse() {
+    val result = make_anchor()
+    val payload = try result else err {
+        println(err)
+        return
+    }
+    consume_result(result)
+}
+
+fn main() {
+    bad_reuse()
+}

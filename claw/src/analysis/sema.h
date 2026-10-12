@@ -25,6 +25,7 @@ struct ExprStmt;
 struct TypeNode;
 struct ScopeStmt;
 struct ShapeInitExpr;
+struct PickPattern;
 
 struct NamedBorrowScope {
     std::string name;
@@ -38,6 +39,7 @@ public:
     explicit SemanticAnalyzer(std::vector<ImportedBinding> importedBindings = {}, TargetSpec target = defaultTargetSpec());
 
     void analyze(RealmDecl* realm);
+    const std::vector<Diagnostic>& warnings() const;
 
     const AnalysisResult& result() const;
     const FunctionSignature* lookupFunctionSignature(const FnDecl* fn) const;
@@ -45,6 +47,7 @@ public:
     const FunctionSignature* lookupCallableSignature(const Expr* callee) const;
     std::optional<MethodSignature> lookupMethodSignature(const Expr* callee) const;
     const ResolvedType* lookupExprType(const Expr* expr) const;
+    bool isPlaceExpression(const Expr* expr) const;
     const ShapeInfo* lookupShape(const std::string& name) const;
     const ChoiceInfo* lookupChoice(const std::string& name) const;
     const TargetSpec& targetSpec() const;
@@ -54,6 +57,7 @@ private:
     TypeCatalog typeCatalog;
     AnalysisResult analysisResult;
     std::vector<Diagnostic> diagnostics;
+    std::vector<Diagnostic> semanticWarnings;
     std::vector<ImportedBinding> importedBindings;
     TargetSpec target;
     const FnDecl* currentFunction = nullptr;
@@ -63,6 +67,8 @@ private:
     bool currentViewReturnSeen = false;
     int loopDepth = 0;
     int rawDepth = 0;
+    int nextScanBindingIdentity = 0;
+    int nextLocalBindingIdentity = 0;
     std::vector<std::string> activeNamedScopes;
     int lexicalScopeDepth = 0;
     std::vector<NamedBorrowScope> namedBorrowScopes;
@@ -70,6 +76,8 @@ private:
     void reportError(const std::string& msg);
     void reportError(const SourceSpan& span, const std::string& msg);
     void reportError(const AstNode* node, const std::string& msg);
+    void reportWarning(const AstNode* node, const std::string& msg);
+    void warnNonTailValueExpression(const Stmt* stmt);
     void enterSemanticScope();
     void exitSemanticScope();
     bool enterNamedBorrowScope(const std::string& name, const SourceSpan& span, bool isFormalParameter = false);
@@ -85,6 +93,7 @@ private:
     void resolveTopLevelTypes(const RealmDecl* realm);
     void validateContractImplementation(const ImplementsDecl& impl, const std::unordered_map<std::string, FunctionSignature>& implMethods);
     void validateNamedLayouts(const RealmDecl* realm);
+    void validateNameCasing(const RealmDecl* realm);
     bool validateOwnedLayoutDependency(const std::string& rootName, const ResolvedType& type, const SourceSpan& span, std::vector<std::string>& stack);
 
     void analyzeDecl(Decl* decl);
@@ -93,8 +102,21 @@ private:
     void analyzeChoiceDecl(ChoiceDecl* choice);
 
     void analyzeBlock(BlockStmt* block);
+    ResolvedType analyzeBlockValue(BlockStmt* block, const ResolvedType* expectedType);
+    bool analyzeTuplePickPattern(const PickPattern* pattern, const ResolvedType& type, const std::string& path);
+    void bindTuplePickPattern(PickPattern* pattern, const ResolvedType& type);
+    ResolvedType unifyBranchTypes(
+        const AstNode* owner,
+        const std::vector<ResolvedType>& branchTypes,
+        const ResolvedType* expectedType,
+        std::string_view construct);
+    void applyBlockTailType(BlockStmt* block, const ResolvedType& type);
     void analyzeStmt(Stmt* stmt);
-    ResolvedType analyzeExpr(Expr* expr, const ResolvedType* expectedType = nullptr);
+    ResolvedType analyzeExpr(
+        Expr* expr,
+        const ResolvedType* expectedType = nullptr,
+        bool allowNegativeIntegerMagnitude = false,
+        bool valueRequired = true);
     ResolvedType resolveTypeNode(const TypeNode* node, const std::unordered_set<std::string>& localTypeParams);
     std::unordered_map<std::string, ResolvedType> buildTypeBindingsChecked(
         const std::vector<std::string>& paramNames,
@@ -137,7 +159,8 @@ private:
         const std::string& duplicateMessage,
         const SourceSpan& duplicateSpan = {},
         std::optional<size_t> viewSourceParamIndex = std::nullopt,
-        const BindingStmt* bindingDecl = nullptr);
+        BindingStmt* bindingDecl = nullptr,
+        std::string* backendBindingKeyOut = nullptr);
     bool isConditionLike(const ResolvedType& type) const;
     bool blockDefinitelyTerminates(const BlockStmt* block) const;
     bool stmtDefinitelyTerminates(const Stmt* stmt) const;

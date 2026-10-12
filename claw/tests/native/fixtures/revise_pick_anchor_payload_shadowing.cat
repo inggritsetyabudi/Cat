@@ -1,0 +1,33 @@
+choice Wrapped[T] {
+    some(value: T)
+    none
+}
+
+fn make_anchor_choice() -> Wrapped[Anchor[Str]] {
+    return some(Anchor.new("inner"))
+}
+
+fn main() -> Int32 {
+    val anchored = Anchor.new("outer")
+    val selected = make_anchor_choice()
+    pick selected {
+        some(anchored) {
+            println(anchored.get())
+        }
+        none {}
+    }
+    println(anchored.get())
+
+    val expression_selected = make_anchor_choice()
+    val expression_anchor: Anchor[Str] = pick expression_selected {
+        some(anchored) {
+            anchored
+        }
+        none {
+            Anchor.new("missing")
+        }
+    }
+    println(expression_anchor.get())
+    println(anchored.get())
+    0
+}

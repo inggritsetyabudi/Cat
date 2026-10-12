@@ -1,0 +1,4 @@
+fn main() {
+    val pair = ("owned", 2)
+    val (owned, _) = pair
+}

@@ -1,6 +1,41 @@
 #include "codegen/llvm_internal.h"
 
+#include <bit>
+#include <charconv>
+#include <cstdint>
+#include <iomanip>
+#include <sstream>
+
 namespace claw::codegen {
+namespace {
+
+std::string llvmFloatConstant(std::string_view rawText, std::string_view typeName) {
+    const std::string text = stripLiteralSuffix(std::string(rawText));
+    std::uint64_t bits = 0;
+    if (typeName == "Float32") {
+        float value = 0.0f;
+        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value, std::chars_format::general);
+        if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
+            throw std::runtime_error("LLVM lowering could not parse Float32 literal '" + text + "'.");
+        }
+        bits = std::bit_cast<std::uint64_t>(static_cast<double>(value));
+    } else if (typeName == "Float64") {
+        double value = 0.0;
+        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value, std::chars_format::general);
+        if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
+            throw std::runtime_error("LLVM lowering could not parse Float64 literal '" + text + "'.");
+        }
+        bits = std::bit_cast<std::uint64_t>(value);
+    } else {
+        throw std::runtime_error("LLVM lowering does not support floating literal type '" + std::string(typeName) + "'.");
+    }
+
+    std::ostringstream out;
+    out << "0x" << std::uppercase << std::hex << std::setw(16) << std::setfill('0') << bits;
+    return out.str();
+}
+
+} // namespace
 
 void LlvmEmitter::materializeChoiceBinding(
     const PendingChoiceBinding& binding,
@@ -20,6 +55,9 @@ void LlvmEmitter::materializeChoiceBinding(
     if (binding.bindingNames.size() != caseIt->payloadTypes.size() ||
         binding.bindingNames.size() != caseIt->layout.payloadFields.size()) {
         throw std::runtime_error("LLVM lowering found mismatched payload binding information for variant '" + binding.variantName + "'.");
+    }
+    if (!binding.bindingKeys.empty() && binding.bindingKeys.size() != binding.bindingNames.size()) {
+        throw std::runtime_error("LLVM lowering found mismatched payload binding identities for variant '" + binding.variantName + "'.");
     }
     if (binding.bindingNames.empty()) {
         return;
@@ -55,9 +93,13 @@ void LlvmEmitter::materializeChoiceBinding(
         lines.push_back(
             "  " + loadedValue + " = load " + llvmType(caseIt->payloadTypes[i]) + ", ptr " + fieldPtr +
             ", align " + std::to_string(layoutField.alignBytes));
-        state.namedValues[binding.bindingNames[i]] = loadedValue;
-        state.namedAddresses.erase(binding.bindingNames[i]);
-        state.valueTypes[binding.bindingNames[i]] = caseIt->payloadTypes[i];
+        const std::string& bindingKey =
+            i < binding.bindingKeys.size() && !binding.bindingKeys[i].empty()
+                ? binding.bindingKeys[i]
+                : binding.bindingNames[i];
+        state.namedValues[bindingKey] = loadedValue;
+        state.namedAddresses.erase(bindingKey);
+        state.valueTypes[bindingKey] = caseIt->payloadTypes[i];
     }
 }
 
@@ -91,11 +133,81 @@ IteratorState& LlvmEmitter::ensureIteratorState(
     return insertedIt->second;
 }
 
+IteratorState& LlvmEmitter::ensureRangeIteratorState(
+    std::string_view stateKey,
+    std::string_view itemName,
+    std::string_view indexName,
+    std::string_view itemType,
+    FunctionState& state) {
+    const std::string key(stateKey);
+    const auto it = state.iteratorStates.find(key);
+    if (it != state.iteratorStates.end()) {
+        return it->second;
+    }
+
+    const auto layout = abiLayoutForType(itemType);
+    if (!layout.has_value()) {
+        throw std::runtime_error("LLVM lowering does not yet support iterator item type '" + std::string(itemType) + "'.");
+    }
+
+    IteratorState iterState;
+    iterState.isRange = true;
+    iterState.itemAlign = layout->align;
+    iterState.indexSlot = state.temp(std::string(itemName) + ".range.index.addr");
+    iterState.itemSlot = state.temp(std::string(itemName) + ".range.item.addr");
+    iterState.rangeCurrentSlot = state.temp(std::string(itemName) + ".range.current.addr");
+    iterState.rangeEndSlot = state.temp(std::string(itemName) + ".range.end.addr");
+    iterState.rangeInclusiveSlot = state.temp(std::string(itemName) + ".range.inclusive.addr");
+    iterState.rangeFinishedSlot = state.temp(std::string(itemName) + ".range.finished.addr");
+    if (!indexName.empty()) {
+        iterState.visibleIndexSlot = state.temp(std::string(indexName) + ".range.visible_index.addr");
+    }
+
+    state.entryAllocas.push_back("  " + iterState.indexSlot + " = alloca i64, align 8");
+    state.entryAllocas.push_back("  store i64 0, ptr " + iterState.indexSlot + ", align 8");
+    state.entryAllocas.push_back(
+        "  " + iterState.itemSlot + " = alloca " + llvmType(std::string(itemType)) + ", align " +
+        std::to_string(iterState.itemAlign));
+    state.entryAllocas.push_back("  " + iterState.rangeCurrentSlot + " = alloca i32, align 4");
+    state.entryAllocas.push_back("  " + iterState.rangeEndSlot + " = alloca i32, align 4");
+    state.entryAllocas.push_back("  " + iterState.rangeInclusiveSlot + " = alloca i1, align 1");
+    state.entryAllocas.push_back("  " + iterState.rangeFinishedSlot + " = alloca i1, align 1");
+    state.entryAllocas.push_back("  store i1 false, ptr " + iterState.rangeFinishedSlot + ", align 1");
+    if (!iterState.visibleIndexSlot.empty()) {
+        state.entryAllocas.push_back("  " + iterState.visibleIndexSlot + " = alloca i64, align 8");
+    }
+
+    const auto [insertedIt, _] = state.iteratorStates.emplace(key, std::move(iterState));
+    return insertedIt->second;
+}
+
 void LlvmEmitter::materializeIterBinding(
     const PendingIterBinding& binding,
     FunctionState& state,
     std::vector<std::string>& lines) {
-    IteratorState& iterState = ensureIteratorState(binding.stateKey, binding.itemName, binding.itemType, state);
+    const bool isRange = binding.iterable.type == "Range[Int32]";
+    const std::string itemKey = binding.itemBindingKey.empty() ? binding.itemName : binding.itemBindingKey;
+    const std::string indexKey = binding.indexBindingKey.empty() ? binding.indexName : binding.indexBindingKey;
+    IteratorState& iterState = isRange
+        ? ensureRangeIteratorState(binding.stateKey, binding.itemName, binding.indexName, binding.itemType, state)
+        : ensureIteratorState(binding.stateKey, binding.itemName, binding.itemType, state);
+    if (isRange) {
+        state.namedAddresses[itemKey] = iterState.itemSlot;
+        state.namedValues.erase(itemKey);
+        state.params.erase(itemKey);
+        state.valueTypes[itemKey] = binding.itemType;
+        if (!binding.indexName.empty()) {
+            if (iterState.visibleIndexSlot.empty()) {
+                throw std::runtime_error("LLVM lowering could not allocate the indexed scan binding.");
+            }
+            state.namedAddresses[indexKey] = iterState.visibleIndexSlot;
+            state.namedValues.erase(indexKey);
+            state.params.erase(indexKey);
+            state.valueTypes[indexKey] = "USize";
+        }
+        return;
+    }
+
     const auto layout = abiLayoutForType(binding.itemType);
     if (!layout.has_value()) {
         throw std::runtime_error("LLVM lowering does not yet support iterator item type '" + binding.itemType + "'.");
@@ -122,10 +234,10 @@ void LlvmEmitter::materializeIterBinding(
     lines.push_back("  " + nextIndex + " = add i64 " + indexValue + ", 1");
     lines.push_back("  store i64 " + nextIndex + ", ptr " + iterState.indexSlot + ", align 8");
 
-    state.namedAddresses[binding.itemName] = iterState.itemSlot;
-    state.namedValues.erase(binding.itemName);
-    state.params.erase(binding.itemName);
-    state.valueTypes[binding.itemName] = binding.itemType;
+    state.namedAddresses[itemKey] = iterState.itemSlot;
+    state.namedValues.erase(itemKey);
+    state.params.erase(itemKey);
+    state.valueTypes[itemKey] = binding.itemType;
 }
 
 void LlvmEmitter::materializePendingBlockBindings(
@@ -241,10 +353,11 @@ std::optional<std::string> LlvmEmitter::tryAddressOfValue(
     const LirValue& value,
     FunctionState& state,
     std::vector<std::string>&) {
-    if (const auto it = state.stackPointers.find(value.text); it != state.stackPointers.end()) {
+    const std::string& valueKey = value.bindingKey.empty() ? value.text : value.bindingKey;
+    if (const auto it = state.stackPointers.find(valueKey); it != state.stackPointers.end()) {
         return it->second;
     }
-    if (const auto it = state.namedAddresses.find(value.text); it != state.namedAddresses.end()) {
+    if (const auto it = state.namedAddresses.find(valueKey); it != state.namedAddresses.end()) {
         return it->second;
     }
     if (const auto it = staticsByName.find(value.text); it != staticsByName.end()) {
@@ -269,10 +382,11 @@ std::string LlvmEmitter::ensureAddress(
     const std::string operand = ensureValue(value, state, lines);
     lines.push_back("  store " + valueType + " " + operand + ", ptr " + tempAddr + ", align " + std::to_string(align));
 
-    if (!value.text.empty() && !isStringLiteral(value.text) && value.text != "true" && value.text != "false" && !isIntegerLiteral(value.text)) {
-        state.namedAddresses[value.text] = tempAddr;
-        state.namedValues.erase(value.text);
-        state.params.erase(value.text);
+    const std::string& valueKey = value.bindingKey.empty() ? value.text : value.bindingKey;
+    if (!valueKey.empty() && !isStringLiteral(value.text) && value.text != "true" && value.text != "false" && !isIntegerLiteral(value.text)) {
+        state.namedAddresses[valueKey] = tempAddr;
+        state.namedValues.erase(valueKey);
+        state.params.erase(valueKey);
     }
     return tempAddr;
 }
@@ -291,7 +405,17 @@ const LayoutFieldInfo* LlvmEmitter::findShapeFieldLayout(std::string_view typeTe
 }
 
 size_t LlvmEmitter::findShapeFieldIndex(std::string_view typeText, std::string_view field) const {
-    const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(typeText)));
+    const std::string baseType = parseTypeName(typeText).base;
+    if (baseType == "Tuple") {
+        const ParsedTypeName parsedType = parseTypeName(typeText);
+        size_t index = 0;
+        const auto parsedIndex = std::from_chars(field.data(), field.data() + field.size(), index);
+        if (field.empty() || parsedIndex.ec != std::errc{} || parsedIndex.ptr != field.data() + field.size() ||
+            index >= parsedType.args.size()) {
+            throw std::runtime_error("LLVM lowering found invalid tuple projection '" + std::string(field) + "'.");
+        }
+        return index;
+    }
     const auto indexMapIt = shapeFieldIndices.find(baseType);
     if (indexMapIt == shapeFieldIndices.end()) {
         throw std::runtime_error("LLVM lowering only supports field access on concrete shapes, got '" + std::string(typeText) + "'.");
@@ -336,8 +460,9 @@ std::string LlvmEmitter::emitFieldAddress(
     std::string_view field,
     FunctionState& state,
     std::vector<std::string>& lines) {
-    const auto* layoutField = findShapeFieldLayout(object.type, field);
-    if (layoutField == nullptr) {
+    const std::string baseType = parseTypeName(object.type).base;
+    const auto* layoutField = baseType == "Tuple" ? nullptr : findShapeFieldLayout(object.type, field);
+    if (baseType != "Tuple" && layoutField == nullptr) {
         throw std::runtime_error("LLVM lowering only supports field access on concrete shapes, got '" + object.type + "'.");
     }
 
@@ -388,6 +513,67 @@ std::string LlvmEmitter::extractPointer(
     throw std::runtime_error("LLVM lowering does not yet support pointer extraction for receiver type '" + std::string(receiverType) + "'.");
 }
 
+std::string LlvmEmitter::emitIndexAddress(
+    const LirValue& object,
+    const LirValue& index,
+    const std::string& elementType,
+    FunctionState& state,
+    std::vector<std::string>& lines) {
+    const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(object.type)));
+    if (baseType != "Str" && baseType != "Span" && baseType != "Vec") {
+        throw std::runtime_error("LLVM lowering does not yet support index access on type '" + object.type + "'.");
+    }
+
+    const std::string objectValue = ensureValue(object, state, lines);
+    const std::string lengthValue = extractLength(objectValue, object.type, state, lines);
+    const std::string indexValue = ensureValue(index, state, lines);
+    const std::string inBounds = state.temp("index.in_bounds");
+    const std::string failLabel = state.inlineLabel("index.bounds_fail");
+    const std::string continueLabel = state.inlineLabel("index.bounds_ok");
+    lines.push_back("  " + inBounds + " = icmp ult i64 " + indexValue + ", " + lengthValue);
+    lines.push_back("  br i1 " + inBounds + ", label %" + continueLabel + ", label %" + failLabel);
+    lines.push_back(failLabel + ":");
+    lines.push_back("  call void @llvm.trap()");
+    lines.push_back("  unreachable");
+    lines.push_back(continueLabel + ":");
+    needsTrap = true;
+
+    const std::string basePointer = extractPointer(objectValue, object.type, state, lines);
+    const std::string elementPointer = state.temp("index.element_ptr");
+    lines.push_back(
+        "  " + elementPointer + " = getelementptr inbounds " + llvmType(elementType) +
+        ", ptr " + basePointer + ", i64 " + indexValue);
+    return elementPointer;
+}
+
+void LlvmEmitter::emitIndexLoad(const LirIndexInst& value, FunctionState& state, std::vector<std::string>& lines) {
+    const std::string elementPointer = emitIndexAddress(value.object, value.index, value.type, state, lines);
+    const auto layout = abiLayoutForType(value.type);
+    if (!layout.has_value()) {
+        throw std::runtime_error("LLVM lowering does not yet support indexed element type '" + value.type + "'.");
+    }
+    const std::string result = localName(value.result);
+    lines.push_back(
+        "  " + result + " = load " + llvmType(value.type) + ", ptr " + elementPointer +
+        ", align " + std::to_string(layout->align));
+    state.valueTypes[value.result] = value.type;
+    state.namedValues[value.result] = result;
+}
+
+void LlvmEmitter::emitIndexStore(const LirStoreIndexInst& value, FunctionState& state, std::vector<std::string>& lines) {
+    const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(value.object.type)));
+    if (baseType == "Str") {
+        throw std::runtime_error("LLVM lowering does not permit indexed stores into Str; string indexing is read-only.");
+    }
+    const std::string elementPointer = emitIndexAddress(value.object, value.index, value.value.type, state, lines);
+    const auto layout = abiLayoutForType(value.value.type);
+    if (!layout.has_value()) {
+        throw std::runtime_error("LLVM lowering does not yet support indexed element type '" + value.value.type + "'.");
+    }
+    const std::string operand = ensureValue(value.value, state, lines);
+    storeValueToAddress(elementPointer, value.value.type, operand, layout->align, lines);
+}
+
 std::string LlvmEmitter::ensureValue(const LirValue& value, FunctionState& state, std::vector<std::string>& lines) {
     const std::string llvmValueType = llvmType(value.type);
     if (llvmValueType == "void" || value.isUnit) {
@@ -407,16 +593,17 @@ std::string LlvmEmitter::ensureValue(const LirValue& value, FunctionState& state
 
     const auto layout = abiLayoutForType(value.type);
     const size_t align = layout.has_value() ? layout->align : 0;
+    const std::string& valueKey = value.bindingKey.empty() ? value.text : value.bindingKey;
 
-    if (const auto it = state.stackPointers.find(value.text); it != state.stackPointers.end()) {
+    if (const auto it = state.stackPointers.find(valueKey); it != state.stackPointers.end()) {
         return loadValueFromAddress(it->second, value.type, align, state, lines);
     }
 
-    if (const auto it = state.namedValues.find(value.text); it != state.namedValues.end()) {
+    if (const auto it = state.namedValues.find(valueKey); it != state.namedValues.end()) {
         return it->second;
     }
 
-    if (const auto it = state.namedAddresses.find(value.text); it != state.namedAddresses.end()) {
+    if (const auto it = state.namedAddresses.find(valueKey); it != state.namedAddresses.end()) {
         return loadValueFromAddress(it->second, value.type, align, state, lines);
     }
 
@@ -424,7 +611,7 @@ std::string LlvmEmitter::ensureValue(const LirValue& value, FunctionState& state
         return loadValueFromAddress(quoteGlobal(statIt->second->link.symbol), value.type, align, state, lines);
     }
 
-    if (const auto it = state.params.find(value.text); it != state.params.end()) {
+    if (const auto it = state.params.find(valueKey); it != state.params.end()) {
         return it->second;
     }
 
@@ -436,6 +623,10 @@ std::string LlvmEmitter::ensureValue(const LirValue& value, FunctionState& state
     }
     if (value.text == "false") {
         return "false";
+    }
+    const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(value.type)));
+    if (baseType == "Float32" || baseType == "Float64") {
+        return llvmFloatConstant(value.text, baseType);
     }
     if (isIntegerLiteral(value.text)) {
         return stripLiteralSuffix(value.text);

@@ -1,0 +1,3 @@
+fn accept(value: Anchor[Anchor[Int32]]) {}
+
+fn main() {}

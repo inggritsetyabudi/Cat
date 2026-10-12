@@ -1,0 +1,8 @@
+fn main() {
+    val source = 7
+    scope scratch {
+        val view: ref[scratch] Int32 = ref[scratch] source
+        val pair = (view, 2)
+        val (borrowed, value) = pair
+    }
+}

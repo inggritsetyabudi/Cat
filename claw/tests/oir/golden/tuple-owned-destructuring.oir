@@ -1,0 +1,155 @@
+oir.module revise_tuple_owned_destructuring
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_tuple_owned_destructuring::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_tuple_owned_destructuring::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn allocate(value: Int32 [scalar]) -> Anchor[Int32] [direct] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::allocate ffi=false]
+  block entry:
+    call println(value) : Unit
+    %t0 = call Anchor.new(value) : Anchor[Int32]
+    return %t0 : Anchor[Int32]
+oir.fn make_pair() -> Tuple[Anchor[Int32], Anchor[Int32]] [direct] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::make_pair ffi=false]
+  block entry:
+    call println("factory") : Unit
+    %t0 = call allocate(11) : Anchor[Int32]
+    val left: Anchor[Int32] = %t0
+    %t1 = call allocate(22) : Anchor[Int32]
+    val right: Anchor[Int32] = %t1
+    var separator: Int32
+    val %t2: Tuple[Anchor[Int32], Anchor[Int32]]
+    store_field %t2.0 <- left : Anchor[Int32]
+    store_field %t2.1 <- right : Anchor[Int32]
+    return %t2 : Tuple[Anchor[Int32], Anchor[Int32]]
+oir.fn choose_pair(flag: Bool [scalar]) -> Tuple[Anchor[Int32], Anchor[Int32]] [direct] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::choose_pair ffi=false]
+  block entry:
+    var %t0: Tuple[Anchor[Int32], Anchor[Int32]]
+    branch flag -> if_then_0, if_else_1
+  block if_then_0:
+    %t1 = call make_pair() : Tuple[Anchor[Int32], Anchor[Int32]]
+    store %t0 <- %t1 : Tuple[Anchor[Int32], Anchor[Int32]]
+    goto if_join_2
+  block if_else_1:
+    %t2 = call make_pair() : Tuple[Anchor[Int32], Anchor[Int32]]
+    store %t0 <- %t2 : Tuple[Anchor[Int32], Anchor[Int32]]
+    goto if_join_2
+  block if_join_2:
+    return %t0 : Tuple[Anchor[Int32], Anchor[Int32]]
+oir.fn consume_parameter(pair: Tuple[Anchor[Int32], Anchor[Int32]] [direct]) -> Unit [void] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::consume_parameter ffi=false]
+  block entry:
+    %t0 = field pair.0 : Anchor[Int32]
+    drop %t0 : Anchor[Int32]
+    %t1 = field pair.1 : Anchor[Int32]
+    val kept: Anchor[Int32] = %t1
+    %t2 = call kept.get() : ref Int32
+    call println(%t2) : Unit
+    drop kept : Anchor[Int32]
+    return unit : Unit
+oir.fn consume_named() -> Unit [void] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::consume_named ffi=false]
+  block entry:
+    %t0 = call make_pair() : Tuple[Anchor[Int32], Anchor[Int32]]
+    val pair: Tuple[Anchor[Int32], Anchor[Int32]] = %t0
+    %t1 = field pair.0 : Anchor[Int32]
+    %t2 = call %t1.get() : ref Int32
+    call println(%t2) : Unit
+    %t3 = field pair.0 : Anchor[Int32]
+    drop %t3 : Anchor[Int32]
+    %t4 = field pair.1 : Anchor[Int32]
+    val kept: Anchor[Int32] = %t4
+    %t5 = call kept.get() : ref Int32
+    call println(%t5) : Unit
+    drop kept : Anchor[Int32]
+    return unit : Unit
+oir.fn return_kept() -> Anchor[Int32] [direct] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::return_kept ffi=false]
+  block entry:
+    %t0 = call make_pair() : Tuple[Anchor[Int32], Anchor[Int32]]
+    %t1 = field %t0.0 : Anchor[Int32]
+    val discarded: Anchor[Int32] = %t1
+    %t2 = field %t0.1 : Anchor[Int32]
+    val kept: Anchor[Int32] = %t2
+    %t3 = call kept.get() : ref Int32
+    call println(%t3) : Unit
+    drop discarded : Anchor[Int32]
+    return kept : Anchor[Int32]
+oir.fn keep_after_pick() -> Int32 [scalar] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::keep_after_pick ffi=false]
+  block entry:
+    %t0 = call make_pair() : Tuple[Anchor[Int32], Anchor[Int32]]
+    val pair: Tuple[Anchor[Int32], Anchor[Int32]] = %t0
+    var %t1: Int32
+    goto pick_tuple_0
+  block pick_tuple_0:
+    store %t1 <- 0 : Int32
+    goto pick_join_1
+  block pick_join_1:
+    val result: Int32 = %t1
+    %t2 = field pair.0 : Anchor[Int32]
+    %t3 = call %t2.get() : ref Int32
+    call println(%t3) : Unit
+    %t4 = field pair.0 : Anchor[Int32]
+    drop %t4 : Anchor[Int32]
+    %t5 = field pair.1 : Anchor[Int32]
+    drop %t5 : Anchor[Int32]
+    return result : Int32
+oir.fn transfer_into_tuple() -> Unit [void] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::transfer_into_tuple ffi=false]
+  block entry:
+    %t0 = call allocate(31) : Anchor[Int32]
+    val left: Anchor[Int32] = %t0
+    %t1 = call allocate(32) : Anchor[Int32]
+    val right: Anchor[Int32] = %t1
+    val %t2: Tuple[Anchor[Int32], Anchor[Int32]]
+    store_field %t2.0 <- left : Anchor[Int32]
+    store_field %t2.1 <- right : Anchor[Int32]
+    val pair: Tuple[Anchor[Int32], Anchor[Int32]] = %t2
+    %t3 = field pair.1 : Anchor[Int32]
+    %t4 = call %t3.get() : ref Int32
+    call println(%t4) : Unit
+    %t5 = field pair.0 : Anchor[Int32]
+    drop %t5 : Anchor[Int32]
+    %t6 = field pair.1 : Anchor[Int32]
+    drop %t6 : Anchor[Int32]
+    return unit : Unit
+oir.fn drop_nested_tuple() -> Unit [void] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::drop_nested_tuple ffi=false]
+  block entry:
+    val %t0: Tuple[Tuple[Anchor[Int32], Anchor[Int32]], Anchor[Int32]]
+    val %t1: Tuple[Anchor[Int32], Anchor[Int32]]
+    %t2 = call allocate(41) : Anchor[Int32]
+    store_field %t1.0 <- %t2 : Anchor[Int32]
+    %t3 = call allocate(42) : Anchor[Int32]
+    store_field %t1.1 <- %t3 : Anchor[Int32]
+    store_field %t0.0 <- %t1 : Tuple[Anchor[Int32], Anchor[Int32]]
+    %t4 = call allocate(43) : Anchor[Int32]
+    store_field %t0.1 <- %t4 : Anchor[Int32]
+    val outer: Tuple[Tuple[Anchor[Int32], Anchor[Int32]], Anchor[Int32]] = %t0
+    %t5 = field outer.0 : Tuple[Anchor[Int32], Anchor[Int32]]
+    val nested: Tuple[Anchor[Int32], Anchor[Int32]] = %t5
+    %t6 = field outer.1 : Anchor[Int32]
+    drop %t6 : Anchor[Int32]
+    %t7 = field nested.0 : Anchor[Int32]
+    drop %t7 : Anchor[Int32]
+    %t8 = field nested.1 : Anchor[Int32]
+    drop %t8 : Anchor[Int32]
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_tuple_owned_destructuring::main ffi=false]
+  block entry:
+    %t0 = call make_pair() : Tuple[Anchor[Int32], Anchor[Int32]]
+    %t1 = field %t0.0 : Anchor[Int32]
+    drop %t1 : Anchor[Int32]
+    %t2 = field %t0.1 : Anchor[Int32]
+    drop %t2 : Anchor[Int32]
+    call println("after-multi-wildcard") : Unit
+    call consume_named() : Unit
+    %t3 = call return_kept() : Anchor[Int32]
+    val returned: Anchor[Int32] = %t3
+    %t4 = call returned.get() : ref Int32
+    call println(%t4) : Unit
+    %t5 = call keep_after_pick() : Int32
+    val pickValue: Int32 = %t5
+    call println(pickValue) : Unit
+    call transfer_into_tuple() : Unit
+    call drop_nested_tuple() : Unit
+    %t6 = call choose_pair(true) : Tuple[Anchor[Int32], Anchor[Int32]]
+    call consume_parameter(%t6) : Unit
+    drop returned : Anchor[Int32]
+    return unit : Unit

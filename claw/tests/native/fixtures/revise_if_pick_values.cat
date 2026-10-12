@@ -1,0 +1,151 @@
+choice Route {
+    left(value: Int32)
+    right(value: Int32)
+}
+
+fn if_tail(flag: Bool) -> Int32 {
+    if flag {
+        11
+    } else {
+        22
+    }
+}
+
+fn if_return(flag: Bool) -> Int32 {
+    return if flag {
+        33
+    } else {
+        return 44
+    }
+}
+
+fn if_initializer(flag: Bool) -> Int32 {
+    val selected = if flag {
+        55
+    } else if false {
+        66
+    } else {
+        77
+    }
+    return selected
+}
+
+fn pick_return(route: Route) -> Int32 {
+    return pick route {
+        left(value) {
+            value
+        }
+        right(value) {
+            value
+        }
+    }
+}
+
+fn pick_initializer(route: Route) -> Int32 {
+    val selected: Int32 = pick route {
+        left(value) {
+            value
+        }
+        right(value) {
+            value
+        }
+    }
+    selected
+}
+
+fn pick_return_or_value(route: Route) -> Int32 {
+    pick route {
+        left(value) {
+            value
+        }
+        right(value) {
+            return value
+        }
+    }
+}
+
+fn terminal_if_initializer(flag: Bool) {
+    val never = if flag {
+        return
+    } else {
+        return
+    }
+    println("after-if-never")
+}
+
+fn terminal_pick_initializer(route: Route) {
+    val never = pick route {
+        left(value) {
+            return
+        }
+        right(value) {
+            return
+        }
+    }
+    println("after-pick-never")
+}
+
+fn pick_with_wildcard(route: Route) -> Int32 {
+    pick route {
+        left(value) {
+            value
+        }
+        _ {
+            0
+        }
+    }
+}
+
+fn pick_statement_with_wildcard(route: Route) -> Int32 {
+    var selected: Int32 = 0
+    pick route {
+        left(value) {
+            selected = value
+        }
+        _ {
+            selected = -1
+        }
+    }
+    selected
+}
+
+fn ownership_join(flag: Bool) -> Str {
+    val x = "outer"
+    val y = if flag {
+        return x
+    } else {
+        "inner"
+    }
+    return y
+}
+
+fn anchor_ownership_join(flag: Bool) -> Anchor[Str] {
+    val x = Anchor.new("outer")
+    val y = if flag {
+        return x
+    } else {
+        Anchor.new("inner")
+    }
+    return y
+}
+
+fn main() {
+    println(if_tail(true))
+    println(if_tail(false))
+    println(if_return(true))
+    println(if_return(false))
+    println(if_initializer(true))
+    println(if_initializer(false))
+    println(pick_return(left(101)))
+    println(pick_return(right(202)))
+    println(pick_initializer(right(303)))
+    println(pick_return_or_value(left(404)))
+    println(pick_return_or_value(right(505)))
+    println(pick_with_wildcard(left(606)))
+    println(pick_with_wildcard(right(707)))
+    println(pick_statement_with_wildcard(right(808)))
+    println(ownership_join(false))
+    println(ownership_join(true))
+    val dropped_anchor = anchor_ownership_join(false)
+    val returned_anchor = anchor_ownership_join(true)
+}

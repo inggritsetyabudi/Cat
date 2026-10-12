@@ -5,36 +5,24 @@
 
 namespace claw::frontend {
 
+Parser::Parser(std::vector<Token> tokens) : tokens(std::move(tokens)) {}
+
 namespace {
 
-std::string legacySyntaxMessage(TokenKind kind) {
-    switch (kind) {
-    case TokenKind::KwHold:
-        return "Legacy binding syntax 'hold' has been removed. Use 'val' for immutable bindings.";
-    case TokenKind::KwSlot:
-        return "Legacy binding syntax 'slot' has been removed. Use 'var' for mutable bindings.";
-    case TokenKind::KwGive:
-        return "Legacy return syntax 'give' has been removed. Use 'return'.";
-    case TokenKind::KwWhen:
-        return "Legacy conditional syntax 'when' has been removed. Use 'if'.";
-    case TokenKind::KwOtherwise:
-        return "Legacy branch syntax 'otherwise' has been removed. Use 'else'.";
-    case TokenKind::KwLook:
-        return "Legacy borrow syntax 'look' has been removed. Use 'ref'.";
-    case TokenKind::KwEdit:
-        return "Legacy borrow syntax 'edit' has been removed. Use 'ref mut'.";
-    case TokenKind::KwOf:
-        return "Legacy generic syntax 'of' has been removed. Use bracket generics like Vec[Int32].";
-    case TokenKind::KwRealm:
-        return "Legacy module syntax 'realm' has been removed. File path and workspace structure define the module name.";
-    default:
-        return "Legacy syntax has been removed from the revised surface.";
+void collectPickPatternBindings(const PickPattern* pattern, std::vector<std::string>& bindings) {
+    if (!pattern) {
+        return;
+    }
+    if (pattern->kind == PickPatternKind::Binding) {
+        bindings.push_back(pattern->name);
+        return;
+    }
+    for (const auto& element : pattern->elements) {
+        collectPickPatternBindings(element.get(), bindings);
     }
 }
 
 } // namespace
-
-Parser::Parser(std::vector<Token> tokens) : tokens(std::move(tokens)) {}
 
 const Token& Parser::peek() const {
     return tokens[pos];
@@ -136,7 +124,7 @@ bool Parser::isStatementRecoveryPoint(TokenKind kind) const {
            kind == TokenKind::KwReturn || kind == TokenKind::KwIf ||
            kind == TokenKind::KwLoop || kind == TokenKind::KwScan || kind == TokenKind::KwScope ||
            kind == TokenKind::KwPick ||
-           kind == TokenKind::KwLift || kind == TokenKind::KwStop || kind == TokenKind::KwSkip ||
+           kind == TokenKind::KwStop || kind == TokenKind::KwSkip ||
            kind == TokenKind::KwRaw || kind == TokenKind::KwScope ||
            kind == TokenKind::RBrace || isTopLevelRecoveryPoint(kind);
 }
@@ -224,16 +212,17 @@ ImportDecl Parser::parseImportDeclaration() {
         imp.modulePath += "." + previous().text;
     }
 
+    if (match(TokenKind::KwAs)) {
+        consumeNameToken("Expected module alias after 'as'");
+        imp.alias = previous().text;
+    }
+
     return imp;
 }
 
 void Parser::parseTypeParameterList(std::vector<std::string>* out) {
     if (!out) {
         return;
-    }
-
-    if (match(TokenKind::KwOf)) {
-        failAt(previous(), legacySyntaxMessage(TokenKind::KwOf));
     }
 
     if (match(TokenKind::LBracket)) {
@@ -343,10 +332,6 @@ std::unique_ptr<Decl> Parser::parseDeclaration() {
         stat->init = parseExpression();
         return stat;
     }
-    if (match(TokenKind::KwRealm)) {
-        failAt(previous(), legacySyntaxMessage(TokenKind::KwRealm));
-    }
-
     failAtCurrent("Unexpected token at top level.");
 }
 
@@ -540,10 +525,35 @@ std::unique_ptr<TypeNode> Parser::parseType() {
             type->viewScope = previous().text;
             consume(TokenKind::RBracket, "Expected ']' after scope name");
         }
-    } else if (match(TokenKind::KwLook)) {
-        failAt(previous(), legacySyntaxMessage(TokenKind::KwLook));
-    } else if (match(TokenKind::KwEdit)) {
-        failAt(previous(), legacySyntaxMessage(TokenKind::KwEdit));
+    }
+
+    if (match(TokenKind::LParen)) {
+        if (match(TokenKind::RParen)) {
+            type->name = "Unit";
+            return type;
+        }
+
+        auto first = parseType();
+        if (!match(TokenKind::Comma)) {
+            consume(TokenKind::RParen, "Expected ')' after grouped type");
+            if (!type->viewKind.empty()) {
+                first->viewKind = type->viewKind;
+                first->viewScope = type->viewScope;
+            }
+            return first;
+        }
+
+        type->name = "Tuple";
+        type->isTuple = true;
+        type->params.push_back(std::move(first));
+        while (!check(TokenKind::RParen) && !isAtEnd()) {
+            type->params.push_back(parseType());
+            if (!match(TokenKind::Comma)) {
+                break;
+            }
+        }
+        consume(TokenKind::RParen, "Expected ')' after tuple type");
+        return type;
     }
 
     consumeNameToken("Expected type name");
@@ -577,21 +587,17 @@ std::unique_ptr<BlockStmt> Parser::parseBlock() {
 std::unique_ptr<Stmt> Parser::parseStatement() {
     if (match(TokenKind::KwVal)) return parseBinding(false);
     if (match(TokenKind::KwVar)) return parseBinding(true);
-    if (match(TokenKind::KwHold)) failAt(previous(), legacySyntaxMessage(TokenKind::KwHold));
-    if (match(TokenKind::KwSlot)) failAt(previous(), legacySyntaxMessage(TokenKind::KwSlot));
-
-    if (match(TokenKind::KwReturn)) return parseGive();
-    if (match(TokenKind::KwGive)) failAt(previous(), legacySyntaxMessage(TokenKind::KwGive));
-
-    if (match(TokenKind::KwIf)) return parseWhen();
-    if (match(TokenKind::KwWhen)) failAt(previous(), legacySyntaxMessage(TokenKind::KwWhen));
-    if (match(TokenKind::KwOtherwise)) failAt(previous(), legacySyntaxMessage(TokenKind::KwOtherwise));
-
+    if (match(TokenKind::KwReturn)) return parseReturn();
+    if (check(TokenKind::KwIf) || check(TokenKind::KwPick)) {
+        auto expr = parseExpression();
+        auto stmt = std::make_unique<ExprStmt>();
+        stmt->span = expr->span;
+        stmt->expr = std::move(expr);
+        return stmt;
+    }
     if (match(TokenKind::KwLoop)) return parseLoop();
     if (match(TokenKind::KwScan)) return parseScan();
     if (match(TokenKind::KwScope)) return parseScope();
-    if (match(TokenKind::KwPick)) return parsePick();
-    if (match(TokenKind::KwLift)) return parseLift();
     if (match(TokenKind::KwStop)) {
         auto stmt = std::make_unique<StopStmt>();
         stmt->span = spanFromToken(previous());
@@ -610,9 +616,12 @@ std::unique_ptr<Stmt> Parser::parseStatement() {
     }
 
     auto expr = parseExpression();
-    if (match(TokenKind::Equal)) {
+    if (match(TokenKind::Equal) || match(TokenKind::PlusEqual) ||
+        match(TokenKind::MinusEqual) || match(TokenKind::StarEqual) ||
+        match(TokenKind::SlashEqual) || match(TokenKind::PercentEqual)) {
         auto assign = std::make_unique<AssignStmt>();
         assign->span = expr->span;
+        assign->op = previous().text;
         assign->target = std::move(expr);
         assign->value = parseExpression();
         return assign;
@@ -624,18 +633,62 @@ std::unique_ptr<Stmt> Parser::parseStatement() {
     return stmt;
 }
 
-std::unique_ptr<GiveStmt> Parser::parseGive() {
-    auto give = std::make_unique<GiveStmt>();
-    give->span = spanFromToken(previous());
+std::unique_ptr<ReturnStmt> Parser::parseReturn() {
+    auto returnStmt = std::make_unique<ReturnStmt>();
+    returnStmt->span = spanFromToken(previous());
     if (!check(TokenKind::RBrace) && !check(TokenKind::Eof)) {
-        give->value = parseExpression();
+        returnStmt->value = parseExpression();
     }
-    return give;
+    return returnStmt;
 }
 
 std::unique_ptr<Stmt> Parser::parseBinding(bool isMutable) {
     const SourceSpan bindingSpan = spanFromToken(previous());
+    if (check(TokenKind::LParen)) {
+        if (isMutable) {
+            failAtCurrent("Tuple destructuring is currently supported only for `val` bindings.");
+        }
 
+        consume(TokenKind::LParen, "Expected `(` to begin tuple destructuring pattern.");
+        std::vector<std::string> patternNames;
+        bool sawComma = false;
+        if (check(TokenKind::RParen)) {
+            failAtCurrent("Tuple destructuring pattern must contain at least one binding.");
+        }
+        while (true) {
+            if (check(TokenKind::LParen)) {
+                failAtCurrent("Nested tuple patterns in bindings are not yet supported.");
+            }
+            consumeNameToken("Expected a variable name or `_` in tuple destructuring pattern.");
+            patternNames.push_back(previous().text);
+            if (!match(TokenKind::Comma)) {
+                break;
+            }
+            sawComma = true;
+            if (check(TokenKind::RParen)) {
+                break;
+            }
+        }
+        consume(TokenKind::RParen, "Expected `)` after tuple destructuring pattern.");
+        if (patternNames.size() == 1 && !sawComma) {
+            failAtCurrent("Tuple destructuring pattern must use a comma; write `(name,)` for a one-element tuple.");
+        }
+        if (check(TokenKind::Colon)) {
+            failAtCurrent("Tuple destructuring type annotations are not supported; annotate the source tuple instead.");
+        }
+        if (!match(TokenKind::Equal)) {
+            failAtCurrent("Tuple destructuring requires an initializer.");
+        }
+        if (check(TokenKind::KwTry)) {
+            failAtCurrent("Tuple destructuring with `try` is not supported; bind the `try` result first.");
+        }
+
+        auto binding = std::make_unique<BindingStmt>();
+        binding->span = bindingSpan;
+        binding->tuplePatternNames = std::move(patternNames);
+        binding->value = parseExpression();
+        return binding;
+    }
     consumeNameToken("Expected variable name");
     const std::string bindingName = previous().text;
 
@@ -680,8 +733,8 @@ std::unique_ptr<Stmt> Parser::parseBinding(bool isMutable) {
     return binding;
 }
 
-std::unique_ptr<WhenStmt> Parser::parseWhen() {
-    auto stmt = std::make_unique<WhenStmt>();
+std::unique_ptr<IfStmt> Parser::parseIf() {
+    auto stmt = std::make_unique<IfStmt>();
     stmt->span = spanFromToken(previous());
     stmt->condition = parseExpression();
     stmt->thenBlock = parseBlock();
@@ -709,6 +762,10 @@ std::unique_ptr<ScanStmt> Parser::parseScan() {
     stmt->span = spanFromToken(previous());
     consumeNameToken("Expected iteration variable name");
     stmt->itemName = previous().text;
+    if (match(TokenKind::Comma)) {
+        consumeNameToken("Expected scan index variable name after ','");
+        stmt->indexName = previous().text;
+    }
     consume(TokenKind::KwOver, "Expected 'over' after scan variable");
     stmt->iterable = parseExpression();
     stmt->body = parseBlock();
@@ -732,20 +789,26 @@ std::unique_ptr<PickStmt> Parser::parsePick() {
     consume(TokenKind::LBrace, "Expected '{' to start pick block");
     while (!check(TokenKind::RBrace) && !isAtEnd()) {
         PickBranch branch;
-        if (!matchNameOrKeyword()) {
-            failAtCurrent("Expected variant tag in pick branch");
-        }
-        branch.span = spanFromToken(previous());
-        branch.tag = previous().text;
-
-        if (match(TokenKind::LParen)) {
-            if (!check(TokenKind::RParen)) {
-                do {
-                    consumeNameToken("Expected binding name");
-                    branch.bindings.push_back(previous().text);
-                } while (match(TokenKind::Comma));
+        if (check(TokenKind::LParen)) {
+            branch.tuplePattern = parsePickPattern();
+            branch.span = branch.tuplePattern->span;
+            collectPickPatternBindings(branch.tuplePattern.get(), branch.bindings);
+        } else {
+            if (!matchNameOrKeyword()) {
+                failAtCurrent("Expected variant tag, '_' or tuple pattern in pick branch");
             }
-            consume(TokenKind::RParen, "Expected ')' after pattern bindings");
+            branch.span = spanFromToken(previous());
+            branch.tag = previous().text;
+
+            if (match(TokenKind::LParen)) {
+                if (!check(TokenKind::RParen)) {
+                    do {
+                        consumeNameToken("Expected binding name");
+                        branch.bindings.push_back(previous().text);
+                    } while (match(TokenKind::Comma));
+                }
+                consume(TokenKind::RParen, "Expected ')' after pattern bindings");
+            }
         }
 
         branch.body = parseBlock();
@@ -755,66 +818,182 @@ std::unique_ptr<PickStmt> Parser::parsePick() {
     return stmt;
 }
 
-std::unique_ptr<LiftStmt> Parser::parseLift() {
-    auto stmt = std::make_unique<LiftStmt>();
-    stmt->span = spanFromToken(previous());
-    stmt->expr = parseExpression();
+std::unique_ptr<PickPattern> Parser::parsePickPattern() {
+    if (match(TokenKind::LParen)) {
+        const Token open = previous();
+        auto pattern = std::make_unique<PickPattern>();
+        pattern->span = spanFromToken(open);
+        pattern->kind = PickPatternKind::Tuple;
+        if (check(TokenKind::RParen)) {
+            failAtCurrent("A tuple pick pattern must contain at least one element.");
+        }
 
-    consume(TokenKind::KwAs, "Expected 'as' after lift expression");
-    consumeNameToken("Expected success binding name");
-    stmt->valueName = previous().text;
+        bool sawComma = false;
+        do {
+            pattern->elements.push_back(parsePickPattern());
+            if (!match(TokenKind::Comma)) {
+                break;
+            }
+            sawComma = true;
+        } while (!check(TokenKind::RParen) && !isAtEnd());
 
-    consume(TokenKind::KwFail, "Expected 'fail' keyword");
-    consumeNameToken("Expected failure binding name");
-    stmt->failName = previous().text;
-
-    stmt->failBlock = parseBlock();
-    return stmt;
-}
-
-std::unique_ptr<Expr> Parser::parseExpression() {
-    return parseComparison();
-}
-
-std::unique_ptr<Expr> Parser::parseComparison() {
-    auto left = parseBinary();
-
-    while (match(TokenKind::EqEq) || match(TokenKind::NotEq) ||
-           match(TokenKind::Less) || match(TokenKind::LessEq) ||
-           match(TokenKind::Greater) || match(TokenKind::GreaterEq)) {
-        auto expr = std::make_unique<BinaryExpr>();
-        expr->span = left->span;
-        expr->op = previous().text;
-        expr->left = std::move(left);
-        expr->right = parseBinary();
-        left = std::move(expr);
+        consume(TokenKind::RParen, "Expected ')' after tuple pick pattern");
+        if (pattern->elements.size() == 1 && !sawComma) {
+            failAt(open, "A one-element tuple pick pattern must use a trailing comma, for example `(value,)`.");
+        }
+        return pattern;
     }
-    return left;
-}
 
-std::unique_ptr<Expr> Parser::parseBinary() {
-    auto left = parseFactor();
-    while (match(TokenKind::Plus) || match(TokenKind::Minus)) {
-        auto expr = std::make_unique<BinaryExpr>();
-        expr->span = left->span;
-        expr->op = previous().text;
-        expr->left = std::move(left);
-        expr->right = parseFactor();
-        left = std::move(expr);
+    if (!matchNameOrKeyword()) {
+        failAtCurrent("Expected a binding, '_' or nested tuple pattern.");
     }
-    return left;
+    const Token token = previous();
+    auto pattern = std::make_unique<PickPattern>();
+    pattern->span = spanFromToken(token);
+    pattern->kind = token.text == "_" ? PickPatternKind::Wildcard : PickPatternKind::Binding;
+    pattern->name = token.text;
+    return pattern;
 }
 
-std::unique_ptr<Expr> Parser::parseFactor() {
+std::unique_ptr<IfExpr> Parser::parseIfExpression() {
+    auto expr = std::make_unique<IfExpr>();
+    expr->span = spanFromToken(previous());
+    expr->condition = parseExpression();
+    expr->thenBlock = parseBlock();
+
+    if (match(TokenKind::KwElse)) {
+        if (match(TokenKind::KwIf)) {
+            auto nested = parseIfExpression();
+            auto block = std::make_unique<BlockStmt>();
+            block->span = nested->span;
+            auto tail = std::make_unique<ExprStmt>();
+            tail->span = nested->span;
+            tail->expr = std::move(nested);
+            block->statements.push_back(std::move(tail));
+            expr->elseBlock = std::move(block);
+        } else {
+            expr->elseBlock = parseBlock();
+        }
+    }
+
+    return expr;
+}
+
+std::unique_ptr<PickExpr> Parser::parsePickExpression() {
+    auto expr = std::make_unique<PickExpr>();
+    expr->span = spanFromToken(previous());
+    expr->value = parseExpression();
+
+    consume(TokenKind::LBrace, "Expected '{' to start pick block");
+    while (!check(TokenKind::RBrace) && !isAtEnd()) {
+        PickBranch branch;
+        if (check(TokenKind::LParen)) {
+            branch.tuplePattern = parsePickPattern();
+            branch.span = branch.tuplePattern->span;
+            collectPickPatternBindings(branch.tuplePattern.get(), branch.bindings);
+        } else {
+            if (!matchNameOrKeyword()) {
+                failAtCurrent("Expected variant tag, '_' or tuple pattern in pick branch");
+            }
+            branch.span = spanFromToken(previous());
+            branch.tag = previous().text;
+
+            if (match(TokenKind::LParen)) {
+                if (!check(TokenKind::RParen)) {
+                    do {
+                        consumeNameToken("Expected binding name");
+                        branch.bindings.push_back(previous().text);
+                    } while (match(TokenKind::Comma));
+                }
+                consume(TokenKind::RParen, "Expected ')' after pattern bindings");
+            }
+        }
+
+        branch.body = parseBlock();
+        expr->branches.push_back(std::move(branch));
+    }
+    consume(TokenKind::RBrace, "Expected '}' to end pick block");
+    return expr;
+}
+
+
+std::unique_ptr<Expr> Parser::parseExpression(int minBindingPower) {
     auto left = parseUnary();
-    while (match(TokenKind::Star) || match(TokenKind::Slash)) {
+    bool sawComparison = false;
+    bool sawRange = false;
+
+    const auto bindingPower = [](TokenKind kind) -> int {
+        switch (kind) {
+        case TokenKind::KwOr: return 10;
+        case TokenKind::KwAnd: return 20;
+        case TokenKind::EqEq:
+        case TokenKind::NotEq:
+        case TokenKind::Less:
+        case TokenKind::LessEq:
+        case TokenKind::Greater:
+        case TokenKind::GreaterEq:
+        case TokenKind::KwIn: return 30;
+        case TokenKind::Plus:
+        case TokenKind::Minus: return 40;
+        case TokenKind::Star:
+        case TokenKind::Slash:
+        case TokenKind::Percent: return 50;
+        case TokenKind::DotDot:
+        case TokenKind::DotDotEqual: return 5;
+        default: return -1;
+    }
+    };
+    const auto isComparison = [](TokenKind kind) {
+        return kind == TokenKind::EqEq || kind == TokenKind::NotEq ||
+            kind == TokenKind::Less || kind == TokenKind::LessEq ||
+            kind == TokenKind::Greater || kind == TokenKind::GreaterEq ||
+            kind == TokenKind::KwIn;
+    };
+    const auto isRange = [](TokenKind kind) {
+        return kind == TokenKind::DotDot || kind == TokenKind::DotDotEqual;
+    };
+
+    while (true) {
+        const TokenKind kind = peek().kind;
+        const int leftBindingPower = bindingPower(kind);
+        if (leftBindingPower < minBindingPower) {
+            break;
+        }
+        if (isComparison(kind) && sawComparison) {
+            failAtCurrent("Comparison operators are non-associative; combine comparisons with `and`.");
+        }
+        if (isRange(kind) && sawRange) {
+            failAtCurrent("Range operators `..` and `..=` are non-associative; add parentheses.");
+        }
+
+        const Token opToken = advance();
         auto expr = std::make_unique<BinaryExpr>();
         expr->span = left->span;
-        expr->op = previous().text;
+        expr->op = opToken.text;
         expr->left = std::move(left);
-        expr->right = parseUnary();
+        if (kind == TokenKind::KwIn) {
+            expr->right = parseExpression(leftBindingPower + 1);
+            if (check(TokenKind::DotDot) || check(TokenKind::DotDotEqual)) {
+                if (sawRange) {
+                    failAtCurrent("Range operators `..` and `..=` are non-associative; add parentheses.");
+                }
+                const Token rangeToken = advance();
+                auto rangeExpr = std::make_unique<BinaryExpr>();
+                rangeExpr->span = expr->right->span;
+                rangeExpr->op = rangeToken.text;
+                rangeExpr->left = std::move(expr->right);
+                rangeExpr->right = parseExpression(leftBindingPower + 1);
+                expr->right = std::move(rangeExpr);
+                sawRange = true;
+            }
+        } else {
+            expr->right = parseExpression(leftBindingPower + 1);
+        }
         left = std::move(expr);
+        sawComparison = sawComparison || isComparison(kind);
+        sawRange = sawRange || isRange(kind);
     }
+
     return left;
 }
 
@@ -835,6 +1014,14 @@ std::unique_ptr<Expr> Parser::parseUnary() {
         }
         borrow->target = parseUnary();
         return borrow;
+    }
+
+    if (match(TokenKind::Minus) || match(TokenKind::KwNot)) {
+        auto unary = std::make_unique<UnaryExpr>();
+        unary->span = spanFromToken(previous());
+        unary->op = previous().text;
+        unary->operand = parseUnary();
+        return unary;
     }
 
     return parsePostfix();
@@ -882,11 +1069,15 @@ std::unique_ptr<Expr> Parser::parsePostfix() {
         }
 
         if (match(TokenKind::Dot)) {
-            consumeNameToken("Expected member name after '.'");
             auto member = std::make_unique<MemberExpr>();
             member->span = expr->span;
             member->object = std::move(expr);
-            member->member = previous().text;
+            if (match(TokenKind::IntLiteral)) {
+                member->member = previous().text;
+            } else {
+                consumeNameToken("Expected member name or numeric tuple projection after '.'");
+                member->member = previous().text;
+            }
             expr = std::move(member);
             continue;
         }
@@ -932,6 +1123,13 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         failAtCurrent("Unexpected token in source.");
     }
 
+    if (match(TokenKind::KwIf)) {
+        return parseIfExpression();
+    }
+    if (match(TokenKind::KwPick)) {
+        return parsePickExpression();
+    }
+
     if (match(TokenKind::KwTrue)) {
         auto expr = std::make_unique<BoolExpr>();
         expr->span = spanFromToken(previous());
@@ -969,15 +1167,33 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         return expr;
     }
     if (match(TokenKind::LParen)) {
-        auto expr = parseExpression();
-        consume(TokenKind::RParen, "Expected ')' after grouped expression");
-        return expr;
+        const Token openToken = previous();
+        if (match(TokenKind::RParen)) {
+            auto tuple = std::make_unique<TupleExpr>();
+            tuple->span = spanFromToken(openToken);
+            return tuple;
+        }
+
+        auto first = parseExpression();
+        if (!match(TokenKind::Comma)) {
+            consume(TokenKind::RParen, "Expected ')' after grouped expression");
+            return first;
+        }
+
+        auto tuple = std::make_unique<TupleExpr>();
+        tuple->span = spanFromToken(openToken);
+        tuple->elements.push_back(std::move(first));
+        while (!check(TokenKind::RParen) && !isAtEnd()) {
+            tuple->elements.push_back(parseExpression());
+            if (!match(TokenKind::Comma)) {
+                break;
+            }
+        }
+        consume(TokenKind::RParen, "Expected ')' after tuple literal");
+        return tuple;
     }
 
     failAtCurrent("Expected expression.");
 }
 
 } // namespace claw::frontend
-
-
-

@@ -1,0 +1,39 @@
+fn negate64(value: Float64) -> Float64 {
+    return -value
+}
+
+fn expected64() -> Float64 {
+    return -1.1
+}
+
+fn negate32(value: Float32) -> Float32 {
+    return -value
+}
+
+fn expected32() -> Float32 {
+    return -1.1
+}
+
+fn zero64() -> Float64 {
+    return 0
+}
+
+fn zero32() -> Float32 {
+    return 0
+}
+
+fn main() -> Int32 {
+    val actual64 = negate64(1.1)
+    val actual32 = negate32(1.1)
+    val negative_zero = negate64(0)
+    if actual64 == expected64() and actual32 == expected32() and negative_zero == zero64() {
+        println(1)
+        println(negative_zero)
+        println(zero64())
+        println(negate32(0))
+        println(zero32())
+    } else {
+        println(0)
+    }
+    return 0
+}

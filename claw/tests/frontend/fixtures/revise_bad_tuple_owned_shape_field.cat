@@ -1,0 +1,6 @@
+shape Holder {
+    pair: (Anchor[Int32], Int32)
+}
+
+fn main() {
+}

@@ -1,0 +1,44 @@
+fn make_nested() -> ((Int32, Int32), Int32) {
+    println("selector-once")
+    var separator: Int32
+    ((8, 9), 10)
+}
+
+fn statement_pick() {
+    pick make_nested() {
+        ((left, _), right) {
+            println(left + right)
+        }
+    }
+}
+
+fn expression_pick() -> Int32 {
+    pick make_nested() {
+        ((_, middle), right) {
+            middle + right
+        }
+    }
+}
+
+fn fallback(pair: (Int32, Int32)) -> Int32 {
+    pick pair {
+        _ {
+            0
+        }
+    }
+}
+
+fn singleton_pick() -> Int32 {
+    pick (7,) {
+        (only,) {
+            only
+        }
+    }
+}
+
+fn main() {
+    statement_pick()
+    println(expression_pick())
+    println(fallback((1, 2)))
+    println(singleton_pick())
+}

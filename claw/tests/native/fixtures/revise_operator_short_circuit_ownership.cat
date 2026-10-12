@@ -1,0 +1,11 @@
+fn consume(value: Anchor[Str]) -> Bool {
+    return true
+}
+
+fn main() -> Int32 {
+    val anchor = Anchor.new("held")
+    val skipped_or = true or consume(anchor)
+    val skipped_and = false and consume(anchor)
+    println(anchor.get())
+    return 0
+}

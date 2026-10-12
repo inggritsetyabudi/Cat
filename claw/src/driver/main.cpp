@@ -282,8 +282,8 @@ const claw::frontend::AstNode* findMainCallNode(const claw::frontend::Stmt* stmt
     if (auto* exprStmt = dynamic_cast<const claw::frontend::ExprStmt*>(stmt)) {
         return containsMainCallExpr(exprStmt->expr.get()) ? exprStmt->expr.get() : nullptr;
     }
-    if (auto* give = dynamic_cast<const claw::frontend::GiveStmt*>(stmt)) {
-        return containsMainCallExpr(give->value.get()) ? give->value.get() : nullptr;
+    if (auto* returnStmt = dynamic_cast<const claw::frontend::ReturnStmt*>(stmt)) {
+        return containsMainCallExpr(returnStmt->value.get()) ? returnStmt->value.get() : nullptr;
     }
     if (auto* assign = dynamic_cast<const claw::frontend::AssignStmt*>(stmt)) {
         if (containsMainCallExpr(assign->target.get())) {
@@ -307,17 +307,17 @@ const claw::frontend::AstNode* findMainCallNode(const claw::frontend::Stmt* stmt
         }
         return nullptr;
     }
-    if (auto* when = dynamic_cast<const claw::frontend::WhenStmt*>(stmt)) {
-        if (containsMainCallExpr(when->condition.get())) {
-            return when->condition.get();
+    if (auto* ifStmt = dynamic_cast<const claw::frontend::IfStmt*>(stmt)) {
+        if (containsMainCallExpr(ifStmt->condition.get())) {
+            return ifStmt->condition.get();
         }
-        for (const auto& nested : when->thenBlock->statements) {
+        for (const auto& nested : ifStmt->thenBlock->statements) {
             if (const auto* found = findMainCallNode(nested.get())) {
                 return found;
             }
         }
-        if (when->elseBlock) {
-            for (const auto& nested : when->elseBlock->statements) {
+        if (ifStmt->elseBlock) {
+            for (const auto& nested : ifStmt->elseBlock->statements) {
                 if (const auto* found = findMainCallNode(nested.get())) {
                     return found;
                 }
@@ -356,17 +356,6 @@ const claw::frontend::AstNode* findMainCallNode(const claw::frontend::Stmt* stmt
                 if (const auto* found = findMainCallNode(nested.get())) {
                     return found;
                 }
-            }
-        }
-        return nullptr;
-    }
-    if (auto* lift = dynamic_cast<const claw::frontend::LiftStmt*>(stmt)) {
-        if (containsMainCallExpr(lift->expr.get())) {
-            return lift->expr.get();
-        }
-        for (const auto& nested : lift->failBlock->statements) {
-            if (const auto* found = findMainCallNode(nested.get())) {
-                return found;
             }
         }
         return nullptr;
@@ -650,11 +639,19 @@ int main(int argc, char** argv) {
 
         for (const auto& unit : project.units) {
             auto sema = std::make_unique<claw::frontend::SemanticAnalyzer>(unit.importedBindings, project.target);
+            const auto emitSemanticWarnings = [&]() {
+                const auto semanticWarnings = attachPath(sema->warnings(), unit.path);
+                if (!semanticWarnings.empty()) {
+                    std::cerr << formatDiagnosticsWithSources(semanticWarnings, diagnosticPath, source) << "\n";
+                }
+            };
             try {
                 sema->analyze(unit.ast.get());
             } catch (const claw::frontend::DiagnosticError& error) {
+                emitSemanticWarnings();
                 throw claw::frontend::DiagnosticError(error.what(), attachPath(error.diagnostics(), unit.path));
             }
+            emitSemanticWarnings();
             analyzers.push_back(std::move(sema));
         }
 
@@ -754,7 +751,6 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-
 
 
 

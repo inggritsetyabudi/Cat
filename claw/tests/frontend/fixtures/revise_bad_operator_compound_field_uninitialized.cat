@@ -1,0 +1,9 @@
+shape Meter {
+    value: Int32
+}
+
+fn main() -> Int32 {
+    var meter: Meter
+    meter.value += 1
+    return 0
+}

@@ -1,0 +1,71 @@
+oir.program entry main symbol main::main
+oir.module main
+oir.choice Result of T, E [abi=claw link=internal symbol=main::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=main::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=main::main ffi=false]
+  block entry:
+    val source: Str = "workspace"
+    val second: Str = "cross-module"
+    goto scope_actual_0
+  block scope_actual_0:
+    val %t0: Name[actual]
+    store_field %t0.text <- source : ref[actual] Str
+    val name: Name[actual] = %t0
+    val %t1: Name[actual]
+    store_field %t1.text <- second : ref[actual] Str
+    val other: Name[actual] = %t1
+    val %t2: Box[Name[actual]]
+    store_field %t2.value <- name : Name[actual]
+    store_field %t2.guard <- 7 : Int128
+    val box: Box[Name[actual]] = %t2
+    val %t3: Box[Name[actual]]
+    store_field %t3.value <- other : Name[actual]
+    store_field %t3.guard <- 9 : Int128
+    val other_box: Box[Name[actual]] = %t3
+    %t4 = call identity_box(box) : Box[Name[actual]]
+    val same: Box[Name[actual]] = %t4
+    %t5 = call choose_box(same, other_box) : Box[Name[actual]]
+    val selected: Box[Name[actual]] = %t5
+    %t6 = call first_text(selected) : ref[actual] Str
+    val text: ref[actual] Str = %t6
+    call println(text) : Unit
+    goto scope_cont_1
+  block scope_cont_1:
+    drop second : Str
+    drop source : Str
+
+oir.module src.nested
+oir.choice Result of T, E [abi=claw link=internal symbol=src.nested::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=src.nested::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.view_shape Name[s] [abi=claw link=shared symbol=src.nested::Name ffi=false]
+  layout repr=claw-internal kind=aggregate size=8 align=8 pass=direct ffi=false
+  field text: ref[s] Str @offset=0 size=8 align=8
+oir.shape Box of T [abi=claw link=shared symbol=src.nested::Box ffi=false]
+  layout repr=claw-internal kind=template size=0 align=1 pass=indirect ffi=false unresolved=true
+  field value: T
+  field guard: Int128
+oir.fn identity_box(value: Box[Name[borrow]] [indirect]) -> Box[Name[borrow]] [indirect] [abi=claw link=shared symbol=src.nested::identity_box ffi=false]
+  block entry:
+    return value : Box[Name[borrow]]
+oir.fn choose_box(left: Box[Name[borrow]] [indirect], right: Box[Name[borrow]] [indirect]) -> Box[Name[borrow]] [indirect] [abi=claw link=shared symbol=src.nested::choose_box ffi=false]
+  block entry:
+    drop right : Box[Name[borrow]]
+    return left : Box[Name[borrow]]
+oir.fn first_text(value: Box[Name[borrow]] [indirect]) -> ref[borrow] Str [borrow] [abi=claw link=shared symbol=src.nested::first_text ffi=false]
+  block entry:
+    %t0 = field value.value : Name[borrow]
+    %t1 = field %t0.text : ref[borrow] Str
+    drop value : Box[Name[borrow]]
+    return %t1 : ref[borrow] Str

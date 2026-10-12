@@ -1,0 +1,6 @@
+fn main() -> Int32 {
+    val start: Int64 = 1
+    val finish: Int64 = 4
+    val range = start..finish
+    0
+}

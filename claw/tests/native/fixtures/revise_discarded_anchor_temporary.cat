@@ -1,0 +1,10 @@
+fn payload() -> Str {
+    println("payload-once")
+    "discarded"
+}
+
+fn main() -> Int32 {
+    Anchor.new(payload())
+    println("finished")
+    0
+}

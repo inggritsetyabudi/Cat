@@ -163,14 +163,13 @@ val text = try fs.read(path) else err {
 
 ### Workspace Model
 
-A revised workspace uses a fixed root entry file and explicit published modules.
+A workspace maps each `.cat` source file to one module; directories form namespaces. Visibility is controlled by `share`, not by a folder index.
 
 ```text
 my-app/
   main.cat
   claw.toml
   src/
-    modules.cat
     math.cat
     util.cat
 ```
@@ -181,15 +180,21 @@ Rules:
 - exactly one `fn main` is required inside `main.cat`.
 - `main.cat` is entry-only and cannot be imported as a normal module.
 - `fn main` is not a normal callable function surface for user code.
-- non-root folders use `modules.cat` to publish outward-facing modules.
-- imports are path-based and explicit.
+- every `.cat` file is one module, and its parent directories form its namespace.
+- `share` is the only way to make a declaration importable; unshared declarations stay private to that file.
+- imports are path-based and explicit; modules with the same final path segment need aliases.
 
 Example:
 
 ```cat
-import src.math.{ add }
-import super.{ util }
+import src.math as math_ops
+
+fn main() {
+    println(math_ops.add(20, 22))
+}
 ```
+
+Inside a module, `import super.{ sibling }` refers to a module file in the same directory, one level only.
 
 ### Unsafe and Foreign Boundaries
 
@@ -323,7 +328,7 @@ Major areas still being matured include:
 
 This repository is intentionally PRD-driven.
 
-The language direction is defined by the revised design documents in [`revise/`](./revise), and implementation work is expected to track those revisions carefully and explicitly.
+The approved language-design reference is [`cat-northstar/`](./cat-northstar), led by [`PRD.md`](./cat-northstar/PRD.md). Its companion change plan and post-v1 roadmap define sequencing and acceptance boundaries. Archived PRDs and `ideas/` are historical context only; compiler code, tests, and [`changelog/`](./changelog) determine what is implemented today.
 
 ## License
 

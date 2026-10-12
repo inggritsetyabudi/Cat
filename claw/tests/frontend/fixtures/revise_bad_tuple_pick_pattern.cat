@@ -1,0 +1,7 @@
+fn main() {
+    pick 7 {
+        (left, right) {
+            println(left + right)
+        }
+    }
+}

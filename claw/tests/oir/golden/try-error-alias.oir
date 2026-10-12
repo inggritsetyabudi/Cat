@@ -1,0 +1,36 @@
+oir.program entry main symbol main::main
+oir.module main
+oir.choice Result of T, E [abi=claw link=internal symbol=main::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=main::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn propagate() -> Result[Int32, LocalProblem[Str]] [indirect] [abi=claw link=internal symbol=main::propagate ffi=false]
+  block entry:
+    %t0 = call produce() : Result[Int32, Problem[Str]]
+    try %t0 -> value propagate
+    %t1 = Ok(value) : Result[Int32, LocalProblem[Str]]
+    return %t1 : Result[Int32, LocalProblem[Str]]
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=main::main ffi=false]
+  block entry:
+
+oir.module src.problems
+oir.choice Result of T, E [abi=claw link=internal symbol=src.problems::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=src.problems::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.choice Problem of T [abi=claw link=shared symbol=src.problems::Problem ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case issue(T)
+oir.fn produce() -> Result[Int32, Problem[Str]] [indirect] [abi=claw link=shared symbol=src.problems::produce ffi=false]
+  block entry:
+    %t0 = issue("problem") : Problem[Str]
+    %t1 = Fail(%t0) : Result[Int32, Problem[Str]]
+    return %t1 : Result[Int32, Problem[Str]]

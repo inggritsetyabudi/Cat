@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val count: Int32 = 1
+    count += 1
+    return 0
+}

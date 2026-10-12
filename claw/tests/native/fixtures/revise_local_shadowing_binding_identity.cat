@@ -1,0 +1,45 @@
+fn main() -> Int32 {
+    val item = 99
+    if true {
+        var item = 7
+        item = item + 1
+        println(item)
+        if true {
+            val item = 3
+            println(item)
+        }
+        println(item)
+    }
+    println(item)
+
+    val (tupleItem, _) = (110, 0)
+    if true {
+        val (tupleItem, _) = (70, 0)
+        println(tupleItem)
+    }
+    println(tupleItem)
+
+    val anchored = Anchor.new(10)
+    if true {
+        val anchored = Anchor.new(20)
+    }
+
+    scan item over 5..=5 {
+        if true {
+            val item = 7
+            println(item)
+        }
+        println(item)
+    }
+    println(item)
+
+    if true {
+        val item = 88
+        scan item over 1..=2 {
+            println(item)
+        }
+        println(item)
+    }
+    println(item)
+    0
+}

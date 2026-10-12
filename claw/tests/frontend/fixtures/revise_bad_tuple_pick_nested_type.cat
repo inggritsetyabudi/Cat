@@ -1,0 +1,8 @@
+fn main() {
+    val pair = (1, 2)
+    pick pair {
+        ((first, second), right) {
+            println(right)
+        }
+    }
+}

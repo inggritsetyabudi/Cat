@@ -1,0 +1,5 @@
+fn bad(values: Vec[Int32]) {
+    values.clear()
+}
+
+fn main() {}

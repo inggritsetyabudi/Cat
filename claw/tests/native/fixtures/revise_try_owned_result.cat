@@ -1,0 +1,53 @@
+fn make_anchor(flag: Bool) -> Result[Anchor[Str], Str] {
+    if flag {
+        return Ok(Anchor.new("owned"))
+    }
+    return Fail("no-anchor")
+}
+
+fn take_owned_result(flag: Bool) -> Result[Anchor[Str], Str] {
+    val result = make_anchor(flag)
+    val payload = try result else err {
+        return Fail(err)
+    }
+    return Ok(payload)
+}
+
+fn drop_temporary_result(flag: Bool) {
+    val payload = try make_anchor(flag) else err {
+        println(err)
+        return
+    }
+    println("temporary-ok")
+}
+
+fn drop_shadowed_try_result(flag: Bool) {
+    val payload = Anchor.new("outer")
+    if true {
+        val payload = try make_anchor(flag) else err {
+            println(err)
+            return
+        }
+        println(payload.get())
+    }
+    println(payload.get())
+}
+
+fn main() {
+    drop_temporary_result(true)
+    drop_temporary_result(false)
+
+    val success = take_owned_result(true)
+    pick success {
+        Ok(anchor) { println(anchor.get()) }
+        Fail(error) { println(error) }
+    }
+
+    val failure = take_owned_result(false)
+    pick failure {
+        Ok(anchor) { println(anchor.get()) }
+        Fail(error) { println(error) }
+    }
+    drop_shadowed_try_result(true)
+    drop_shadowed_try_result(false)
+}

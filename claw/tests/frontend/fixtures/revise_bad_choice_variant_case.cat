@@ -1,0 +1,5 @@
+choice Shape {
+    Circle
+}
+
+fn main() {}

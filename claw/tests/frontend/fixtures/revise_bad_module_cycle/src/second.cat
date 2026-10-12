@@ -1,0 +1,5 @@
+import super.{ first }
+
+share fn second() -> Int32 {
+    return first.first()
+}

@@ -1,0 +1,21 @@
+oir.module revise_discarded_anchor_temporary
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_discarded_anchor_temporary::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_discarded_anchor_temporary::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn payload() -> Str [direct] [abi=claw link=internal symbol=revise_discarded_anchor_temporary::payload ffi=false]
+  block entry:
+    call println("payload-once") : Unit
+    return "discarded" : Str
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_discarded_anchor_temporary::main ffi=false]
+  block entry:
+    %t0 = call payload() : Str
+    %t1 = call Anchor.new(%t0) : Anchor[Str]
+    discard %t1 : Anchor[Str]
+    drop %t1 : Anchor[Str]
+    call println("finished") : Unit
+    return 0 : integer literal

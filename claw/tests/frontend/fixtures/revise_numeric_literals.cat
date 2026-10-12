@@ -1,0 +1,9 @@
+fn main() -> Int32 {
+    val signed: Int8 = 127
+    val unsigned: UInt128 = 340282366920938463463374607431768211455
+    val suffixed: Int16 = 32767_Int16
+    val single: Float32 = 1.25_Float32
+    val exact_integer_float: Float32 = 16777216
+    val double: Float64 = 0.1
+    0
+}

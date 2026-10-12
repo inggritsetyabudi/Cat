@@ -1,0 +1,20 @@
+fn once(value: Int32) -> Int32 {
+    println(value)
+    value
+}
+
+fn make_pair() -> (Int32, Int32) {
+    (once(1), once(2))
+}
+
+fn main() {
+    val pair = make_pair()
+    val (left, right) = pair
+    println(left + right)
+
+    val (_, kept) = (once(5), once(6))
+    println(kept)
+
+    val (only,) = (once(7),)
+    println(only)
+}

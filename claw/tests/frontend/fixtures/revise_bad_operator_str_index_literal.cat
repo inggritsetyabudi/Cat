@@ -1,0 +1,4 @@
+fn mutate_literal() {
+    "A"[0] += 1
+    "A"[0] = 66
+}

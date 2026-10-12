@@ -1,6 +1,6 @@
 choice MaybeRef {
-    Some(value: ref Str)
-    None
+    some(value: ref Str)
+    none
 }
 
 fn main() {

@@ -1,0 +1,6 @@
+fn take_chars(range: Range[Char]) {
+}
+
+fn main() -> Int32 {
+    0
+}

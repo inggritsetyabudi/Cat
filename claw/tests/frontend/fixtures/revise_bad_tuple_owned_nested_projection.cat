@@ -1,0 +1,5 @@
+fn main() {
+    val outer = ((Anchor.new(1), 2), 3)
+    val (first, second) = outer.0
+    println(first.get())
+}

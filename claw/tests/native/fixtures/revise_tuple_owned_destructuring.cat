@@ -1,0 +1,72 @@
+fn allocate(value: Int32) -> Anchor[Int32] {
+    println(value)
+    Anchor.new(value)
+}
+
+fn make_pair() -> (Anchor[Int32], Anchor[Int32]) {
+    println("factory")
+    val left = allocate(11)
+    val right = allocate(22)
+    var separator: Int32
+    (left, right)
+}
+
+fn choose_pair(flag: Bool) -> (Anchor[Int32], Anchor[Int32]) {
+    if flag {
+        make_pair()
+    } else {
+        make_pair()
+    }
+}
+
+fn consume_parameter(pair: (Anchor[Int32], Anchor[Int32])) {
+    val (_, kept) = pair
+    println(kept.get())
+}
+
+fn consume_named() {
+    val pair = make_pair()
+    println(pair.0.get())
+    val (_, kept) = pair
+    println(kept.get())
+}
+
+fn return_kept() -> Anchor[Int32] {
+    val (discarded, kept) = make_pair()
+    println(kept.get())
+    return kept
+}
+
+fn keep_after_pick() -> Int32 {
+    val pair = make_pair()
+    val result = pick pair {
+        _ { 0 }
+    }
+    println(pair.0.get())
+    result
+}
+
+fn transfer_into_tuple() {
+    val left = allocate(31)
+    val right = allocate(32)
+    val pair = (left, right)
+    println(pair.1.get())
+}
+
+fn drop_nested_tuple() {
+    val outer = ((allocate(41), allocate(42)), allocate(43))
+    val (nested, _) = outer
+}
+
+fn main() {
+    val (_, _) = make_pair()
+    println("after-multi-wildcard")
+    consume_named()
+    val returned = return_kept()
+    println(returned.get())
+    val pickValue = keep_after_pick()
+    println(pickValue)
+    transfer_into_tuple()
+    drop_nested_tuple()
+    consume_parameter(choose_pair(true))
+}

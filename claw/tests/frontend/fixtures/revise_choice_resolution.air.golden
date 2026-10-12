@@ -1,0 +1,26 @@
+air.module revise_choice_resolution
+air.choice Maybe
+  None
+  Some(T)
+air.choice Packet
+  data(T)
+  empty
+air.choice Result
+  Ok(T)
+  Fail(E)
+air.fn packet_value(packet: Packet[Int32]) -> Int32
+  pick packet : Packet[Int32]
+    data(value)
+      return value : Int32
+    empty
+      return 0 : Int32
+air.fn step() -> Result[Int32, Str]
+  return Ok(41 : Int32) : Result[Int32, Str]
+air.fn result_value() -> Int32
+  val value = try step() : Result[Int32, Str] else err
+    return 0 : Int32
+  return (value + 1) : Int32
+air.fn main() -> Unit
+  val packet: Packet[Int32] = data(42 : Int32) : Packet[Int32]
+  expr println(packet_value(packet : Packet[Int32]) : Int32) : Unit
+  return println(result_value() : Int32) : Unit

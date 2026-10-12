@@ -1,0 +1,6 @@
+fn main() -> Int32 {
+    val narrow: Int8 = 127
+    val wide: UInt128 = 340282366920938463463374607431768211455
+    println(narrow)
+    0
+}

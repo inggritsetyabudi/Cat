@@ -18,65 +18,19 @@ using namespace claw::frontend;
 
 namespace {
 
-std::string trim(std::string_view text) {
-    size_t start = 0;
-    while (start < text.size() && std::isspace(static_cast<unsigned char>(text[start])) != 0) {
-        ++start;
-    }
-
-    size_t end = text.size();
-    while (end > start && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0) {
-        --end;
-    }
-
-    return std::string(text.substr(start, end - start));
-}
-
-bool isIdentifierStart(char c) {
-    return std::isalpha(static_cast<unsigned char>(c)) != 0 || c == '_';
-}
-
-bool isIdentifierContinue(char c) {
-    return std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_';
-}
-
-bool isIdentifier(std::string_view text) {
-    if (text.empty() || !isIdentifierStart(text.front())) {
-        return false;
-    }
-    for (size_t i = 1; i < text.size(); ++i) {
-        if (!isIdentifierContinue(text[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-
-std::vector<std::string> splitCommaList(std::string_view text) {
-    std::vector<std::string> items;
-    size_t start = 0;
-    while (start <= text.size()) {
-        const size_t comma = text.find(',', start);
-        const size_t end = comma == std::string_view::npos ? text.size() : comma;
-        items.push_back(trim(text.substr(start, end - start)));
-        if (comma == std::string_view::npos) {
-            break;
-        }
-        start = comma + 1;
-    }
-    return items;
-}
-
-std::string removeLineComment(std::string_view line) {
-    const size_t comment = line.find("//");
-    return trim(comment == std::string_view::npos ? line : line.substr(0, comment));
-}
-
 ResolvedType makePlainResolvedType(const std::string& name) {
     ResolvedType type;
     type.name = name;
     type.category = TypeCategory::Plain;
     return type;
+}
+
+bool hasLowercaseInitial(const std::string& name) {
+    return !name.empty() && std::islower(static_cast<unsigned char>(name.front())) != 0;
+}
+
+bool hasUppercaseInitial(const std::string& name) {
+    return !name.empty() && std::isupper(static_cast<unsigned char>(name.front())) != 0;
 }
 
 TypeCatalog buildExportTypeCatalog(const LoadedUnit& unit) {
@@ -100,6 +54,7 @@ TypeCatalog buildExportTypeCatalog(const LoadedUnit& unit) {
                     ? std::optional<size_t>(binding.choiceInfo->typeParams.size())
                     : std::nullopt);
         }
+        catalog.registerNominalIdentity(binding.name, binding.nominalIdentity);
     }
 
     if (!unit.ast) {
@@ -108,13 +63,21 @@ TypeCatalog buildExportTypeCatalog(const LoadedUnit& unit) {
 
     for (const auto& decl : unit.ast->declarations) {
         if (auto* shape = dynamic_cast<const ShapeDecl*>(decl.get())) {
+            if (!shape->isShared) {
+                continue;
+            }
             if (shape->isViewShape) {
                 catalog.registerViewShapeName(shape->name, shape->scopeParamName);
             } else {
                 catalog.registerShapeName(shape->name, shape->typeParams.size());
             }
+            catalog.registerNominalIdentity(shape->name, nominalTypeIdentity(unit.path.lexically_normal().generic_string(), shape->name));
         } else if (auto* choice = dynamic_cast<const ChoiceDecl*>(decl.get())) {
+            if (!choice->isShared) {
+                continue;
+            }
             catalog.registerChoiceName(choice->name, choice->typeParams.size());
+            catalog.registerNominalIdentity(choice->name, nominalTypeIdentity(unit.path.lexically_normal().generic_string(), choice->name));
         }
     }
 
@@ -401,84 +364,6 @@ void ProjectLoader::throwDiagnostic(
         std::move(diagnostics));
 }
 
-ProjectLoader::ModuleManifest ProjectLoader::loadManifest(const std::filesystem::path& path) {
-    const auto normalized = normalizePath(path);
-    const std::string key = normalized.string();
-    const auto cached = manifestCache.find(key);
-    if (cached != manifestCache.end()) {
-        return cached->second;
-    }
-
-    ModuleManifest manifest;
-    manifest.path = normalized;
-    manifest.source = readFileText(normalized);
-
-    std::vector<Diagnostic> diagnostics;
-    std::istringstream lines(manifest.source);
-    std::string rawLine;
-    size_t lineNumber = 0;
-    while (std::getline(lines, rawLine)) {
-        ++lineNumber;
-        const std::string line = removeLineComment(rawLine);
-        if (line.empty()) {
-            continue;
-        }
-
-        if (line.rfind("pub modules", 0) == 0) {
-            const size_t braceOpen = line.find('{');
-            const size_t braceClose = line.rfind('}');
-            if (braceOpen != std::string::npos || braceClose != std::string::npos) {
-                if (braceOpen == std::string::npos || braceClose == std::string::npos || braceClose < braceOpen) {
-                    diagnostics.push_back(Diagnostic{"manifest", "Expected 'pub modules {a, b}'.", {lineNumber, 1, line.size()}, normalized.string()});
-                    continue;
-                }
-
-                for (const auto& item : splitCommaList(std::string_view(line).substr(braceOpen + 1, braceClose - braceOpen - 1))) {
-                    if (!isIdentifier(item)) {
-                        diagnostics.push_back(Diagnostic{"manifest", "Invalid module name: '" + item + "'.", {lineNumber, braceOpen + 2, std::max<size_t>(1, item.size())}, normalized.string()});
-                        continue;
-                    }
-                    manifest.publishedModules.insert(item);
-                }
-                continue;
-            }
-
-            const std::string single = trim(std::string_view(line).substr(std::string_view("pub modules").size()));
-            if (!isIdentifier(single)) {
-                diagnostics.push_back(Diagnostic{"manifest", "Expected 'pub modules name' or 'pub modules {a, b}'.", {lineNumber, 1, line.size()}, normalized.string()});
-                continue;
-            }
-            manifest.publishedModules.insert(single);
-            continue;
-        }
-
-        if (line.rfind("pub entry", 0) == 0) {
-            diagnostics.push_back(Diagnostic{
-                "manifest",
-                "Entry is defined by root main.cat. modules.cat only supports 'pub modules { ... }'.",
-                {lineNumber, 1, line.size()},
-                normalized.string()});
-            continue;
-        }
-
-        diagnostics.push_back(Diagnostic{"manifest", "Unknown manifest declaration.", {lineNumber, 1, line.size()}, normalized.string()});
-    }
-
-    if (!diagnostics.empty()) {
-        throwDiagnostics(std::move(diagnostics));
-    }
-
-    manifestCache[key] = manifest;
-    return manifest;
-}
-std::optional<ProjectLoader::ModuleManifest> ProjectLoader::tryLoadManifest(const std::filesystem::path& path) {
-    const auto normalized = normalizePath(path);
-    if (!std::filesystem::exists(normalized)) {
-        return std::nullopt;
-    }
-    return loadManifest(normalized);
-}
-
 std::vector<std::string> ProjectLoader::splitRealmPath(const std::string& realmPath) const {
     std::vector<std::string> parts;
     size_t start = 0;
@@ -525,14 +410,6 @@ std::optional<std::filesystem::path> ProjectLoader::tryResolveNamespaceDir(const
         if (!std::filesystem::exists(candidateDir) || !std::filesystem::is_directory(candidateDir)) {
             return std::nullopt;
         }
-
-        if (currentDir != project.packageRoot) {
-            const auto manifestOpt = tryLoadManifest(currentDir / "modules.cat");
-            if (!manifestOpt.has_value() || manifestOpt->publishedModules.find(segment) == manifestOpt->publishedModules.end()) {
-                return std::nullopt;
-            }
-        }
-
         currentDir = candidateDir;
     }
     return normalizePath(currentDir);
@@ -555,13 +432,6 @@ std::optional<std::filesystem::path> ProjectLoader::tryResolveRealmFile(const st
         return std::nullopt;
     }
 
-    if (parentDir.value() != project.packageRoot) {
-        const auto manifestOpt = tryLoadManifest(parentDir.value() / "modules.cat");
-        if (!manifestOpt.has_value() || manifestOpt->publishedModules.find(segments.back()) == manifestOpt->publishedModules.end()) {
-            return std::nullopt;
-        }
-    }
-
     const auto candidate = normalizePath(parentDir.value() / (segments.back() + ".cat"));
     if (!std::filesystem::exists(candidate) || !std::filesystem::is_regular_file(candidate)) {
         return std::nullopt;
@@ -575,8 +445,15 @@ std::filesystem::path ProjectLoader::resolveSiblingModule(
     const std::filesystem::path& importerPath,
     const std::string& name,
     SourceSpan span) {
+    if (!hasLowercaseInitial(name)) {
+        throwDiagnostic(
+            importerPath,
+            "module",
+            "Module name '" + name + "' must start with a lowercase letter.",
+            span);
+    }
     const auto candidate = normalizePath(importerPath.parent_path() / (name + ".cat"));
-    if (!std::filesystem::exists(candidate)) {
+    if (!std::filesystem::exists(candidate) || !std::filesystem::is_regular_file(candidate)) {
         throwDiagnostic(
             importerPath,
             "module",
@@ -607,6 +484,12 @@ void ProjectLoader::validateRealmPath(LoadedUnit& unit) const {
         const std::string segment = part.string();
         if (segment == ".") {
             continue;
+        }
+        if (!hasLowercaseInitial(segment)) {
+            throwDiagnostic(
+                unit.path,
+                "module",
+                "Module name segment '" + segment + "' must start with a lowercase letter.");
         }
         if (!expectedRealm.empty()) {
             expectedRealm += ".";
@@ -671,6 +554,7 @@ ProjectLoader::ExportSummary ProjectLoader::buildExportSummary(const LoadedUnit&
             ImportedBinding binding;
             binding.name = shape->name;
             binding.kind = SymbolKind::Shape;
+            binding.nominalIdentity = nominalTypeIdentity(unit.path.lexically_normal().generic_string(), shape->name);
 
             ShapeInfo info;
             info.isViewShape = shape->isViewShape;
@@ -690,6 +574,7 @@ ProjectLoader::ExportSummary ProjectLoader::buildExportSummary(const LoadedUnit&
             ImportedBinding binding;
             binding.name = choice->name;
             binding.kind = SymbolKind::Choice;
+            binding.nominalIdentity = nominalTypeIdentity(unit.path.lexically_normal().generic_string(), choice->name);
 
             ChoiceInfo info;
             info.typeParams = choice->typeParams;
@@ -719,12 +604,12 @@ ProjectLoader::ExportSummary ProjectLoader::buildExportSummary(const LoadedUnit&
 size_t ProjectLoader::loadUnitRecursive(const std::filesystem::path& sourcePath) {
     const auto normalized = normalizePath(sourcePath);
     const std::string key = normalized.string();
+    if (loadStack.find(key) != loadStack.end()) {
+        throwDiagnostic(normalized, "module", "Cyclic module dependency detected.");
+    }
     const auto existing = unitIndexByPath.find(key);
     if (existing != unitIndexByPath.end()) {
         return existing->second;
-    }
-    if (loadStack.find(key) != loadStack.end()) {
-        throwDiagnostic(normalized, "module", "Cyclic module dependency detected.");
     }
 
     loadStack.insert(key);
@@ -858,6 +743,15 @@ std::vector<ImportedBinding> ProjectLoader::resolveImports(const LoadedUnit& uni
         }
 
         const auto baseSegments = splitRealmPath(imp.modulePath);
+        for (const auto& segment : baseSegments) {
+            if (!hasLowercaseInitial(segment)) {
+                throwDiagnostic(
+                    importerPath,
+                    "module",
+                    "Module name segment '" + segment + "' must start with a lowercase letter.",
+                    imp.span);
+            }
+        }
         if (refersToWorkspaceEntryRealm(baseSegments)) {
             throwDiagnostic(
                 importerPath,
@@ -869,11 +763,16 @@ std::vector<ImportedBinding> ProjectLoader::resolveImports(const LoadedUnit& uni
             const auto resolved = tryResolveRealmFile(baseSegments);
             if (resolved.has_value()) {
                 const size_t moduleIndex = loadUnitRecursive(resolved.value());
-                bindings.push_back(makeModuleBinding(baseSegments.back(), moduleIndex));
+                const std::string bindingName = imp.alias.empty() ? baseSegments.back() : imp.alias;
+                bindings.push_back(makeModuleBinding(bindingName, moduleIndex));
                 continue;
             }
             if (isExternalRoot(baseSegments)) {
-                bindings.push_back(makeExternalModuleBinding(baseSegments.front()));
+                auto binding = makeExternalModuleBinding(baseSegments.front());
+                if (!imp.alias.empty()) {
+                    binding.name = imp.alias;
+                }
+                bindings.push_back(std::move(binding));
                 continue;
             }
             throwDiagnostic(importerPath, "module", "Unable to resolve imported module '" + imp.modulePath + "'.", imp.span);
@@ -901,17 +800,16 @@ std::vector<ImportedBinding> ProjectLoader::resolveImports(const LoadedUnit& uni
 
         std::vector<std::string> namespaceSegments = baseSegments;
         if (const auto namespaceDir = tryResolveNamespaceDir(namespaceSegments)) {
-            const auto namespaceManifest = tryLoadManifest(namespaceDir.value() / "modules.cat");
             for (const auto& item : imp.items) {
-                if (!namespaceManifest.has_value() || namespaceManifest->publishedModules.find(item.name) == namespaceManifest->publishedModules.end()) {
+                if (!hasLowercaseInitial(item.name)) {
                     throwDiagnostic(
                         importerPath,
                         "module",
-                        "Namespace '" + imp.modulePath + "' does not publish module '" + item.name + "'.",
+                        "Module name '" + item.name + "' must start with a lowercase letter.",
                         imp.span);
                 }
                 const auto childFile = normalizePath(namespaceDir.value() / (item.name + ".cat"));
-                if (!std::filesystem::exists(childFile)) {
+                if (!std::filesystem::exists(childFile) || !std::filesystem::is_regular_file(childFile)) {
                     throwDiagnostic(importerPath, "module", "Missing module file for '" + imp.modulePath + "." + item.name + "'.", imp.span);
                 }
                 const size_t moduleIndex = loadUnitRecursive(childFile);
@@ -939,6 +837,23 @@ std::vector<ImportedBinding> ProjectLoader::resolveImports(const LoadedUnit& uni
         throwDiagnostic(importerPath, "module", "Unable to resolve import group rooted at '" + imp.modulePath + "'.", imp.span);
     }
 
+    for (const auto& binding : bindings) {
+        const bool isType = binding.kind == SymbolKind::Shape ||
+                            binding.kind == SymbolKind::Choice ||
+                            binding.kind == SymbolKind::Contract;
+        const bool validInitial = isType ? hasUppercaseInitial(binding.name) : hasLowercaseInitial(binding.name);
+        if (!validInitial) {
+            const std::string label = binding.kind == SymbolKind::Module
+                ? "Module name"
+                : (isType ? "Type name" : "Imported name");
+            throwDiagnostic(
+                importerPath,
+                "module",
+                label + " '" + binding.name + "' must start with " +
+                    (isType ? "an uppercase" : "a lowercase") + " letter.");
+        }
+    }
+
     return bindings;
 }
 
@@ -956,7 +871,6 @@ LoadedProject ProjectLoader::load(const std::filesystem::path& inputPath) {
     project = LoadedProject{};
     project.target = defaultTargetSpec();
     unitIndexByPath.clear();
-    manifestCache.clear();
     exportCache.clear();
     loadStack.clear();
 
@@ -988,22 +902,6 @@ LoadedProject ProjectLoader::load(const std::filesystem::path& inputPath) {
         return std::move(project);
     }
 
-    if (project.inputPath.filename() == "modules.cat") {
-        const auto workspaceRoot = findWorkspaceRoot(project.inputPath.parent_path());
-        if (!workspaceRoot.has_value()) {
-            throwDiagnostic(
-                project.inputPath,
-                "workspace",
-                "modules.cat is a folder module index. Build the workspace root that contains main.cat.");
-        }
-        project.packageRoot = *workspaceRoot;
-        project.configPath = detectWorkspaceConfig(project.packageRoot);
-        project.structuredPackage = true;
-        loadWorkspaceConfigIfPresent();
-        project.entryIndex = loadUnitRecursive(resolveWorkspaceEntryPath(project.packageRoot));
-        return std::move(project);
-    }
-
     if (project.inputPath.filename() == "main.cat") {
         project.packageRoot = normalizePath(project.inputPath.parent_path());
         project.configPath = detectWorkspaceConfig(project.packageRoot);
@@ -1028,10 +926,3 @@ LoadedProject ProjectLoader::load(const std::filesystem::path& inputPath) {
 }
 
 } // namespace claw::workspace
-
-
-
-
-
-
-

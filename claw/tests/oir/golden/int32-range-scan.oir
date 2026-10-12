@@ -1,0 +1,158 @@
+oir.module revise_int32_range_scan
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_int32_range_scan::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_int32_range_scan::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn index_code(index: USize [scalar]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range_scan::index_code ffi=false]
+  block entry:
+    %t0 = eq index, 0 : Bool
+    var %t1: Int32
+    branch %t0 -> if_then_0, if_else_1
+  block if_then_0:
+    store %t1 <- 100 : Int32
+    goto if_join_2
+  block if_else_1:
+    %t2 = eq index, 1 : Bool
+    var %t3: Int32
+    branch %t2 -> if_then_3, if_else_4
+  block if_then_3:
+    store %t3 <- 101 : Int32
+    goto if_join_5
+  block if_else_4:
+    %t4 = eq index, 2 : Bool
+    var %t5: Int32
+    branch %t4 -> if_then_6, if_else_7
+  block if_then_6:
+    store %t5 <- 102 : Int32
+    goto if_join_8
+  block if_else_7:
+    store %t5 <- 199 : Int32
+    goto if_join_8
+  block if_join_8:
+    store %t3 <- %t5 : Int32
+    goto if_join_5
+  block if_join_5:
+    store %t1 <- %t3 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t1 : Int32
+oir.fn scan_start() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range_scan::scan_start ffi=false]
+  block entry:
+    call println("scan-start") : Unit
+    return 2 : Int32
+oir.fn scan_end() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range_scan::scan_end ffi=false]
+  block entry:
+    call println("scan-end") : Unit
+    return 4 : Int32
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int32_range_scan::main ffi=false]
+  block entry:
+    %t0 = range_exclusive 1, 4 : Range[Int32]
+    range_scan_init item: Int32 from %t0 : Range[Int32]
+    goto scan_header_0
+  block scan_header_0:
+    scan item: Int32 over %t0 -> scan_body_1, scan_exit_2
+  block scan_body_1:
+    call println(item) : Unit
+    goto scan_header_0
+  block scan_exit_2:
+    %t1 = range_exclusive 6, 8 : Range[Int32]
+    val stored: Range[Int32] = %t1
+    range_scan_init item: Int32 from stored : Range[Int32]
+    goto scan_header_3
+  block scan_header_3:
+    scan item: Int32 over stored -> scan_body_4, scan_exit_5
+  block scan_body_4:
+    call println(item) : Unit
+    goto scan_header_3
+  block scan_exit_5:
+    %t2 = call scan_start() : Int32
+    %t3 = call scan_end() : Int32
+    %t4 = range_exclusive %t2, %t3 : Range[Int32]
+    range_scan_init item: Int32 from %t4 : Range[Int32]
+    goto scan_header_6
+  block scan_header_6:
+    scan item: Int32 over %t4 -> scan_body_7, scan_exit_8
+  block scan_body_7:
+    call println(item) : Unit
+    goto scan_header_6
+  block scan_exit_8:
+    %t5 = range_inclusive 3, 5 : Range[Int32]
+    range_scan_init item: Int32, index: USize from %t5 : Range[Int32]
+    goto scan_header_9
+  block scan_header_9:
+    scan item: Int32, index: USize over %t5 -> scan_body_10, scan_exit_11
+  block scan_body_10:
+    call println(item) : Unit
+    %t6 = call index_code(index) : Int32
+    call println(%t6) : Unit
+    goto scan_header_9
+  block scan_exit_11:
+    %t7 = range_inclusive 10, 14 : Range[Int32]
+    range_scan_init item: Int32, index: USize from %t7 : Range[Int32]
+    goto scan_header_12
+  block scan_header_12:
+    scan item: Int32, index: USize over %t7 -> scan_body_13, scan_exit_14
+  block scan_body_13:
+    %t8 = eq index, 1 : Bool
+    branch %t8 -> if_then_15, if_join_16
+  block if_then_15:
+    skip -> scan_header_12
+  block if_join_16:
+    %t9 = eq index, 4 : Bool
+    branch %t9 -> if_then_17, if_join_18
+  block if_then_17:
+    stop -> scan_exit_14
+  block if_join_18:
+    call println(item) : Unit
+    %t10 = call index_code(index) : Int32
+    call println(%t10) : Unit
+    goto scan_header_12
+  block scan_exit_14:
+    call println("empty") : Unit
+    %t11 = range_exclusive 4, 4 : Range[Int32]
+    range_scan_init item: Int32 from %t11 : Range[Int32]
+    goto scan_header_19
+  block scan_header_19:
+    scan item: Int32 over %t11 -> scan_body_20, scan_exit_21
+  block scan_body_20:
+    call println(98) : Unit
+    goto scan_header_19
+  block scan_exit_21:
+    %t12 = range_inclusive 5, 4 : Range[Int32]
+    range_scan_init item: Int32 from %t12 : Range[Int32]
+    goto scan_header_22
+  block scan_header_22:
+    scan item: Int32 over %t12 -> scan_body_23, scan_exit_24
+  block scan_body_23:
+    call println(99) : Unit
+    goto scan_header_22
+  block scan_exit_24:
+    call println("exclusive-max") : Unit
+    %t13 = range_exclusive 2147483646, 2147483647 : Range[Int32]
+    range_scan_init item: Int32, index: USize from %t13 : Range[Int32]
+    goto scan_header_25
+  block scan_header_25:
+    scan item: Int32, index: USize over %t13 -> scan_body_26, scan_exit_27
+  block scan_body_26:
+    call println(item) : Unit
+    %t14 = call index_code(index) : Int32
+    call println(%t14) : Unit
+    goto scan_header_25
+  block scan_exit_27:
+    call println("inclusive-max") : Unit
+    %t15 = range_inclusive 2147483647, 2147483647 : Range[Int32]
+    range_scan_init item: Int32, index: USize from %t15 : Range[Int32]
+    goto scan_header_28
+  block scan_header_28:
+    scan item: Int32, index: USize over %t15 -> scan_body_29, scan_exit_30
+  block scan_body_29:
+    call println(item) : Unit
+    %t16 = call index_code(index) : Int32
+    call println(%t16) : Unit
+    goto scan_header_28
+  block scan_exit_30:
+    return 0 : integer literal

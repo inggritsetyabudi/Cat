@@ -4,16 +4,19 @@ This repository is the language project for **C@** and the compiler implementati
 
 ## Primary Rule
 
-Work from the revised PRDs first:
+Work from the approved decision documents in `cat-northstar/`:
 
-1. `revise/cat-language-design-summary_all.md`
-2. `revise/cat-language-design-summary.md`
+1. `cat-northstar/PRD.md` — approved language-design decisions.
+2. `cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md` — PRD update plan and acceptance evidence.
+3. `cat-northstar/ROADMAP-v1-plus.md` — post-v1 sequencing and explicitly staged proposals.
 
-Use the larger `_all` document as the richer source of semantics and maturation details. Use the smaller summary as the compact cross-check.
+The former revised PRDs are preserved under `cat-northstar/legacy/`; `ideas/` is historical background only. Neither may override the approved documents above. Preserve the source documents' own version/staging boundaries; do not silently promote a post-v1 item into v1.
 
-If the two PRDs conflict:
-- prefer the latest explicit user decision from chat
-- if chat does not resolve it, mark the PRD with `[conflict]` and explain why
+Design approval is not evidence of implementation. Confirm implementation status from compiler code, tests, and `changelog/`; do not infer it from `[sudah]` labels in legacy documents.
+
+If documents conflict:
+- prefer the latest explicit user decision represented in `cat-northstar/`
+- if it remains unresolved, mark the relevant design point with `[conflict]` and explain why
 - do not silently invent a third design
 
 ## Language Direction
@@ -61,7 +64,9 @@ Important directories:
 - `claw/tests/backend/`
 - `claw/tests/native/`
 - `claw/test/`
-- `revise/`
+- `cat-northstar/`
+- `cat-northstar/legacy/`
+- `changelog/`
 
 The outer `README.md` is the professional user-facing language overview. Keep it aligned with the revised surface and the actual supported subset.
 
@@ -130,10 +135,4 @@ At the time of this file:
 
 ## Near-Term Roadmap
 
-Stay on-track with the PRD and recent user guidance:
-1. keep hardening the borrow model
-2. harden broader scoped-type propagation and borrowed aggregate ergonomics
-3. continue receiver-first method dispatch maturation
-4. keep diagnostics human and actionable
-5. implement `Arena` minimally before larger systems
-6. defer advanced contracts, macros, async, and shared ownership until the core is harder
+Follow the sequencing and acceptance criteria in `cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md` and `cat-northstar/ROADMAP-v1-plus.md`. Do not treat post-v1 roadmap items as current implementation requirements. Record completed implementation work in `changelog/` only after verifying the corresponding code and tests.

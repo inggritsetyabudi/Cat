@@ -169,6 +169,7 @@ void OwnershipChecker::check(RealmDecl* realm, const SemanticAnalyzer& semanticA
     semantic = &semanticAnalyzer;
     diagnostics.clear();
     varStates.clear();
+    pathReachable = true;
     scopeStack.clear();
     ownershipResult = OwnershipResult{};
 
@@ -191,6 +192,7 @@ void OwnershipChecker::checkDecl(Decl* decl) {
 
 void OwnershipChecker::checkFnDecl(FnDecl* fn) {
     varStates.clear();
+    pathReachable = true;
     scopeStack.clear();
     enterScope(fn ? fn->body.get() : nullptr, ScopeKind::FunctionBoundary);
 
@@ -205,16 +207,129 @@ void OwnershipChecker::checkFnDecl(FnDecl* fn) {
     }
 
     if (fn->body) {
-        for (auto& stmt : fn->body->statements) {
-            checkStmt(stmt.get());
+        for (size_t i = 0; i < fn->body->statements.size(); ++i) {
+            Stmt* stmt = fn->body->statements[i].get();
+            if (signature && i + 1 == fn->body->statements.size() &&
+                signature->returnType.name == "Tuple" && signature->returnType.isOwned()) {
+                if (auto* tail = dynamic_cast<ExprStmt*>(stmt); tail && tail->expr) {
+                    const ResolvedType tailType = typeOfExpr(tail->expr.get());
+                    if (tailType.name == "Tuple" && tailType.isOwned()) {
+                        checkExpr(tail->expr.get(), true);
+                        continue;
+                    }
+                }
+            }
+            checkStmt(stmt);
         }
     }
 
     exitScope();
 }
 
+void OwnershipChecker::consumeTuplePatternSource(const Expr* expr) {
+    const auto* source = dynamic_cast<const IdentExpr*>(expr);
+    if (!source) {
+        return;
+    }
+
+    const auto sourceIt = varStates.find(source->name);
+    if (sourceIt == varStates.end() || !isDefinitelyInitialized(sourceIt->second.storageState)) {
+        return;
+    }
+
+    auto& sourceState = sourceIt->second;
+    if (hasActiveBorrow(sourceState)) {
+        if (const auto* borrow = firstActiveBorrow(sourceState)) {
+            reportError(source, ownerMutationConflictMessage(source->name, *borrow, "move"));
+        } else {
+            reportError(source, "Cannot move value while it is borrowed -> " + source->name);
+        }
+        return;
+    }
+
+    sourceState.storageState = StorageState::Moved;
+    sourceState.activeBorrows.clear();
+}
+
+void OwnershipChecker::registerTuplePatternBindings(const PickPattern* pattern, const ResolvedType& type) {
+    if (!pattern) {
+        return;
+    }
+    if (pattern->kind == PickPatternKind::Binding) {
+        defineTrackedVar(
+            pattern->name,
+            TrackedVar{type, false, StorageState::Initialized, {}, std::nullopt, pattern->backendBindingKey});
+        return;
+    }
+    if (pattern->kind != PickPatternKind::Tuple || type.name != "Tuple") {
+        return;
+    }
+
+    for (size_t i = 0; i < pattern->elements.size() && i < type.params.size(); ++i) {
+        registerTuplePatternBindings(pattern->elements[i].get(), type.params[i]);
+    }
+}
+
 void OwnershipChecker::checkStmt(Stmt* stmt) {
+    if (!pathReachable) {
+        return;
+    }
+
     if (auto* bind = dynamic_cast<BindingStmt*>(stmt)) {
+        if (!bind->tuplePatternNames.empty()) {
+            const ResolvedType tupleType = bind->value ? typeOfExpr(bind->value.get()) : makeUnknownType();
+            const auto* identifierSource = bind->value ? dynamic_cast<IdentExpr*>(bind->value.get()) : nullptr;
+            const bool projectedSource = bind->value &&
+                (dynamic_cast<MemberExpr*>(bind->value.get()) || dynamic_cast<IndexExpr*>(bind->value.get()));
+            if (tupleType.name == "Tuple" && tupleType.isOwned() && projectedSource) {
+                reportError(
+                    bind->value.get(),
+                    "Cannot destructure an owned tuple projection; move the whole tuple into a local first.");
+            }
+            if (bind->value) {
+                checkExpr(bind->value.get(), tupleType.name == "Tuple" && tupleType.isOwned() &&
+                    !identifierSource && !projectedSource);
+                if (!pathReachable) {
+                    return;
+                }
+            }
+
+            if (tupleType.name == "Tuple") {
+                if (identifierSource) {
+                    auto* source = identifierSource;
+                    const auto sourceIt = varStates.find(source->name);
+                    if (sourceIt != varStates.end() && isDefinitelyInitialized(sourceIt->second.storageState)) {
+                        auto& sourceState = sourceIt->second;
+                        if (hasActiveBorrow(sourceState)) {
+                            if (const auto* borrow = firstActiveBorrow(sourceState)) {
+                                reportError(source, ownerMutationConflictMessage(source->name, *borrow, "move"));
+                            } else {
+                                reportError(source, "Cannot move value while it is borrowed -> " + source->name);
+                            }
+                        } else {
+                            sourceState.storageState = StorageState::Moved;
+                            sourceState.activeBorrows.clear();
+                        }
+                    }
+                }
+            }
+
+            for (size_t i = 0; i < bind->tuplePatternNames.size(); ++i) {
+                const std::string& name = bind->tuplePatternNames[i];
+                if (name == "_") {
+                    continue;
+                }
+                TrackedVar fieldState;
+                fieldState.type = i < tupleType.params.size() ? tupleType.params[i] : makeUnknownType();
+                fieldState.storageState = StorageState::Initialized;
+                if (i < bind->tuplePatternBindingKeys.size()) {
+                    fieldState.backendBindingKey = bind->tuplePatternBindingKeys[i];
+                }
+                defineTrackedVar(name, fieldState);
+            }
+            return;
+        }
+
         const auto bindingTypeIt = semantic->result().bindingTypes.find(bind);
         const ResolvedType bindingType = bindingTypeIt != semantic->result().bindingTypes.end()
             ? bindingTypeIt->second
@@ -223,12 +338,16 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         if (bind->value) {
             const bool consumeInitializer = !bindingType.isView() && typeOfExpr(bind->value.get()).isOwned();
             checkExpr(bind->value.get(), consumeInitializer);
+            if (!pathReachable) {
+                return;
+            }
         }
 
         TrackedVar state;
         state.type = bindingType;
         state.isMutableStorage = bind->isMutable;
         state.storageState = bind->value ? StorageState::Initialized : StorageState::Uninitialized;
+        state.backendBindingKey = bind->backendBindingKey;
         if (isBorrowCarrierType(bindingType) && bind->value) {
             if (const auto token = resolveBorrowToken(bind->value.get(), bindingType)) {
                 if (acquireBorrowToken(*token, bind->value.get())) {
@@ -242,6 +361,12 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
     }
 
     if (auto* assign = dynamic_cast<AssignStmt*>(stmt)) {
+        if (assign->op != "=") {
+            checkExpr(assign->target.get(), false);
+        } else if (auto* index = dynamic_cast<IndexExpr*>(assign->target.get())) {
+            checkExpr(index->object.get(), false);
+            checkExpr(index->index.get(), false);
+        }
         if (auto* ident = dynamic_cast<IdentExpr*>(assign->target.get())) {
             const ResolvedType assignedValueType = assign->value ? typeOfExpr(assign->value.get()) : makeUnknownType();
             const auto it = varStates.find(ident->name);
@@ -253,6 +378,10 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
                 checkExpr(assign->value.get(), consumeValue);
             } else if (assign->value) {
                 checkExpr(assign->value.get(), assignedValueType.isOwned());
+            }
+
+            if (!pathReachable) {
+                return;
             }
 
             if (it != varStates.end()) {
@@ -277,7 +406,7 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
                     }
                 } else {
                     if (shouldScheduleDrop(state)) {
-                        recordDropBeforeStmt(assign, ident->name, state.type);
+                        recordDropBeforeStmt(assign, ident->name, state.type, ident->backendBindingKey);
                     }
                     state.activeBorrows.clear();
                 }
@@ -289,9 +418,14 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         if (assign->value) {
             checkExpr(assign->value.get(), typeOfExpr(assign->value.get()).isOwned());
         }
+        if (!pathReachable) {
+            return;
+        }
 
         if (auto* member = dynamic_cast<MemberExpr*>(assign->target.get())) {
-            checkExpr(member->object.get(), false);
+            if (assign->op == "=") {
+                checkExpr(member->object.get(), false);
+            }
 
             const ResolvedType objectType = typeOfExpr(member->object.get());
             const auto objectPath = resolveBorrowPath(member->object.get());
@@ -322,16 +456,50 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
                     }
                 }
             }
+        } else if (auto* index = dynamic_cast<IndexExpr*>(assign->target.get())) {
+            const ResolvedType objectType = typeOfExpr(index->object.get());
+            const auto objectPath = resolveBorrowPath(index->object.get());
+            if (const auto targetPath = resolveBorrowPath(index)) {
+                const auto it = varStates.find(targetPath->rootName);
+                if (it != varStates.end() && isBorrowRootType(it->second.type)) {
+                    BorrowToken mutationTarget = *targetPath;
+                    mutationTarget.viewKind = "edit";
+
+                    std::optional<BorrowToken> authorizingBorrow;
+                    if (objectType.isView() && objectType.viewKind == "edit" && objectPath.has_value()) {
+                        for (const auto& active : it->second.activeBorrows) {
+                            if (active.viewKind == "edit" && borrowPathIsPrefix(active, *objectPath)) {
+                                authorizingBorrow = active;
+                                break;
+                            }
+                        }
+                    }
+
+                    for (const auto& active : it->second.activeBorrows) {
+                        if (authorizingBorrow.has_value() && active == *authorizingBorrow) {
+                            continue;
+                        }
+                        if (borrowTokensConflict(active, mutationTarget)) {
+                            reportError(assign, pathMutationConflictMessage(formatBorrowTarget(mutationTarget), active));
+                            break;
+                        }
+                    }
+                }
+            }
         }
         return;
     }
-    if (auto* give = dynamic_cast<GiveStmt*>(stmt)) {
-        if (give->value) {
-            checkExpr(give->value.get(), typeOfExpr(give->value.get()).isOwned());
+    if (auto* returnStmt = dynamic_cast<ReturnStmt*>(stmt)) {
+        if (returnStmt->value) {
+            checkExpr(returnStmt->value.get(), typeOfExpr(returnStmt->value.get()).isOwned());
+            if (!pathReachable) {
+                return;
+            }
         }
         for (const auto& drop : collectUnwindDrops(std::nullopt)) {
-            recordDropBeforeStmt(give, drop.name, drop.type);
+            recordDropBeforeStmt(returnStmt, drop.name, drop.type, drop.bindingKey);
         }
+        pathReachable = false;
         return;
     }
 
@@ -342,39 +510,49 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         return;
     }
 
-    if (auto* when = dynamic_cast<WhenStmt*>(stmt)) {
-        checkExpr(when->condition.get(), false);
+    if (auto* ifStmt = dynamic_cast<IfStmt*>(stmt)) {
+        checkExpr(ifStmt->condition.get(), false);
 
         const auto baseline = varStates;
-        enterScope(when->thenBlock.get(), ScopeKind::Normal);
-        for (auto& stmtInBlock : when->thenBlock->statements) {
+        const bool baselineReachable = pathReachable;
+        pathReachable = baselineReachable;
+        enterScope(ifStmt->thenBlock.get(), ScopeKind::Normal);
+        for (auto& stmtInBlock : ifStmt->thenBlock->statements) {
             checkStmt(stmtInBlock.get());
         }
         exitScope();
         const auto thenState = retainExistingStates(baseline, varStates);
+        const bool thenReachable = pathReachable;
 
-        if (when->elseBlock) {
+        std::unordered_map<std::string, TrackedVar> elseState = baseline;
+        bool elseReachable = baselineReachable;
+        if (ifStmt->elseBlock) {
             varStates = baseline;
-            enterScope(when->elseBlock.get(), ScopeKind::Normal);
-            for (auto& stmtInBlock : when->elseBlock->statements) {
+            pathReachable = baselineReachable;
+            enterScope(ifStmt->elseBlock.get(), ScopeKind::Normal);
+            for (auto& stmtInBlock : ifStmt->elseBlock->statements) {
                 checkStmt(stmtInBlock.get());
             }
             exitScope();
-            const auto elseState = retainExistingStates(baseline, varStates);
+            elseState = retainExistingStates(baseline, varStates);
+            elseReachable = pathReachable;
+        }
 
+        if (thenReachable && elseReachable) {
             auto merged = baseline;
             for (auto& [name, state] : merged) {
                 state = thenState.at(name);
                 mergeTrackedState(state, elseState.at(name));
             }
             varStates = std::move(merged);
+        } else if (thenReachable) {
+            varStates = thenState;
+        } else if (elseReachable) {
+            varStates = elseState;
         } else {
-            auto merged = baseline;
-            for (auto& [name, state] : merged) {
-                mergeTrackedState(state, thenState.at(name));
-            }
-            varStates = std::move(merged);
+            varStates = baseline;
         }
+        pathReachable = thenReachable || elseReachable;
         return;
     }
 
@@ -384,18 +562,25 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         }
 
         const auto baseline = varStates;
+        const bool baselineReachable = pathReachable;
         enterScope(loop->body.get(), ScopeKind::LoopBoundary);
         for (auto& stmtInBlock : loop->body->statements) {
             checkStmt(stmtInBlock.get());
         }
         exitScope();
         const auto bodyState = retainExistingStates(baseline, varStates);
+        const bool bodyReachable = pathReachable;
 
-        auto merged = baseline;
-        for (auto& [name, state] : merged) {
-            mergeTrackedState(state, bodyState.at(name));
+        if (bodyReachable) {
+            auto merged = baseline;
+            for (auto& [name, state] : merged) {
+                mergeTrackedState(state, bodyState.at(name));
+            }
+            varStates = std::move(merged);
+        } else {
+            varStates = baseline;
         }
-        varStates = std::move(merged);
+        pathReachable = baselineReachable;
         return;
     }
 
@@ -403,26 +588,42 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         checkExpr(scan->iterable.get(), false);
 
         const auto baseline = varStates;
+        const bool baselineReachable = pathReachable;
         const auto itemTypeIt = semantic->result().scanItemTypes.find(scan);
         const ResolvedType itemType = itemTypeIt != semantic->result().scanItemTypes.end()
             ? itemTypeIt->second
             : makeUnknownType();
 
         enterScope(scan->body.get(), ScopeKind::LoopBoundary);
-        defineTrackedVar(
-            scan->itemName,
-            TrackedVar{itemType, false, StorageState::Initialized, {}, std::nullopt});
+        TrackedVar itemState{itemType, false, StorageState::Initialized, {}, std::nullopt};
+        itemState.backendBindingKey = scan->itemBindingKey;
+        defineTrackedVar(scan->itemName, itemState);
+        if (!scan->indexName.empty()) {
+            const auto indexTypeIt = semantic->result().scanIndexTypes.find(scan);
+            const ResolvedType indexType = indexTypeIt != semantic->result().scanIndexTypes.end()
+                ? indexTypeIt->second
+                : makeUnknownType();
+            TrackedVar indexState{indexType, false, StorageState::Initialized, {}, std::nullopt};
+            indexState.backendBindingKey = scan->indexBindingKey;
+            defineTrackedVar(scan->indexName, indexState);
+        }
         for (auto& stmtInBlock : scan->body->statements) {
             checkStmt(stmtInBlock.get());
         }
         exitScope();
         const auto bodyState = retainExistingStates(baseline, varStates);
+        const bool bodyReachable = pathReachable;
 
-        auto merged = baseline;
-        for (auto& [name, state] : merged) {
-            mergeTrackedState(state, bodyState.at(name));
+        if (bodyReachable) {
+            auto merged = baseline;
+            for (auto& [name, state] : merged) {
+                mergeTrackedState(state, bodyState.at(name));
+            }
+            varStates = std::move(merged);
+        } else {
+            varStates = baseline;
         }
-        varStates = std::move(merged);
+        pathReachable = baselineReachable;
         return;
     }
 
@@ -438,8 +639,14 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
     if (auto* pick = dynamic_cast<PickStmt*>(stmt)) {
         checkExpr(pick->value.get(), false);
 
-        const auto baseline = varStates;
         const ResolvedType pickedType = typeOfExpr(pick->value.get());
+        if (pickedType.name == "Tuple" && std::any_of(pick->branches.begin(), pick->branches.end(), [](const PickBranch& branch) {
+                return static_cast<bool>(branch.tuplePattern);
+            })) {
+            consumeTuplePatternSource(pick->value.get());
+        }
+        const auto baseline = varStates;
+        const bool baselineReachable = pathReachable;
         const ChoiceInfo* choiceInfo = pickedType.isUnknown() ? nullptr : semantic->lookupChoice(pickedType.name);
         const auto choiceBindings = choiceInfo
             ? buildTypeBindings(choiceInfo->typeParams, pickedType.params)
@@ -448,8 +655,12 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         std::optional<std::unordered_map<std::string, TrackedVar>> mergedState;
         for (const auto& branch : pick->branches) {
             varStates = baseline;
+            pathReachable = baselineReachable;
             enterScope(branch.body.get(), ScopeKind::Normal);
 
+            if (pickedType.name == "Tuple" && branch.tuplePattern) {
+                registerTuplePatternBindings(branch.tuplePattern.get(), pickedType);
+            }
             if (choiceInfo) {
                 const auto variantIt = choiceInfo->variants.find(branch.tag);
                 if (variantIt != choiceInfo->variants.end()) {
@@ -460,7 +671,13 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
                             : makeUnknownType();
                         defineTrackedVar(
                             branch.bindings[i],
-                            TrackedVar{payloadType, false, StorageState::Initialized, {}, std::nullopt});
+                            TrackedVar{
+                                payloadType,
+                                false,
+                                StorageState::Initialized,
+                                {},
+                                std::nullopt,
+                                i < branch.bindingKeys.size() ? branch.bindingKeys[i] : std::string{}});
                     }
                 }
             }
@@ -471,6 +688,10 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
             exitScope();
 
             const auto branchState = retainExistingStates(baseline, varStates);
+            const bool branchReachable = pathReachable;
+            if (!branchReachable) {
+                continue;
+            }
             if (!mergedState.has_value()) {
                 mergedState = branchState;
             } else {
@@ -480,40 +701,16 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
             }
         }
 
+        pathReachable = mergedState.has_value() || (pick->branches.empty() && baselineReachable);
         varStates = mergedState.has_value() ? std::move(*mergedState) : baseline;
         return;
     }
 
-    if (auto* lift = dynamic_cast<LiftStmt*>(stmt)) {
-        checkExpr(lift->expr.get(), false);
-
-        const ResolvedType outcomeType = typeOfExpr(lift->expr.get());
-        ResolvedType okType = makeUnknownType();
-        ResolvedType failType = makeUnknownType();
-        if (outcomeType.name == "Result" && outcomeType.params.size() == 2) {
-            okType = outcomeType.params[0];
-            failType = outcomeType.params[1];
-        }
-
-        const auto baseline = varStates;
-        enterScope(lift->failBlock.get(), ScopeKind::Normal);
-        defineTrackedVar(
-            lift->failName,
-            TrackedVar{failType, false, StorageState::Initialized, {}, std::nullopt});
-        for (auto& stmtInBlock : lift->failBlock->statements) {
-            checkStmt(stmtInBlock.get());
-        }
-        exitScope();
-
-        varStates = baseline;
-        defineTrackedVar(
-            lift->valueName,
-            TrackedVar{okType, false, StorageState::Initialized, {}, std::nullopt});
-        return;
-    }
-
     if (auto* tryStmt = dynamic_cast<TryStmt*>(stmt)) {
-        checkExpr(tryStmt->expr.get(), false);
+        checkExpr(tryStmt->expr.get(), true);
+        if (!pathReachable) {
+            return;
+        }
 
         const ResolvedType outcomeType = typeOfExpr(tryStmt->expr.get());
         ResolvedType okType = makeUnknownType();
@@ -532,20 +729,23 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
 
         if (tryStmt->failBlock) {
             const auto baseline = varStates;
+            const bool baselineReachable = pathReachable;
+            pathReachable = baselineReachable;
             enterScope(tryStmt->failBlock.get(), ScopeKind::Normal);
             defineTrackedVar(
                 tryStmt->failName,
-                TrackedVar{failType, false, StorageState::Initialized, {}, std::nullopt});
+                TrackedVar{failType, false, StorageState::Initialized, {}, std::nullopt, tryStmt->failBindingKey});
             for (auto& stmtInBlock : tryStmt->failBlock->statements) {
                 checkStmt(stmtInBlock.get());
             }
             exitScope();
             varStates = baseline;
+            pathReachable = baselineReachable;
         }
 
         defineTrackedVar(
             tryStmt->name,
-            TrackedVar{okType, false, StorageState::Initialized, {}, std::nullopt});
+            TrackedVar{okType, false, StorageState::Initialized, {}, std::nullopt, tryStmt->backendBindingKey});
         return;
     }
 
@@ -560,20 +760,160 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
 
     if (auto* stop = dynamic_cast<StopStmt*>(stmt)) {
         for (const auto& drop : collectUnwindDrops(ScopeKind::LoopBoundary)) {
-            recordDropBeforeStmt(stop, drop.name, drop.type);
+            recordDropBeforeStmt(stop, drop.name, drop.type, drop.bindingKey);
         }
+        pathReachable = false;
         return;
     }
 
     if (auto* skip = dynamic_cast<SkipStmt*>(stmt)) {
         for (const auto& drop : collectUnwindDrops(ScopeKind::LoopBoundary)) {
-            recordDropBeforeStmt(skip, drop.name, drop.type);
+            recordDropBeforeStmt(skip, drop.name, drop.type, drop.bindingKey);
         }
+        pathReachable = false;
         return;
     }
 }
 
 void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
+    if (!pathReachable) {
+        return;
+    }
+
+    if (auto* ifExpr = dynamic_cast<IfExpr*>(expr)) {
+        checkExpr(ifExpr->condition.get(), false);
+        const auto baseline = varStates;
+        const bool baselineReachable = pathReachable;
+        const auto checkBranch = [&](BlockStmt* block) {
+            varStates = baseline;
+            pathReachable = baselineReachable;
+            enterScope(block, ScopeKind::Normal);
+            if (block) {
+                for (size_t i = 0; i < block->statements.size(); ++i) {
+                    Stmt* stmt = block->statements[i].get();
+                    if (i + 1 == block->statements.size()) {
+                        if (auto* tail = dynamic_cast<ExprStmt*>(stmt); tail && tail->expr) {
+                            const ResolvedType resultType = typeOfExpr(tail->expr.get());
+                            checkExpr(tail->expr.get(), isConsume && resultType.isOwned());
+                            continue;
+                        }
+                    }
+                    checkStmt(stmt);
+                }
+            }
+            const bool branchReachable = pathReachable;
+            exitScope();
+            return std::pair{retainExistingStates(baseline, varStates), branchReachable};
+        };
+
+        const auto thenResult = checkBranch(ifExpr->thenBlock.get());
+        const auto elseResult = ifExpr->elseBlock
+            ? checkBranch(ifExpr->elseBlock.get())
+            : std::pair{baseline, baselineReachable};
+
+        if (thenResult.second && elseResult.second) {
+            auto merged = thenResult.first;
+            for (auto& [name, state] : merged) {
+                mergeTrackedState(state, elseResult.first.at(name));
+            }
+            varStates = std::move(merged);
+        } else if (thenResult.second) {
+            varStates = thenResult.first;
+        } else if (elseResult.second) {
+            varStates = elseResult.first;
+        } else {
+            varStates = baseline;
+        }
+        pathReachable = thenResult.second || elseResult.second;
+        return;
+    }
+
+    if (auto* pickExpr = dynamic_cast<PickExpr*>(expr)) {
+        checkExpr(pickExpr->value.get(), false);
+        const ResolvedType pickedType = typeOfExpr(pickExpr->value.get());
+        if (pickedType.name == "Tuple" && std::any_of(pickExpr->branches.begin(), pickExpr->branches.end(), [](const PickBranch& branch) {
+                return static_cast<bool>(branch.tuplePattern);
+            })) {
+            consumeTuplePatternSource(pickExpr->value.get());
+        }
+        const auto baseline = varStates;
+        const bool baselineReachable = pathReachable;
+        const ChoiceInfo* choiceInfo = pickedType.isUnknown() ? nullptr : semantic->lookupChoice(pickedType.name);
+        const auto choiceBindings = choiceInfo
+            ? buildTypeBindings(choiceInfo->typeParams, pickedType.params)
+            : std::unordered_map<std::string, ResolvedType>{};
+
+        std::optional<std::unordered_map<std::string, TrackedVar>> mergedState;
+        for (const auto& branch : pickExpr->branches) {
+            varStates = baseline;
+            pathReachable = baselineReachable;
+            enterScope(branch.body.get(), ScopeKind::Normal);
+            if (pickedType.name == "Tuple" && branch.tuplePattern) {
+                registerTuplePatternBindings(branch.tuplePattern.get(), pickedType);
+            }
+            if (choiceInfo) {
+                const auto variantIt = choiceInfo->variants.find(branch.tag);
+                if (variantIt != choiceInfo->variants.end()) {
+                    const auto& payloadTypes = variantIt->second.payloadTypes;
+                    for (size_t i = 0; i < branch.bindings.size(); ++i) {
+                        const ResolvedType payloadType = i < payloadTypes.size()
+                            ? substituteType(payloadTypes[i], choiceBindings)
+                            : makeUnknownType();
+                        defineTrackedVar(
+                            branch.bindings[i],
+                            TrackedVar{
+                                payloadType,
+                                false,
+                                StorageState::Initialized,
+                                {},
+                                std::nullopt,
+                                i < branch.bindingKeys.size() ? branch.bindingKeys[i] : std::string{}});
+                    }
+                }
+            }
+
+            if (branch.body) {
+                for (size_t i = 0; i < branch.body->statements.size(); ++i) {
+                    Stmt* stmt = branch.body->statements[i].get();
+                    if (i + 1 == branch.body->statements.size()) {
+                        if (auto* tail = dynamic_cast<ExprStmt*>(stmt); tail && tail->expr) {
+                            const ResolvedType resultType = typeOfExpr(tail->expr.get());
+                            checkExpr(tail->expr.get(), isConsume && resultType.isOwned());
+                            continue;
+                        }
+                    }
+                    checkStmt(stmt);
+                }
+            }
+            exitScope();
+            const auto branchState = retainExistingStates(baseline, varStates);
+            const bool branchReachable = pathReachable;
+            if (!branchReachable) {
+                continue;
+            }
+            if (!mergedState.has_value()) {
+                mergedState = branchState;
+            } else {
+                for (auto& [name, state] : *mergedState) {
+                    mergeTrackedState(state, branchState.at(name));
+                }
+            }
+        }
+        pathReachable = mergedState.has_value() || (pickExpr->branches.empty() && baselineReachable);
+        varStates = mergedState.has_value() ? std::move(*mergedState) : baseline;
+        return;
+    }
+
+    if (auto* tuple = dynamic_cast<TupleExpr*>(expr)) {
+        const ResolvedType tupleType = typeOfExpr(expr);
+        const bool consumeElements = isConsume && tupleType.isOwned();
+        for (auto& element : tuple->elements) {
+            const ResolvedType elementType = typeOfExpr(element.get());
+            checkExpr(element.get(), consumeElements && elementType.isOwned());
+        }
+        return;
+    }
+
     if (auto* ident = dynamic_cast<IdentExpr*>(expr)) {
         const auto it = varStates.find(ident->name);
         if (it == varStates.end()) {
@@ -600,8 +940,41 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
         return;
     }
 
+    if (auto* unary = dynamic_cast<UnaryExpr*>(expr)) {
+        checkExpr(unary->operand.get(), false);
+        return;
+    }
+
     if (auto* binary = dynamic_cast<BinaryExpr*>(expr)) {
         checkExpr(binary->left.get(), false);
+        if (binary->op == "and" || binary->op == "or") {
+            if (auto* literal = dynamic_cast<BoolExpr*>(binary->left.get())) {
+                const bool evaluatesRight = binary->op == "and" ? literal->value : !literal->value;
+                if (evaluatesRight) {
+                    checkExpr(binary->right.get(), false);
+                }
+                return;
+            }
+
+            const auto beforeRight = varStates;
+            checkExpr(binary->right.get(), false);
+            bool hasConditionalMove = false;
+            for (const auto& [name, before] : beforeRight) {
+                const auto after = varStates.find(name);
+                if (after != varStates.end() && isTrackedOwned(before.type) &&
+                    before.storageState == StorageState::Initialized && after->second.storageState == StorageState::Moved) {
+                    reportError(
+                        binary,
+                        "Short-circuit right operand may conditionally move owned value -> " + name +
+                            "; use an explicit `if` for this ownership transfer.");
+                    hasConditionalMove = true;
+                }
+            }
+            if (hasConditionalMove) {
+                varStates = beforeRight;
+            }
+            return;
+        }
         checkExpr(binary->right.get(), false);
         return;
     }
@@ -632,6 +1005,14 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
 
     if (auto* member = dynamic_cast<MemberExpr*>(expr)) {
         const ResolvedType memberType = typeOfExpr(expr);
+        const ResolvedType objectType = typeOfExpr(member->object.get());
+        if (isConsume && memberType.isOwned() && objectType.name == "Tuple") {
+            reportError(
+                member,
+                "Cannot move an owned tuple field through numeric projection; destructure the tuple instead.");
+            checkExpr(member->object.get(), false);
+            return;
+        }
         checkExpr(member->object.get(), isConsume && memberType.isOwned());
         return;
     }
@@ -639,6 +1020,19 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
 
 void OwnershipChecker::checkCallExpr(CallExpr* call) {
     checkExpr(call->callee.get(), false);
+
+    if (semantic != nullptr) {
+        const auto constructorIt = semantic->result().choiceConstructors.find(call);
+        if (constructorIt != semantic->result().choiceConstructors.end()) {
+            for (auto& arg : call->args) {
+                if (arg) {
+                    const ResolvedType argType = typeOfExpr(arg.get());
+                    checkExpr(arg.get(), argType.isOwned());
+                }
+            }
+            return;
+        }
+    }
 
     if (isArenaNewCall(call->callee.get())) {
         return;
@@ -709,7 +1103,7 @@ void OwnershipChecker::exitScope() {
         auto current = varStates.find(it->name);
         if (current != varStates.end()) {
             if (shouldScheduleDrop(current->second)) {
-                drops.push_back(DropAction{it->name, current->second.type});
+                drops.push_back(DropAction{it->name, current->second.type, current->second.backendBindingKey});
             }
             releaseLexicalBorrow(current->second);
         }
@@ -739,11 +1133,15 @@ void OwnershipChecker::defineTrackedVar(const std::string& name, const TrackedVa
     varStates[name] = state;
 }
 
-void OwnershipChecker::recordDropBeforeStmt(const Stmt* stmt, const std::string& name, const ResolvedType& type) {
+void OwnershipChecker::recordDropBeforeStmt(
+    const Stmt* stmt,
+    const std::string& name,
+    const ResolvedType& type,
+    const std::string& bindingKey) {
     if (!stmt) {
         return;
     }
-    ownershipResult.dropsBeforeStmt[stmt].push_back(DropAction{name, type});
+    ownershipResult.dropsBeforeStmt[stmt].push_back(DropAction{name, type, bindingKey});
 }
 
 std::vector<DropAction> OwnershipChecker::collectUnwindDrops(std::optional<ScopeKind> stopAfterKind) const {
@@ -755,7 +1153,8 @@ std::vector<DropAction> OwnershipChecker::collectUnwindDrops(std::optional<Scope
             auto current = stateMap.find(bindingIt->name);
             if (current != stateMap.end()) {
                 if (shouldScheduleDrop(current->second)) {
-                    drops.push_back(DropAction{bindingIt->name, current->second.type});
+                    drops.push_back(DropAction{
+                        bindingIt->name, current->second.type, current->second.backendBindingKey});
                 }
                 if (current->second.lexicalBorrow.has_value()) {
                     releaseBorrowTokenInStateMap(stateMap, *current->second.lexicalBorrow);
@@ -978,4 +1377,3 @@ std::unordered_map<std::string, TrackedVar> OwnershipChecker::retainExistingStat
 }
 
 } // namespace claw::frontend
-

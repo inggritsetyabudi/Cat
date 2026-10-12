@@ -1,0 +1,8 @@
+shape Record {
+    count: Int32
+}
+
+fn main() -> Int32 {
+    Record { count: 1 }
+    0
+}

@@ -1,0 +1,40 @@
+shape Point {
+    x: Int32,
+}
+
+choice Shape {
+    circle(radius: Float64)
+}
+
+choice Result[T, E] {
+    Ok(value: T)
+    Fail(cause: E)
+}
+
+choice Maybe[T] {
+    None
+    Some(value: T)
+}
+
+contract Drawable {
+    fn draw(self: ref)
+}
+
+static default_value: Int32 = 7
+
+fn point_x(point: Point) -> Int32 {
+    return point.x
+}
+
+fn result_value() -> Result[Int32, Str] {
+    return Ok(default_value)
+}
+
+fn maybe_value() -> Maybe[Int32] {
+    return Some(default_value)
+}
+
+fn main() {
+    val value = 42
+    println(value)
+}

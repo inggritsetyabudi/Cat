@@ -1,0 +1,62 @@
+shape Operand {
+    value: Int32
+}
+
+contract Add {
+    fn add(self: ref, other: ref Operand) -> Anchor[Str]
+}
+
+implements Operand with Add {
+    fn add(self: ref, other: ref Operand) -> Anchor[Str] {
+        println("method-once")
+        Anchor.new("sum")
+    }
+}
+
+choice Route {
+    first(value: Int32)
+    second(value: Int32)
+}
+
+fn make_left() -> Operand {
+    println("left-once")
+    Operand { value: 1 }
+}
+
+fn make_right() -> Operand {
+    println("right-once")
+    Operand { value: 2 }
+}
+
+fn make_if_anchor(flag: Bool) -> Anchor[Str] {
+    return if flag {
+        println("if-once")
+        Anchor.new("if-payload")
+    } else {
+        println("unselected-if")
+        Anchor.new("unused")
+    }
+}
+
+fn make_pick_anchor(route: Route) -> Anchor[Str] {
+    return pick route {
+        first(value) {
+            println("pick-once")
+            Anchor.new("pick-payload")
+        }
+        second(value) {
+            println("unselected-pick")
+            Anchor.new("unused")
+        }
+    }
+}
+
+fn main() -> Int32 {
+    make_left() + make_right()
+    make_if_anchor(true)
+    make_pick_anchor(first(42))
+    val retained = Anchor.new("retained-place")
+    retained
+    println("finished")
+    0
+}

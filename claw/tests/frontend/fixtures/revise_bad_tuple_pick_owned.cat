@@ -1,0 +1,9 @@
+fn inspect(pair: (Str, Int32)) {
+    pick pair {
+        (text, number) {
+            println(number)
+        }
+    }
+}
+
+fn main() {}

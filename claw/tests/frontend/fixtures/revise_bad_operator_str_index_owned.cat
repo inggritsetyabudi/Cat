@@ -1,0 +1,9 @@
+fn mutate_owned_compound() {
+    var text = "A"
+    text[0] += 1
+}
+
+fn mutate_owned_plain() {
+    var text = "B"
+    text[0] = 66
+}

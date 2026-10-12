@@ -1,0 +1,9 @@
+fn trim(values: ref mut Vec[Int32]) {
+    values.truncate(2)
+    if true {
+        val values = values
+        values.truncate(1)
+    }
+}
+
+fn main() {}

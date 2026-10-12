@@ -1,0 +1,4 @@
+fn update(values: Span[Int32]) -> Int32 {
+    values[0] += 1
+    return values[0]
+}

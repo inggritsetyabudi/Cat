@@ -15,6 +15,13 @@ std::string canonicalTypeName(std::string_view name) {
     return std::string(name);
 }
 
+std::string nominalTypeIdentity(std::string_view moduleName, std::string_view typeName) {
+    if (moduleName.empty()) {
+        return std::string(typeName);
+    }
+    return std::string(moduleName) + "::" + std::string(typeName);
+}
+
 namespace {
 
 bool contains(const std::unordered_set<std::string>& set, const std::string& value) {
@@ -53,6 +60,38 @@ bool hasGenericPlaceholder(const ResolvedType& type) {
         }
     }
     return false;
+}
+
+bool isPlainConcreteTupleField(const ResolvedType& type) {
+    if (!type.isPlain() || type.isOwned() || type.isView() || type.isUnknown() || type.isOpaqueExternal() ||
+        type.isGeneric || !type.scopeName.empty() || !type.viewScope.empty()) {
+        return false;
+    }
+    return std::all_of(type.params.begin(), type.params.end(), isPlainConcreteTupleField);
+}
+
+bool isSupportedTupleField(const ResolvedType& type) {
+    if (isPlainConcreteTupleField(type)) {
+        return true;
+    }
+    if (type.isView() || type.isUnknown() || type.isOpaqueExternal() || type.isGeneric ||
+        !type.scopeName.empty() || !type.viewScope.empty()) {
+        return false;
+    }
+    if (type.name == "Tuple" && type.isOwned()) {
+        return std::all_of(type.params.begin(), type.params.end(), isSupportedTupleField);
+    }
+    if (type.name == "Anchor" && type.isOwned() && type.params.size() == 1) {
+        return isPlainConcreteTupleField(type.params.front());
+    }
+    return false;
+}
+
+bool containsOwnedTupleValue(const ResolvedType& type) {
+    if (type.name == "Tuple" && type.isOwned()) {
+        return true;
+    }
+    return std::any_of(type.params.begin(), type.params.end(), containsOwnedTupleValue);
 }
 
 std::string canonicalTypeKey(const ResolvedType& type) {
@@ -150,6 +189,10 @@ public:
             return layout;
         }
 
+        if (type.name == "Tuple") {
+            return computeTuple(type);
+        }
+
         if (auto layout = computeBuiltin(type)) {
             return layout;
         }
@@ -188,7 +231,77 @@ private:
             : AbiPassKind::Indirect;
     }
 
+    std::optional<TypeLayoutInfo> computeTuple(const ResolvedType& type) {
+        if (type.params.empty()) {
+            return std::nullopt;
+        }
+
+        TypeLayoutInfo layout;
+        layout.typeName = type.describe();
+        layout.repr = "claw-internal";
+        layout.abi = "claw";
+        layout.kind = TypeLayoutKind::Aggregate;
+        layout.ffiStable = false;
+        layout.alignBytes = 1;
+
+        AggregateLayoutBuilder builder;
+        builder.layout = layout;
+        for (size_t i = 0; i < type.params.size(); ++i) {
+            const ResolvedType& elementType = type.params[i];
+            if (hasGenericPlaceholder(elementType)) {
+                builder.layout.kind = TypeLayoutKind::Template;
+                builder.layout.isTemplate = true;
+                builder.layout.fields.push_back(LayoutFieldInfo{
+                    std::to_string(i), elementType, 0, 0, 1});
+                continue;
+            }
+            const auto elementLayout = compute(elementType);
+            if (!elementLayout.has_value()) {
+                return std::nullopt;
+            }
+            builder.pushField(std::to_string(i), elementType, *elementLayout);
+        }
+
+        if (!builder.layout.isTemplate) {
+            builder.finalize();
+            builder.layout.passKind = classifyAggregatePass(builder.layout);
+        } else {
+            builder.layout.passKind = AbiPassKind::Indirect;
+        }
+        return builder.layout;
+    }
+
     std::optional<TypeLayoutInfo> computeBuiltin(const ResolvedType& type) {
+        if (type.name == "Range") {
+            if (type.params.size() != 1 || type.params.front().name != "Int32" ||
+                !type.params.front().isPlain() || type.params.front().isGeneric) {
+                return std::nullopt;
+            }
+            ResolvedType boolType;
+            boolType.name = "Bool";
+            boolType.category = TypeCategory::Plain;
+            const auto boundLayout = compute(type.params.front());
+            const auto inclusiveLayout = compute(boolType);
+            if (!boundLayout.has_value() || !inclusiveLayout.has_value()) {
+                return std::nullopt;
+            }
+
+            TypeLayoutInfo layout;
+            layout.typeName = type.describe();
+            layout.repr = "claw-internal";
+            layout.abi = "claw";
+            layout.kind = TypeLayoutKind::Aggregate;
+            layout.ffiStable = false;
+            layout.alignBytes = 1;
+            AggregateLayoutBuilder builder;
+            builder.layout = layout;
+            builder.pushField("start", type.params.front(), *boundLayout);
+            builder.pushField("end", type.params.front(), *boundLayout);
+            builder.pushField("inclusive", boolType, *inclusiveLayout);
+            builder.finalize();
+            builder.layout.passKind = classifyAggregatePass(builder.layout);
+            return builder.layout;
+        }
         if (type.name == "Unit") return scalarLayout(type.describe(), 0, 1);
         if (type.name == "Bool") return scalarLayout(type.describe(), 1, 1);
         if (type.name == "Int8" || type.name == "UInt8") return scalarLayout(type.describe(), 1, 1);
@@ -480,7 +593,10 @@ TargetSpec defaultTargetSpec() {
 }
 
 bool sameType(const ResolvedType& left, const ResolvedType& right) {
-    if (left.name != right.name || left.viewKind != right.viewKind ||
+    const bool sameNominalType = !left.nominalIdentity.empty() && !right.nominalIdentity.empty()
+        ? left.nominalIdentity == right.nominalIdentity
+        : canonicalTypeName(left.name) == canonicalTypeName(right.name);
+    if (!sameNominalType || left.viewKind != right.viewKind ||
         left.scopeName != right.scopeName || left.viewScope != right.viewScope ||
         left.params.size() != right.params.size()) {
         return false;
@@ -518,6 +634,10 @@ bool isIntegerLiteralType(const ResolvedType& type) {
 bool canAssignType(const ResolvedType& from, const ResolvedType& to) {
     if (from.isOpaqueExternal() || to.isOpaqueExternal()) {
         return false;
+    }
+
+    if (from.name == "Never") {
+        return true;
     }
 
     if (from.isUnknown() || to.isUnknown()) {
@@ -665,7 +785,7 @@ TypeCatalog::TypeCatalog()
     : builtinPlainTypes{
           "Bool", "Char", "Int8", "Int16", "Int32", "Int64", "Int128",
           "UInt8", "UInt16", "UInt32", "UInt64", "UInt128",
-          "Float32", "Float64", "Float128", "USize", "Unit"},
+          "Float32", "Float64", "Float128", "USize", "Unit", "Tuple", "Range"},
       builtinOwnedTypes{
           "Str", "Span", "CStr", "OwnedCStr", "Vec", "Map", "Array", "Queue",
           "Set", "Arena", "Anchor", "Addr",
@@ -683,6 +803,7 @@ TypeCatalog::TypeCatalog()
     registerKnownTypeArity("Queue", 1);
     registerKnownTypeArity("Set", 1);
     registerKnownTypeArity("Anchor", 1);
+    registerKnownTypeArity("Range", 1);
     registerKnownTypeArity("Maybe", 1);
     registerKnownTypeArity("Map", 2);
     registerKnownTypeArity("Result", 2);
@@ -718,6 +839,12 @@ void TypeCatalog::registerChoiceName(const std::string& name, std::optional<size
     }
 }
 
+void TypeCatalog::registerNominalIdentity(const std::string& name, const std::string& identity) {
+    if (!identity.empty()) {
+        nominalIdentities[name] = identity;
+    }
+}
+
 bool TypeCatalog::hasNamedType(const std::string& name) const {
     const std::string canonical = canonicalTypeName(name);
     return contains(builtinPlainTypes, canonical) || contains(builtinOwnedTypes, canonical) ||
@@ -732,8 +859,43 @@ ResolvedType TypeCatalog::resolveType(
         return makeUnknownType();
     }
 
+    if (node->isTuple) {
+        ResolvedType tuple;
+        tuple.name = "Tuple";
+        tuple.viewKind = node->viewKind;
+        tuple.viewScope = node->viewScope;
+        tuple.category = node->viewKind.empty() ? TypeCategory::Plain : TypeCategory::View;
+        bool hasOwnedElement = false;
+        for (size_t i = 0; i < node->params.size(); ++i) {
+            ResolvedType elementType = resolveType(node->params[i].get(), localTypeParams, diagnostics);
+            const bool fieldSupported = node->viewKind.empty()
+                ? isSupportedTupleField(elementType)
+                : isPlainConcreteTupleField(elementType);
+            if (!fieldSupported) {
+                if (diagnostics) {
+                    diagnostics->push_back(Diagnostic{
+                        "semantic",
+                        "Tuple fields must be concrete plain values or Anchor[T] with concrete plain T; views, Span, generic fields, and other owned types are not supported.",
+                        node->params[i] ? node->params[i]->span : node->span});
+                }
+            }
+            hasOwnedElement = elementType.isOwned() || hasOwnedElement;
+            tuple.params.push_back(std::move(elementType));
+        }
+        if (node->viewKind.empty() && hasOwnedElement) {
+            tuple.category = TypeCategory::Owned;
+        }
+        return tuple;
+    }
+
     ResolvedType type;
     type.name = contains(localTypeParams, node->name) ? node->name : canonicalTypeName(node->name);
+    if (!contains(localTypeParams, node->name)) {
+        const auto identityIt = nominalIdentities.find(type.name);
+        if (identityIt != nominalIdentities.end()) {
+            type.nominalIdentity = identityIt->second;
+        }
+    }
     type.viewKind = node->viewKind;
     type.scopeName = node->scopeName;
     type.viewScope = node->viewScope;
@@ -783,8 +945,29 @@ ResolvedType TypeCatalog::resolveType(
     }
 
     if (!isViewShape) {
-        for (const auto& param : node->params) {
-            type.params.push_back(resolveType(param.get(), localTypeParams, diagnostics));
+        for (size_t i = 0; i < node->params.size(); ++i) {
+            ResolvedType paramType = resolveType(node->params[i].get(), localTypeParams, diagnostics);
+            if (containsOwnedTupleValue(paramType) && diagnostics) {
+                diagnostics->push_back(Diagnostic{
+                    "semantic",
+                    "Tuples with owned fields are supported only as direct tuple values; embedding them in another type is not supported.",
+                    node->params[i] ? node->params[i]->span : node->span});
+            }
+            type.params.push_back(std::move(paramType));
+        }
+    }
+
+    if (type.name == "Range" && type.params.size() == 1) {
+        const ResolvedType& elementType = type.params.front();
+        if (elementType.name != "Int32" || !elementType.isPlain() || elementType.isGeneric ||
+            !elementType.params.empty()) {
+            if (diagnostics) {
+                diagnostics->push_back(Diagnostic{
+                    "semantic",
+                    "Only Range[Int32] is supported; Char and other integer widths are not implemented yet.",
+                    node->span});
+            }
+            type.category = TypeCategory::Unknown;
         }
     }
 

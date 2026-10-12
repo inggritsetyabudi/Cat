@@ -1,0 +1,11 @@
+fn main() {
+    val pair = (1, 2)
+    scope scratch {
+        val view: ref[scratch] (Int32, Int32) = ref pair
+        pick view {
+            (left, _) {
+                println(left)
+            }
+        }
+    }
+}

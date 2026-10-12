@@ -18,6 +18,7 @@ struct Stmt;
 struct Expr;
 struct CallExpr;
 struct BlockStmt;
+struct PickPattern;
 
 struct BorrowToken {
     std::string rootName;
@@ -37,6 +38,7 @@ enum class StorageState {
 struct DropAction {
     std::string name;
     ResolvedType type;
+    std::string bindingKey;
 };
 
 struct OwnershipResult {
@@ -50,6 +52,7 @@ struct TrackedVar {
     StorageState storageState = StorageState::Initialized;
     std::vector<BorrowToken> activeBorrows;
     std::optional<BorrowToken> lexicalBorrow;
+    std::string backendBindingKey;
 };
 
 struct ScopeBinding {
@@ -77,6 +80,7 @@ public:
 private:
     const SemanticAnalyzer* semantic = nullptr;
     std::unordered_map<std::string, TrackedVar> varStates;
+    bool pathReachable = true;
     std::vector<ScopeFrame> scopeStack;
     OwnershipResult ownershipResult;
     std::vector<Diagnostic> diagnostics;
@@ -89,11 +93,17 @@ private:
     void checkStmt(Stmt* stmt);
     void checkExpr(Expr* expr, bool isConsume);
     void checkCallExpr(CallExpr* call);
+    void consumeTuplePatternSource(const Expr* expr);
+    void registerTuplePatternBindings(const PickPattern* pattern, const ResolvedType& type);
 
     void enterScope(const BlockStmt* block = nullptr, ScopeKind kind = ScopeKind::Normal);
     void exitScope();
     void defineTrackedVar(const std::string& name, const TrackedVar& state);
-    void recordDropBeforeStmt(const Stmt* stmt, const std::string& name, const ResolvedType& type);
+    void recordDropBeforeStmt(
+        const Stmt* stmt,
+        const std::string& name,
+        const ResolvedType& type,
+        const std::string& bindingKey = {});
     std::vector<DropAction> collectUnwindDrops(std::optional<ScopeKind> stopAfterKind) const;
     void acquireView(Expr* expr, const ResolvedType& viewType);
     void releaseView(Expr* expr, const ResolvedType& viewType);

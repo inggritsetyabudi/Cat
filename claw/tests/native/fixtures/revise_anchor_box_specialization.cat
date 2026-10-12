@@ -1,0 +1,11 @@
+shape AnchorBox[T] {
+    value: Anchor[T]
+}
+
+fn accept_text_box(box: AnchorBox[Str]) {}
+
+fn accept_int_anchor(value: Anchor[Int32]) {}
+
+fn main() {
+    val stable: Anchor[Int32] = Anchor.new(77)
+}

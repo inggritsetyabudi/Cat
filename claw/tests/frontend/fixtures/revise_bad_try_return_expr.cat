@@ -1,0 +1,9 @@
+fn step() -> Result[Int32, Str] {
+    return Ok(1)
+}
+
+fn bad() -> Result[Int32, Str] {
+    return try step()
+}
+
+fn main() {}

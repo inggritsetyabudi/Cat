@@ -1,0 +1,14 @@
+fn calculate() -> Int32 {
+    9
+    if true {
+        7
+        40 + 2
+    } else {
+        0
+    }
+}
+
+fn main() -> Int32 {
+    println(calculate())
+    0
+}

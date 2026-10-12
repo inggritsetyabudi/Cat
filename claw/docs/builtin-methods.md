@@ -26,11 +26,12 @@ The search methods use exact byte matching over the UTF-8 representation. Empty 
 | `Span.len`, `Span.is_empty` | Registered | LLVM lowering branches exist; native construction/coverage of `Span` is not established by current fixtures |
 | `Span.slice(start, length)` | Registered | No `Span.slice` LLVM lowering yet; semantic acceptance must not be read as backend support |
 | `Vec.len`, `Vec.is_empty`, `Vec.capacity` | Registered | LLVM lowering branches exist; broader collection coverage is incomplete |
-| Other `Vec` methods registered in semantic analysis (`has_capacity`, `reserve`, `truncate`, `shrink_to_fit`, `clear`) | Registered | Not implemented end-to-end in LLVM/native |
-| `Map`, `Set`, `Queue` methods listed by the catalog | Partially registered | Not implemented end-to-end in LLVM/native |
+| Other `Vec` methods registered in semantic analysis (`has_capacity`, `reserve`, `shrink_to_fit`, `clear`) | Registered | Not implemented end-to-end in LLVM/native |
+| `Vec.truncate(USize)` and `Queue.truncate(USize)` | Not registered; `check` rejects these calls | No complete native implementation or defined element-destruction contract; `Queue` storage/codegen is also absent |
+| Other `Map`, `Set`, and `Queue` methods listed by the catalog | Partially registered | Not implemented end-to-end in LLVM/native |
 | Other PRD section 31 APIs (for example `Vec.push/pop/map/filter`, string transforms, and map lookup/update) | PRD inventory only where absent from semantic registration | Planned; not claimed as supported |
 
-`Anchor.get()` and `Vec/Array.span()` have dedicated semantic paths, but their presence in semantic analysis is not evidence that every source form is natively constructible or lowerable. Borrowing from `Vec` elements still requires a `Span`; mutating a `Vec` while a span is live remains rejected.
+`Anchor.get()` and `Vec/Array.span()` have dedicated semantic paths, but their presence in semantic analysis is not evidence that every source form is natively constructible or lowerable. Borrowing from `Vec` elements still requires a `Span`; mutating a `Vec` while a span is live remains rejected. The canonical PRD fixes the `Vec` representation but does not define `truncate` behavior, particularly destruction of removed owned elements, so `Vec.truncate` and `Queue.truncate` remain unavailable rather than being accepted and failing during LLVM lowering.
 
 ## PRD Difference Requiring Design Reconciliation
 

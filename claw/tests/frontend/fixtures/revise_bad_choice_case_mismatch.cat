@@ -1,0 +1,9 @@
+choice Shape {
+    circle
+}
+
+fn make() -> Shape {
+    return Circle
+}
+
+fn main() {}

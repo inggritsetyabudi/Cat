@@ -1,0 +1,9 @@
+fn inspect(pair: (Span[Int32], Int32)) {
+    pick pair {
+        (items, number) {
+            println(number)
+        }
+    }
+}
+
+fn main() {}

@@ -1,0 +1,11 @@
+shape PrivatePayload {
+    value: Int32,
+}
+
+share shape PublicEnvelope {
+    value: PrivatePayload,
+}
+
+share fn leak(value: PrivatePayload) -> PrivatePayload {
+    return value
+}

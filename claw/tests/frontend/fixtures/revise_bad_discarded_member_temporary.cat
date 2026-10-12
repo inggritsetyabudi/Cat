@@ -1,0 +1,12 @@
+shape Holder {
+    anchor: Anchor[Str]
+}
+
+fn make_holder() -> Holder {
+    Holder { anchor: Anchor.new("nested") }
+}
+
+fn main() -> Int32 {
+    make_holder().anchor
+    0
+}

@@ -1,0 +1,7 @@
+fn char_range(start: Char, finish: Char) -> Range[Int32] {
+    start..finish
+}
+
+fn main() -> Int32 {
+    0
+}

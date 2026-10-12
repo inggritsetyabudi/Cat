@@ -1,0 +1,5 @@
+fn main() {
+    val pair = (1, 2)
+    val (left, right) = pair
+    println(pair.0)
+}

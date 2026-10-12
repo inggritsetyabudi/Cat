@@ -75,6 +75,7 @@ struct ResolvedType {
     std::vector<ResolvedType> params;
     TypeCategory category = TypeCategory::Unknown;
     bool isGeneric = false;
+    std::string nominalIdentity;
 
     bool isUnknown() const;
     bool isOpaqueExternal() const;
@@ -192,6 +193,7 @@ struct ImportedBinding {
     std::optional<ShapeInfo> shapeInfo;
     std::optional<ChoiceInfo> choiceInfo;
     std::shared_ptr<ModuleInfo> moduleInfo;
+    std::string nominalIdentity;
 };
 
 struct ModuleInfo {
@@ -210,6 +212,7 @@ struct AnalysisResult {
     std::unordered_map<const BindingStmt*, ResolvedType> bindingTypes;
     std::unordered_map<const TryStmt*, ResolvedType> tryBindingTypes;
     std::unordered_map<const ScanStmt*, ResolvedType> scanItemTypes;
+    std::unordered_map<const ScanStmt*, ResolvedType> scanIndexTypes;
     std::unordered_map<const Expr*, ChoiceConstructorInfo> choiceConstructors;
     std::unordered_map<const FnDecl*, FunctionSignature> functionSignatures;
     std::unordered_map<std::string, FunctionSignature> functionsByName;
@@ -227,6 +230,7 @@ public:
     void registerShapeName(const std::string& name, std::optional<size_t> arity = std::nullopt);
     void registerViewShapeName(const std::string& name, const std::string& scopeParamName);
     void registerChoiceName(const std::string& name, std::optional<size_t> arity = std::nullopt);
+    void registerNominalIdentity(const std::string& name, const std::string& identity);
     bool hasNamedType(const std::string& name) const;
     ResolvedType resolveType(
         const TypeNode* node,
@@ -240,6 +244,7 @@ private:
     std::unordered_set<std::string> choiceNames;
     std::unordered_map<std::string, std::string> viewShapeScopeParams;
     std::unordered_map<std::string, size_t> knownTypeArities;
+    std::unordered_map<std::string, std::string> nominalIdentities;
 
     void registerKnownTypeArity(const std::string& name, size_t arity);
     std::optional<size_t> lookupKnownTypeArity(const std::string& name) const;
@@ -247,6 +252,7 @@ private:
 
 ResolvedType makeUnknownType(const std::string& name = "");
 std::string canonicalTypeName(std::string_view name);
+std::string nominalTypeIdentity(std::string_view moduleName, std::string_view typeName);
 ResolvedType makeOpaqueExternalType(const std::string& name = "");
 ResolvedType adaptMemberType(const ResolvedType& baseType, const ResolvedType& fieldType);
 std::unordered_map<std::string, ResolvedType> buildTypeBindings(

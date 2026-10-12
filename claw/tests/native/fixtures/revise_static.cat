@@ -3,9 +3,9 @@ shape Config {
     port: Int32
 }
 
-static VERSION: Str = "1.0.0"
-static MAX_CONN: Int32 = 1024
-static ENABLED: Bool = true
+static version: Str = "1.0.0"
+static max_conn: Int32 = 1024
+static enabled: Bool = true
 
 implements Config {
     fn new(host: Str, port: Int32) -> Config {
@@ -18,12 +18,12 @@ implements Config {
 }
 
 fn get_version() -> ref Str {
-    return ref VERSION
+    return ref version
 }
 
 fn main() -> Int32 {
-    val cfg = Config.new(VERSION, MAX_CONN)
+    val cfg = Config.new(version, max_conn)
     println(cfg.describe())
-    println(ENABLED)
+    println(enabled)
     return 0
 }

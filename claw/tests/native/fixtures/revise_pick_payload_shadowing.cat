@@ -1,0 +1,46 @@
+choice Wrapped[T] {
+    some(value: T)
+    none
+}
+
+fn main() -> Int32 {
+    val number = 99
+    val selected: Wrapped[Int32] = some(7)
+    pick selected {
+        some(number) {
+            println(number)
+        }
+        none {}
+    }
+    println(number)
+
+    val expression_selected: Wrapped[Int32] = some(8)
+    val picked_number: Int32 = pick expression_selected {
+        some(number) {
+            number
+        }
+        none {
+            0
+        }
+    }
+    println(picked_number)
+    println(number)
+
+    val tuple_selected = (12, 13)
+    pick tuple_selected {
+        (number, _) {
+            println(number)
+        }
+    }
+    println(number)
+
+    val tuple_expression_selected = (14, 15)
+    val tuple_picked_number: Int32 = pick tuple_expression_selected {
+        (number, _) {
+            number
+        }
+    }
+    println(tuple_picked_number)
+    println(number)
+    0
+}

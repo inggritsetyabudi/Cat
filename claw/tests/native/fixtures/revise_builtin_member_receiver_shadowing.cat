@@ -1,0 +1,9 @@
+fn main() -> Int32 {
+    val anchored = Anchor.new(99)
+    if true {
+        val anchored = Anchor.new(20)
+        println(anchored.get())
+    }
+    println(anchored.get())
+    0
+}
