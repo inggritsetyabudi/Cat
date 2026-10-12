@@ -849,3 +849,38 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for Anchor pick-payload cleanup test"
 fi
+
+char_output="$ARTIFACT_DIR/revise_char_literals.exe"
+char_ll="${char_output%.exe}.ll"
+rm -f "$char_output" "$char_ll"
+echo "[build/pass] test_native/revise_char_literals.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_char_literals.cat" "$char_output" >/dev/null
+expect_generated_ll "$char_output"
+for codepoint in 233 128512 55295 57344 1114111; do
+  if ! grep -Eq "i32[[:space:]]+$codepoint([^0-9]|$)" "$char_ll"; then
+    echo "Char LLVM IR did not contain 32-bit Unicode scalar U+$codepoint" >&2
+    exit 1
+  fi
+done
+if "$char_output"; then
+  :
+else
+  char_status="$?"
+  echo "Char native executable failed with exit status $char_status" >&2
+  exit 1
+fi
+
+char_sanitized="$CWD_TEST_DIR/revise_char_literals_sanitized"
+if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,leak -x c - -o "$CWD_TEST_DIR/char_sanitizer_probe" >/dev/null 2>&1; then
+  echo "[asan/ubsan/lsan/pass] native Unicode Char scalar comparisons and static global"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -O1 -g \
+    "$char_ll" \
+    "$CLAW_DIR/runtime/native_runtime.c" \
+    -o "$char_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$char_sanitized"
+else
+  echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for Unicode Char tests"
+fi

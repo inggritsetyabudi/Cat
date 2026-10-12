@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <optional>
@@ -45,6 +46,10 @@ struct FloatExpr : public Expr {
 
 struct StringExpr : public Expr {
     std::string value;
+};
+
+struct CharExpr : public Expr {
+    uint32_t value = 0;
 };
 
 struct TupleExpr : public Expr {

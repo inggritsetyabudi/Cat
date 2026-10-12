@@ -1,0 +1,4 @@
+static low_surrogate: Char = 55296
+static high_surrogate: Char = 57343
+
+fn main() {}

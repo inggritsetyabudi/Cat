@@ -1,0 +1,17 @@
+static zero: Char = 0
+static before_surrogates: Char = 55295
+static after_surrogates: Char = 57344
+static maximum: Char = 1114111
+
+fn main() {
+    val typed_zero: Char = 0
+    val typed_before: Char = 55295
+    val typed_after: Char = 57344
+    val typed_maximum: Char = 1114111
+    val typed_negative_zero: Char = -0
+    val suffix_zero = 0_Char
+    val suffix_before = 55295_Char
+    val suffix_after = 57344_Char
+    val suffix_maximum = 1114111_Char
+    val suffix_negative_zero = -0_Char
+}

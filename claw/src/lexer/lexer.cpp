@@ -1,9 +1,71 @@
 #include "lexer/lexer.h"
 
 #include <cctype>
+#include <cstdint>
 #include <unordered_map>
 
 namespace claw::frontend {
+
+namespace {
+struct DecodedScalar {
+    bool valid = false;
+    uint32_t value = 0;
+    size_t length = 1;
+};
+
+DecodedScalar decodeUtf8Scalar(std::string_view source, size_t offset) {
+    const auto byteAt = [&](size_t index) {
+        return static_cast<unsigned char>(source[index]);
+    };
+    if (offset >= source.size()) {
+        return {};
+    }
+
+    const unsigned char first = byteAt(offset);
+    if (first <= 0x7F) {
+        return {true, first, 1};
+    }
+
+    size_t length = 0;
+    uint32_t value = 0;
+    uint32_t minimum = 0;
+    if (first >= 0xC2 && first <= 0xDF) {
+        length = 2;
+        value = first & 0x1F;
+        minimum = 0x80;
+    } else if (first >= 0xE0 && first <= 0xEF) {
+        length = 3;
+        value = first & 0x0F;
+        minimum = 0x800;
+    } else if (first >= 0xF0 && first <= 0xF4) {
+        length = 4;
+        value = first & 0x07;
+        minimum = 0x10000;
+    } else {
+        return {false, 0, 1};
+    }
+
+    if (offset + length > source.size()) {
+        return {false, 0, 1};
+    }
+    for (size_t i = 1; i < length; ++i) {
+        const unsigned char continuation = byteAt(offset + i);
+        if ((continuation & 0xC0) != 0x80) {
+            return {false, 0, 1};
+        }
+        value = (value << 6) | (continuation & 0x3F);
+    }
+
+    if (value < minimum || value > 0x10FFFF || (value >= 0xD800 && value <= 0xDFFF)) {
+        return {false, 0, length};
+    }
+    return {true, value, length};
+}
+
+bool isUnicodeScalar(uint32_t value) {
+    return value <= 0x10FFFF && !(value >= 0xD800 && value <= 0xDFFF);
+}
+} // namespace
 
 Lexer::Lexer(std::string_view source) : source(source) {}
 
@@ -218,14 +280,131 @@ Token Lexer::readChar() {
     const size_t startPos = pos;
 
     advance();
-    std::string text;
-    if (!isAtEnd() && peek() != '\'') {
-        text += advance();
+    uint32_t scalarValue = 0;
+    size_t scalarCount = 0;
+    std::string errorMessage;
+    const auto setError = [&](const std::string& message) {
+        if (errorMessage.empty()) {
+            errorMessage = message;
+        }
+    };
+
+    while (!isAtEnd() && peek() != '\'' && peek() != '\n') {
+        if (peek() == '\\') {
+            advance();
+            if (isAtEnd() || peek() == '\n') {
+                setError("Malformed escape sequence in character literal.");
+                break;
+            }
+            const char escape = advance();
+            uint32_t escapedValue = 0;
+            bool escapeValid = true;
+            switch (escape) {
+            case 'n': escapedValue = '\n'; break;
+            case 't': escapedValue = '\t'; break;
+            case 'r': escapedValue = '\r'; break;
+            case '\\': escapedValue = '\\'; break;
+            case '\'': escapedValue = '\''; break;
+            case '"': escapedValue = '"'; break;
+            case '0': escapedValue = 0; break;
+            case 'u': {
+                if (isAtEnd() || peek() != '{') {
+                    setError("Malformed Unicode escape in character literal.");
+                    escapeValid = false;
+                    break;
+                }
+                advance();
+                bool sawDigit = false;
+                bool malformed = false;
+                uint32_t codePoint = 0;
+                bool outOfRange = false;
+                while (!isAtEnd() && peek() != '}' && peek() != '\'' && peek() != '\n') {
+                    const unsigned char digitChar = static_cast<unsigned char>(advance());
+                    uint32_t digit = 0;
+                    if (digitChar >= '0' && digitChar <= '9') {
+                        digit = digitChar - '0';
+                    } else if (digitChar >= 'a' && digitChar <= 'f') {
+                        digit = digitChar - 'a' + 10;
+                    } else if (digitChar >= 'A' && digitChar <= 'F') {
+                        digit = digitChar - 'A' + 10;
+                    } else {
+                        malformed = true;
+                        continue;
+                    }
+                    sawDigit = true;
+                    if (codePoint > 0x10FFFF / 16) {
+                        outOfRange = true;
+                    } else {
+                        codePoint = codePoint * 16 + digit;
+                        if (codePoint > 0x10FFFF) {
+                            outOfRange = true;
+                        }
+                    }
+                }
+                if (!isAtEnd() && peek() == '}') {
+                    advance();
+                } else {
+                    malformed = true;
+                }
+                if (!sawDigit || malformed) {
+                    setError("Malformed Unicode escape in character literal.");
+                    escapeValid = false;
+                } else if (outOfRange || !isUnicodeScalar(codePoint)) {
+                    setError("Unicode escape is not a valid Unicode scalar value.");
+                    escapeValid = false;
+                } else {
+                    escapedValue = codePoint;
+                }
+                break;
+            }
+            default:
+                setError("Unknown escape sequence in character literal.");
+                escapeValid = false;
+                break;
+            }
+            if (escapeValid) {
+                if (scalarCount == 0) {
+                    scalarValue = escapedValue;
+                }
+                ++scalarCount;
+            }
+            continue;
+        }
+
+        const DecodedScalar decoded = decodeUtf8Scalar(source, pos);
+        if (!decoded.valid) {
+            setError("Invalid UTF-8 in character literal.");
+            const size_t consumeLength = decoded.length == 0 ? 1 : decoded.length;
+            for (size_t i = 0; i < consumeLength && !isAtEnd() && peek() != '\'' && peek() != '\n'; ++i) {
+                advance();
+            }
+            continue;
+        }
+        if (scalarCount == 0) {
+            scalarValue = decoded.value;
+        }
+        ++scalarCount;
+        for (size_t i = 0; i < decoded.length; ++i) {
+            advance();
+        }
     }
-    if (!isAtEnd()) {
+
+    const bool terminated = !isAtEnd() && peek() == '\'';
+    if (terminated) {
         advance();
     }
-    return makeToken(TokenKind::CharLiteral, text, startLine, startColumn, pos - startPos);
+    if (!terminated && errorMessage.empty()) {
+        errorMessage = "Unterminated character literal.";
+    } else if (errorMessage.empty() && scalarCount != 1) {
+        errorMessage = "Character literal must contain exactly one Unicode scalar value.";
+    }
+
+    return makeToken(
+        errorMessage.empty() ? TokenKind::CharLiteral : TokenKind::CharError,
+        errorMessage.empty() ? std::to_string(scalarValue) : errorMessage,
+        startLine,
+        startColumn,
+        pos - startPos);
 }
 
 std::vector<Token> Lexer::tokenize() {

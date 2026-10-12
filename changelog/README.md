@@ -25,3 +25,5 @@ Folder ini menyimpan log perubahan compiler dan dokumentasi, termasuk rincian hi
 - [`2026-10-12-builtin-member-receiver-binding-identity.md`](./2026-10-12-builtin-member-receiver-binding-identity.md) mencatat penerusan key receiver builtin member hingga LLVM dan regresi native Anchor shadowing.
 - [`2026-10-12-try-pick-binder-binding-identity.md`](./2026-10-12-try-pick-binder-binding-identity.md) mencatat identitas binder hasil `try`, payload choice/tuple `pick`, cleanup ownership, serta sanitizer regressions.
 - [`2026-10-12-str-bounds-check-binding-identity.md`](./2026-10-12-str-bounds-check-binding-identity.md) mencatat penerusan identitas receiver ke bounds-check LIR/LLVM, regresi `Str` shadowing, dan probe cleanup `try`/`pick`.
+- [`2026-10-12-char-literals-v04.md`](./2026-10-12-char-literals-v04.md) mencatat dukungan literal Char Unicode scalar dari lexer sampai native LLVM `i32`, validasi UTF-8/escape, dan regresi sanitizer.
+- [`2026-10-12-char-integer-surrogate-followup.md`](./2026-10-12-char-integer-surrogate-followup.md) mencatat penolakan integer surrogate/di atas U+10FFFF untuk target `Char`, regresi signed literal, dan verifikasi review final.

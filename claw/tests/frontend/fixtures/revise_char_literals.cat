@@ -1,0 +1,15 @@
+fn main() {
+    val ascii: Char = 'A'
+    val multibyte: Char = 'é'
+    val emoji: Char = '\u{1F600}'
+    val nul: Char = '\0'
+    val newline: Char = '\n'
+    val tab: Char = '\t'
+    val carriage_return: Char = '\r'
+    val quote: Char = '\''
+    val double_quote: Char = '\"'
+    val backslash: Char = '\\'
+    val before_surrogates: Char = '\u{D7FF}'
+    val after_surrogates: Char = '\u{E000}'
+    val maximum: Char = '\u{10FFFF}'
+}

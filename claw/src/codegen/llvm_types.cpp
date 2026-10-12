@@ -194,7 +194,7 @@ std::string LlvmEmitter::emitStaticGlobals() {
                 first = false;
                 
                 std::string llvmVal;
-                if (stat->type == "Int32") {
+                if (stat->type == "Int32" || stat->type == "Char") {
                     llvmVal = stat->value;
                 } else if (stat->type == "Bool") {
                     llvmVal = stat->value == "true" ? "1" : "0";
