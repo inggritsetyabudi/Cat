@@ -1,0 +1,6 @@
+static too_high: Char = 1114112
+
+fn main() {
+    val typed_too_high: Char = 1114112
+    val suffix_too_high = 1114112_Char
+}

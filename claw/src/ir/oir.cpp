@@ -435,6 +435,9 @@ OirValue lowerExpr(
     if (auto* value = dynamic_cast<const IntExpr*>(expr)) {
         return OirValue{value->value, exprType(sema, expr), false};
     }
+    if (auto* value = dynamic_cast<const CharExpr*>(expr)) {
+        return OirValue{std::to_string(value->value), exprType(sema, expr), false};
+    }
     if (auto* value = dynamic_cast<const FloatExpr*>(expr)) {
         return OirValue{value->value, exprType(sema, expr), false};
     }
@@ -1461,6 +1464,8 @@ OirStatic OirEmitter::lowerStatic(const StaticDecl* stat, std::string_view realm
         lowered.type = exprType(sema, stat->init.get());
         if (auto* intLit = dynamic_cast<IntExpr*>(stat->init.get())) {
             lowered.value = intLit->value;
+        } else if (auto* charLit = dynamic_cast<CharExpr*>(stat->init.get())) {
+            lowered.value = std::to_string(charLit->value);
         } else if (auto* floatLit = dynamic_cast<FloatExpr*>(stat->init.get())) {
             lowered.value = floatLit->value;
         } else if (auto* strLit = dynamic_cast<StringExpr*>(stat->init.get())) {

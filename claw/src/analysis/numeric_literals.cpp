@@ -310,7 +310,8 @@ bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& t
 
     const unsigned pointerWidthBits = std::min(target.pointerWidthBits == 0 ? 64u : target.pointerWidthBits, 128u);
     if (targetName == "Char") {
-        return value <= UInt128{0x10FFFF};
+        return value <= UInt128{0x10FFFF} &&
+               !(value >= UInt128{0xD800} && value <= UInt128{0xDFFF});
     }
     if (targetName == "USize") {
         return value <= maxUnsignedBits(pointerWidthBits);
@@ -334,6 +335,10 @@ bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& t
 }
 
 bool integerLiteralFitsNegatedTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target) {
+    if (targetName == "Char") {
+        UInt128 value = 0;
+        return tryParseUnsignedDecimal(magnitude, &value) && value == 0;
+    }
     if (targetName.rfind("Int", 0) == 0) {
         const auto bits = integerLikeBitWidth(targetName);
         UInt128 value = 0;

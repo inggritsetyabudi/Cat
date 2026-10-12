@@ -1318,6 +1318,7 @@ void SemanticAnalyzer::resolveTopLevelTypes(const RealmDecl* realm) {
                 bool isLiteral = dynamic_cast<IntExpr*>(stat->init.get()) != nullptr ||
                                  dynamic_cast<FloatExpr*>(stat->init.get()) != nullptr ||
                                  dynamic_cast<StringExpr*>(stat->init.get()) != nullptr ||
+                                 dynamic_cast<CharExpr*>(stat->init.get()) != nullptr ||
                                  dynamic_cast<BoolExpr*>(stat->init.get()) != nullptr;
                 if (!isLiteral) {
                     reportError(stat->init.get(), "Static variable initializer must be a compile-time literal expression.");
@@ -3056,6 +3057,8 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
 
     if (dynamic_cast<BoolExpr*>(expr)) {
         type = makePlainType("Bool");
+    } else if (dynamic_cast<CharExpr*>(expr)) {
+        type = makePlainType("Char");
     } else if (auto* intExpr = dynamic_cast<IntExpr*>(expr)) {
         const auto literal = parseIntegerLiteralText(intExpr->value);
         if (!literal.valid) {

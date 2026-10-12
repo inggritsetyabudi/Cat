@@ -1,0 +1,5 @@
+fn main() {
+    val low_surrogate = 55296_Char
+    val high_surrogate = 57343_Char
+    val negative_scalar = -1_Char
+}

@@ -602,7 +602,84 @@ run_check_fail "UInt128 radix overflow" "$FIXTURE_DIR/revise_bad_integer_uint128
 run_check_fail "inferred integer exceeding Int32 inside if value" "$FIXTURE_DIR/revise_bad_integer_inferred_branch_overflow.cat" "does not fit target type Int32"
 run_check_fail "inferred integer exceeding Int32 inside tuple" "$FIXTURE_DIR/revise_bad_integer_inferred_tuple_overflow.cat" "does not fit target type Int32"
 run_check_fail "repeated float separators" "$FIXTURE_DIR/revise_bad_float_repeated_separator.cat" "Malformed float literal"
+run_check_pass "integer-to-Char accepts scalar boundaries and rejects no valid values" \
+  "$FIXTURE_DIR/revise_integer_char_scalar_boundaries.cat"
+run_check_fail "typed Char rejects surrogate integer literals" \
+  "$FIXTURE_DIR/revise_bad_integer_char_typed_surrogate.cat" \
+  "does not fit target type Char."
+run_check_fail "_Char suffix rejects surrogate integer literals" \
+  "$FIXTURE_DIR/revise_bad_integer_char_suffix_surrogate.cat" \
+  "does not fit target type Char."
+run_check_fail "static Char rejects surrogate integer initializers" \
+  "$FIXTURE_DIR/revise_bad_integer_char_static_surrogate.cat" \
+  "does not fit target type Char."
+run_check_fail "integer-to-Char rejects values above U+10FFFF" \
+  "$FIXTURE_DIR/revise_bad_integer_char_out_of_range.cat" \
+  "does not fit target type Char."
+run_check_pass "PRD §11 Char Unicode scalars, UTF-8, escapes, and scalar boundaries" \
+  "$FIXTURE_DIR/revise_char_literals.cat"
+run_check_fail "empty character literal" \
+  "$FIXTURE_DIR/revise_bad_char_empty.cat" \
+  "Character literal must contain exactly one Unicode scalar value."
+run_check_fail "multiple-scalar character literal" \
+  "$FIXTURE_DIR/revise_bad_char_multiple.cat" \
+  "Character literal must contain exactly one Unicode scalar value."
+run_check_fail "unknown character escape" \
+  "$FIXTURE_DIR/revise_bad_char_escape.cat" \
+  "Unknown escape sequence in character literal."
+run_check_fail "malformed Unicode character escape" \
+  "$FIXTURE_DIR/revise_bad_char_unicode_escape.cat" \
+  "Malformed Unicode escape in character literal."
+run_check_fail "surrogate character escape" \
+  "$FIXTURE_DIR/revise_bad_char_surrogate.cat" \
+  "Unicode escape is not a valid Unicode scalar value."
+run_check_fail "character escape above U+10FFFF" \
+  "$FIXTURE_DIR/revise_bad_char_out_of_range.cat" \
+  "Unicode escape is not a valid Unicode scalar value."
+run_check_fail "unterminated character literal" \
+  "$FIXTURE_DIR/revise_bad_char_unterminated.cat" \
+  "Unterminated character literal."
+while read -r invalid_utf8_case invalid_utf8_hex; do
+  char_invalid_utf8="$TEMP_DIR/revise_bad_char_invalid_utf8_${invalid_utf8_case}.cat"
+  python3 - "$char_invalid_utf8" "$invalid_utf8_hex" <<'PY'
+import pathlib
+import sys
 
+path = pathlib.Path(sys.argv[1])
+raw_bytes = bytes.fromhex(sys.argv[2])
+path.write_bytes(b"fn main() {\n    val bad = '" + raw_bytes + b"'\n}\n")
+PY
+  run_check_fail "invalid UTF-8 character literal ($invalid_utf8_case)" \
+    "$char_invalid_utf8" \
+    "Invalid UTF-8 in character literal."
+done <<'EOF'
+illegal_lead ff
+overlong_two_byte c080
+overlong_three_byte e08080
+truncated_two_byte c2
+truncated_three_byte e282
+invalid_continuation e228a1
+surrogate_encoding eda080
+above_unicode_max f4908080
+EOF
+char_span_output=""
+if char_span_output="$("$CLAW_EXE" check "$FIXTURE_DIR/revise_bad_char_empty.cat" 2>&1)"; then
+  echo "empty character literal unexpectedly passed span check" >&2
+  exit 1
+fi
+if [[ "$char_span_output" != *"revise_bad_char_empty.cat:2:15"* ]]; then
+  echo "character-literal diagnostic did not preserve its source span:" >&2
+  echo "$char_span_output" >&2
+  exit 1
+fi
+char_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_char_literals.cat")"
+for expected_char_value in "65 : Char" "233 : Char" "128512 : Char" "1114111 : Char"; do
+  if [[ "$char_air_output" != *"$expected_char_value"* ]]; then
+    echo "Char AIR did not preserve scalar value/type '$expected_char_value'" >&2
+    echo "$char_air_output" >&2
+    exit 1
+  fi
+done
 
 run_check_pass "Str Range[Int32] indexing, get Maybe provenance, and UTF-8 boundaries" \
   "$SCRIPT_DIR/../native/fixtures/revise_str_range_views.cat"
