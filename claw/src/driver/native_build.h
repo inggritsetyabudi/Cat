@@ -4,6 +4,7 @@
 #include "workspace/workspace.h"
 
 #include <filesystem>
+#include <functional>
 #include <string_view>
 #include <vector>
 
@@ -16,6 +17,7 @@ std::filesystem::path buildNativeExecutable(
     std::string_view entryRealm,
     const std::vector<claw::frontend::OirUnitView>& units,
     const std::filesystem::path& compilerBinaryPath,
-    const std::filesystem::path& outputPath);
+    const std::filesystem::path& outputPath,
+    const std::function<void()>& beforeLinkOutput);
 
 } // namespace claw::driver

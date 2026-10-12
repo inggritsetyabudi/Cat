@@ -52,6 +52,8 @@ claw llvm path/to/file.cat
 claw build path/to/file-or-workspace
 ```
 
+`claw build` reports native build phases with the **C@ Forge** status bar: completed work is marked `=`, the active phase `>`, and later phases `.`. It does not estimate percentages. LLVM lowering and native linking have no progress callback, so that phase is explicitly labeled indeterminate; POSIX interactive terminals get a spinner, while Windows uses a static indeterminate label to avoid unsupported terminal-control behavior. The current CLI has one native profile, optimized with `clang -O2`; it does not expose a debug/unoptimized profile or profile-selection flag. ANSI colors are used on supported POSIX terminals unless `NO_COLOR` is set or `TERM=dumb`; ANSI styling is disabled on Windows as a safe fallback. The existing `Built native executable: ...` success line and compiler exit codes are retained.
+
 Validated today:
 - revised frontend parsing and semantic checks
 - revised workspace loading with `main.cat`, `src/modules.cat`, and `claw.toml`

@@ -3,6 +3,7 @@ project(claw CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+find_package(Threads REQUIRED)
 
 add_library(claw_frontend
     src/diagnostics/diagnostics.cpp
@@ -33,7 +34,7 @@ add_executable(claw
     src/driver/main.cpp
     src/driver/native_build.cpp
 )
-target_link_libraries(claw PRIVATE claw_frontend)
+target_link_libraries(claw PRIVATE claw_frontend Threads::Threads)
 
 set(CLAW_NATIVE_RUNTIME_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/runtime/native_runtime.c")
 set_property(TARGET claw APPEND PROPERTY LINK_DEPENDS "${CLAW_NATIVE_RUNTIME_SOURCE}")
