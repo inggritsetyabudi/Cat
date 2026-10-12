@@ -1119,6 +1119,9 @@ std::unique_ptr<ShapeInitExpr> Parser::parseShapeInitExpr(std::string name, std:
 }
 
 std::unique_ptr<Expr> Parser::parsePrimary() {
+    if (check(TokenKind::CharError)) {
+        failAtCurrent(peek().text);
+    }
     if (check(TokenKind::Error)) {
         failAtCurrent("Unexpected token in source.");
     }
@@ -1164,6 +1167,12 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         auto expr = std::make_unique<StringExpr>();
         expr->span = spanFromToken(previous());
         expr->value = previous().text;
+        return expr;
+    }
+    if (match(TokenKind::CharLiteral)) {
+        auto expr = std::make_unique<CharExpr>();
+        expr->span = spanFromToken(previous());
+        expr->value = static_cast<uint32_t>(std::stoul(previous().text));
         return expr;
     }
     if (match(TokenKind::LParen)) {

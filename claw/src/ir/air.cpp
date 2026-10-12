@@ -387,6 +387,8 @@ std::string AirEmitter::emitExprValue(const Expr* expr) const {
 
     if (auto* value = dynamic_cast<const IntExpr*>(expr)) {
         out << value->value;
+    } else if (auto* value = dynamic_cast<const CharExpr*>(expr)) {
+        out << value->value;
     } else if (auto* value = dynamic_cast<const FloatExpr*>(expr)) {
         out << value->value;
     } else if (auto* value = dynamic_cast<const StringExpr*>(expr)) {

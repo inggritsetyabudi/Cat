@@ -35,6 +35,7 @@ enum class TokenKind {
     FloatLiteral,
     StringLiteral,
     CharLiteral,
+    CharError,
 
     // Special
     Eof,

@@ -1,0 +1,13 @@
+static accent: Char = 'é'
+
+fn main() -> Int32 {
+    if accent == '\u{E9}' and 'A' == '\u{41}' and 'é' == '\u{E9}' and '😀' == '\u{1F600}' and
+       '\0' == '\u{0}' and '\n' == '\u{A}' and '\t' == '\u{9}' and
+       '\r' == '\u{D}' and '\\' == '\u{5C}' and '\'' == '\u{27}' and
+       '\"' == '\u{22}' and '\u{D7FF}' == '\u{D7FF}' and
+       '\u{E000}' == '\u{E000}' and '\u{10FFFF}' == '\u{10FFFF}' {
+        return 0
+    } else {
+        return 1
+    }
+}
