@@ -1,0 +1,6 @@
+fn bad() -> Maybe[ref Str] {
+    val text: Str = "abc"
+    return text.get(0..1)
+}
+
+fn main() {}

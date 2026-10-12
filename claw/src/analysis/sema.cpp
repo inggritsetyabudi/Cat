@@ -35,6 +35,24 @@ ResolvedType makeOwnedType(const std::string& name) {
     return type;
 }
 
+bool isInt32RangeType(const ResolvedType& type) {
+    return type.name == "Range" && type.isPlain() && type.params.size() == 1 &&
+        type.params.front().name == "Int32" && type.params.front().isPlain() &&
+        type.params.front().params.empty();
+}
+
+bool isBorrowedStrMaybeType(const ResolvedType& type) {
+    return type.name == "Maybe" && type.params.size() == 1 &&
+        type.params.front().name == "Str" && type.params.front().isView() &&
+        type.params.front().viewKind == "look" && type.params.front().params.empty();
+}
+
+void inheritMaybeStrViewScope(ResolvedType& maybeType, const ResolvedType& sourceType) {
+    if (isBorrowedStrMaybeType(maybeType) && maybeType.params.front().viewScope.empty()) {
+        maybeType.params.front().viewScope = sourceType.viewScope;
+    }
+}
+
 bool isPlainTupleDestructuringField(const ResolvedType& type) {
     if (!type.isPlain() || type.isOwned() || type.isView() || type.name == "Span" || type.isUnknown() ||
         type.isOpaqueExternal() || type.isGeneric || !type.scopeName.empty() || !type.viewScope.empty()) {
@@ -752,7 +770,9 @@ const Symbol* SemanticAnalyzer::resolveBorrowSourceSymbol(const Expr* expr) cons
             }
         }
 
-        if (signature && signature->returnType.isView() && signature->viewReturnSourceParam.has_value()) {
+        if (signature &&
+            (signature->returnType.isView() || isBorrowedStrMaybeType(signature->returnType)) &&
+            signature->viewReturnSourceParam.has_value()) {
             const size_t sourceIndex = *signature->viewReturnSourceParam;
             if (sourceIndex < call->args.size()) {
                 return resolveBorrowSourceSymbol(call->args[sourceIndex].get());
@@ -1819,7 +1839,7 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
             false,
             "Duplicate parameter name: " + fn->params[i].name,
             fn->params[i].span,
-            (type.isView() || type.name == "Span" || typeContainsScopeName(type))
+            (type.isView() || type.name == "Span" || typeContainsScopeName(type) || isBorrowedStrMaybeType(type))
                 ? std::optional<size_t>(i)
                 : std::nullopt);
     }
@@ -1861,8 +1881,12 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
                             "Implicit return cannot let value `" + valueType.describe() +
                                 "` escape because it contains borrowed storage bound to scope `" + scopeName + "`.");
                     }
-                } else if (valueType.name != "Never" && currentSignature && currentSignature->returnType.isView()) {
-                    if (!canBorrowAsView(valueType, currentSignature->returnType)) {
+                } else if (valueType.name != "Never" && currentSignature &&
+                           (currentSignature->returnType.isView() || isBorrowedStrMaybeType(currentSignature->returnType))) {
+                    const bool returnTypeMatches = currentSignature->returnType.isView()
+                        ? canBorrowAsView(valueType, currentSignature->returnType)
+                        : canAssignType(valueType, currentSignature->returnType);
+                    if (!returnTypeMatches) {
                         reportError(
                             tailExprStmt,
                             "Implicit return type mismatch in function '" + currentFunction->name + "': expected " +
@@ -1902,14 +1926,15 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
         currentSignature->returnType.viewKind.empty() &&
         currentSignature->returnType.name == "Unit";
 
-    if (currentSignature && currentSignature->returnType.isView()) {
+    if (currentSignature &&
+        (currentSignature->returnType.isView() || isBorrowedStrMaybeType(currentSignature->returnType))) {
         auto signatureIt = analysisResult.functionSignatures.find(fn);
         if (signatureIt != analysisResult.functionSignatures.end()) {
             signatureIt->second.viewReturnSourceParam = currentViewReturnSourceParam;
             analysisResult.functionsByName[fn->name] = signatureIt->second;
         }
         if (!currentViewReturnSeen) {
-            reportError(fn, "View-returning functions must return a view derived from one of their view parameters.");
+            reportError(fn, "Borrowed-returning functions must return a view derived from one of their borrowed parameters.");
         }
     } else if (currentSignature && !unitReturn && !hasImplicitTailReturn && (!fn->body || !blockDefinitelyTerminates(fn->body.get()))) {
         reportError(
@@ -2388,7 +2413,8 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
         }
 
         const std::optional<size_t> viewSourceParamIndex =
-            ((finalType.isView() || finalType.name == "Span" || typeContainsScopeName(finalType)) && bind->value)
+            ((finalType.isView() || finalType.name == "Span" || typeContainsScopeName(finalType) ||
+              isBorrowedStrMaybeType(finalType)) && bind->value)
             ? resolveViewSourceParam(bind->value.get())
             : std::nullopt;
 
@@ -2680,8 +2706,12 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                     "Cannot return value `" + valueType.describe() +
                         "` because it contains borrowed storage bound to scope `" + scopeName + "`.");
             }
-        } else if (currentSignature && currentSignature->returnType.isView()) {
-            if (!canBorrowAsView(valueType, currentSignature->returnType)) {
+        } else if (currentSignature &&
+                   (currentSignature->returnType.isView() || isBorrowedStrMaybeType(currentSignature->returnType))) {
+            const bool returnTypeMatches = currentSignature->returnType.isView()
+                ? canBorrowAsView(valueType, currentSignature->returnType)
+                : canAssignType(valueType, currentSignature->returnType);
+            if (!returnTypeMatches) {
                 reportError(
                     returnStmt,
                     "Return type mismatch in function '" + currentFunction->name + "': expected " +
@@ -3518,6 +3548,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
         const ResolvedType objectType = analyzeExpr(index->object.get());
         const ResolvedType expectedIndexType = makePlainType("USize");
         const ResolvedType indexType = analyzeExpr(index->index.get(), &expectedIndexType);
+        const bool strRangeIndex = objectType.name == "Str" && isInt32RangeType(indexType);
 
         if (objectType.isOpaqueExternal()) {
             reportError(index->object.get(), opaqueExternalValueUseMessage(objectType, "index receiver"));
@@ -3525,13 +3556,18 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
         if (indexType.isOpaqueExternal()) {
             reportError(index->index.get(), opaqueExternalValueUseMessage(indexType, "index value"));
         }
-        if (!indexType.isUnknown() && !canAssignType(indexType, expectedIndexType)) {
+        if (!indexType.isUnknown() && !strRangeIndex && !canAssignType(indexType, expectedIndexType)) {
             reportError(index->index.get(), "Index expression must have type USize, got " + indexType.describe());
         }
 
         if (!objectType.isUnknown() && !objectType.isOpaqueExternal()) {
             if (objectType.name == "Str") {
-                type = makePlainType("UInt8");
+                if (strRangeIndex) {
+                    type = asViewType(makeOwnedType("Str"), "look");
+                    type.viewScope = objectType.viewScope;
+                } else {
+                    type = makePlainType("UInt8");
+                }
             } else if ((objectType.name == "Span" || objectType.name == "Vec" || objectType.name == "Array") &&
                        !objectType.params.empty()) {
                 type = objectType.params.front();
@@ -4066,6 +4102,22 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                     }
                 }
             }
+            if (isBorrowedStrMaybeType(type)) {
+                const ResolvedType* sourceType = nullptr;
+                if (methodSignature.has_value() && methodSignature->viewReturnFromReceiver) {
+                    if (auto* member = dynamic_cast<MemberExpr*>(call->callee.get())) {
+                        sourceType = lookupExprType(member->object.get());
+                    }
+                } else if (signature->viewReturnSourceParam.has_value()) {
+                    const size_t sourceIndex = *signature->viewReturnSourceParam;
+                    if (sourceIndex < call->args.size()) {
+                        sourceType = lookupExprType(call->args[sourceIndex].get());
+                    }
+                }
+                if (sourceType) {
+                    inheritMaybeStrViewScope(type, *sourceType);
+                }
+            }
         } else {
             if (!externalCall) {
                 if (auto* calleeIdent = dynamic_cast<IdentExpr*>(call->callee.get())) {
@@ -4232,7 +4284,8 @@ std::optional<size_t> SemanticAnalyzer::resolveViewSourceParam(const Expr* expr)
             return std::nullopt;
         }
 
-        const std::optional<size_t> sourceParam = signature->returnType.isView()
+        const std::optional<size_t> sourceParam =
+            (signature->returnType.isView() || isBorrowedStrMaybeType(signature->returnType))
             ? signature->viewReturnSourceParam
             : (typeContainsScopeName(signature->returnType) ? signature->scopeReturnSourceParam : std::nullopt);
         if (!sourceParam.has_value()) {

@@ -5,6 +5,6 @@ fn main() {
         println(text.first_byte())
         println(text.last_byte())
         println(text.byte_at(0))
-        println(text.slice(0, 1))
+        println(text[0..1])
     }
 }

@@ -40,6 +40,39 @@ std::string tailSegment(std::string_view text) {
     return std::string(text.substr(pos + 1));
 }
 
+bool isStrTypeText(std::string_view type) {
+    std::string stripped(type);
+    auto removePrefix = [&](std::string_view prefix) {
+        if (stripped.rfind(prefix, 0) == 0) {
+            stripped.erase(0, prefix.size());
+            return true;
+        }
+        return false;
+    };
+    if (removePrefix("ref mut[")) {
+        const auto close = stripped.find(']');
+        if (close == std::string::npos) return false;
+        stripped.erase(0, close + 1);
+    } else if (removePrefix("ref[")) {
+        const auto close = stripped.find(']');
+        if (close == std::string::npos) return false;
+        stripped.erase(0, close + 1);
+    } else if (!(removePrefix("ref mut ") || removePrefix("ref ") || removePrefix("look ") ||
+                 removePrefix("edit "))) {
+        // Owned Str has no view prefix.
+    }
+    while (!stripped.empty() && std::isspace(static_cast<unsigned char>(stripped.front())) != 0) {
+        stripped.erase(stripped.begin());
+    }
+    const auto generic = stripped.find('[');
+    if (generic != std::string::npos) stripped.resize(generic);
+    return stripped == "Str";
+}
+
+bool isInt32RangeTypeText(std::string_view type) {
+    return type == "Range[Int32]";
+}
+
 std::string receiverSegment(std::string_view text) {
     const size_t pos = text.rfind('.');
     if (pos == std::string_view::npos) {
@@ -549,6 +582,17 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
                         args.push_back(lowerValue(arg));
                     }
 
+                    if (value.builtinTag == std::optional<std::string>{"Str.get"} &&
+                        value.result.has_value() && value.builtinReceiver.has_value() && args.size() == 1) {
+                        currentBlock.insts.push_back(LirStrRangeViewInst{
+                            *value.result,
+                            lowerValue(*value.builtinReceiver),
+                            args.front(),
+                            value.type,
+                            true});
+                        return;
+                    }
+
                     LirSafetyTag safety = classifyCallSafety(value);
                     if (safety == LirSafetyTag::BoundsCheckRequired) {
                         const std::string defectLabel = currentBlock.label + ".defect.bounds." + std::to_string(nextDefect++);
@@ -592,8 +636,15 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
                     currentBlock.insts.push_back(LirFieldInst{value.result, lowerValue(value.object), value.field, value.type, LirSafetyTag::ProvenSafe});
                 },
                 [&](const OirIndexInst& value) {
-                    currentBlock.insts.push_back(LirIndexInst{
-                        value.result, lowerValue(value.object), lowerValue(value.index), value.type});
+                    const LirValue object = lowerValue(value.object);
+                    const LirValue index = lowerValue(value.index);
+                    if (isStrTypeText(object.type) && isInt32RangeTypeText(index.type)) {
+                        currentBlock.insts.push_back(LirStrRangeViewInst{
+                            value.result, object, index, value.type, false});
+                    } else {
+                        currentBlock.insts.push_back(LirIndexInst{
+                            value.result, object, index, value.type});
+                    }
                 },
                 [&](const OirStoreIndexInst& value) {
                     currentBlock.insts.push_back(LirStoreIndexInst{
@@ -803,7 +854,14 @@ std::string formatInst(const LirInst& inst, int indent) {
         [&](const LirIndexInst& value) {
             std::ostringstream out;
             out << pad << value.result << " = index " << formatValue(value.object) << "[" << formatValue(value.index)
-                << "] : " << value.type << " [bounds-check]\n";
+                << "] : " << value.type << "\n";
+            return out.str();
+        },
+        [&](const LirStrRangeViewInst& value) {
+            std::ostringstream out;
+            out << pad << value.result << " = str_range_view " << formatValue(value.receiver) << '['
+                << formatValue(value.range) << "] : " << value.type
+                << (value.safeResult ? " safe" : " defect-on-invalid") << "\n";
             return out.str();
         },
         [&](const LirStoreIndexInst& value) {

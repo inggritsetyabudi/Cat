@@ -602,3 +602,12 @@ run_check_fail "UInt128 radix overflow" "$FIXTURE_DIR/revise_bad_integer_uint128
 run_check_fail "inferred integer exceeding Int32 inside if value" "$FIXTURE_DIR/revise_bad_integer_inferred_branch_overflow.cat" "does not fit target type Int32"
 run_check_fail "inferred integer exceeding Int32 inside tuple" "$FIXTURE_DIR/revise_bad_integer_inferred_tuple_overflow.cat" "does not fit target type Int32"
 run_check_fail "repeated float separators" "$FIXTURE_DIR/revise_bad_float_repeated_separator.cat" "Malformed float literal"
+
+
+run_check_pass "Str Range[Int32] indexing, get Maybe provenance, and UTF-8 boundaries" \
+  "$SCRIPT_DIR/../native/fixtures/revise_str_range_views.cat"
+run_check_fail "legacy public Str.slice(start,length) is removed" \
+  "$FIXTURE_DIR/revise_bad_str_legacy_slice.cat" "Type 'Str' does not provide method 'slice'."
+run_check_fail "Maybe[ref Str] from Str.get cannot escape a local receiver" \
+  "$FIXTURE_DIR/revise_bad_str_range_local_return.cat" \
+  "Borrowed-returning functions must return a view derived from one of their borrowed parameters."

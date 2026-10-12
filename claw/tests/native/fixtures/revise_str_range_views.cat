@@ -1,0 +1,44 @@
+fn from_param(text: ref Str) -> Maybe[ref Str] {
+    return text.get(0..1)
+}
+
+fn direct_from_param(text: ref Str) -> ref Str {
+    return text[0..1]
+}
+
+fn show(value: Maybe[ref Str]) {
+    pick value {
+        Some(part) {
+            println(part)
+        }
+        None {
+            println("none")
+        }
+    }
+}
+
+fn main() -> Int32 {
+    val text: Str = "AéB"
+    println(text[0..1])
+    println(direct_from_param(ref text))
+    println(text[1..3])
+    println(text[1..=2])
+    val middle: Range[Int32] = 1..3
+    println(text[middle])
+    show(text.get(middle))
+    println(text[0..0])
+    println(text[4..4])
+    println(text[0..=3])
+
+    show(text.get(0..1))
+    show(text.get(1..4))
+    show(text.get(4..4))
+    show(text.get(-1..1))
+    show(text.get(3..2))
+    show(text.get(0..5))
+    show(text.get(0..2))
+    show(text.get(2..3))
+    show(text.get(0..=2147483647))
+    show(from_param(ref text))
+    return 0
+}

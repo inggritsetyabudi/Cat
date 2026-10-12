@@ -1,0 +1,4 @@
+fn main() {
+    val text: Str = "AéB"
+    println(text[0..=2147483647])
+}

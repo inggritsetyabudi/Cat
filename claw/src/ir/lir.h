@@ -208,6 +208,14 @@ struct LirIndexInst {
     std::string type;
 };
 
+struct LirStrRangeViewInst {
+    std::string result;
+    LirValue receiver;
+    LirValue range;
+    std::string type;
+    bool safeResult = false;
+};
+
 struct LirStoreIndexInst {
     LirValue object;
     LirValue index;
@@ -255,6 +263,7 @@ using LirInst = std::variant<
     LirCallInst,
     LirFieldInst,
     LirIndexInst,
+    LirStrRangeViewInst,
     LirStoreIndexInst,
     LirUnaryInst,
     LirBinaryInst,

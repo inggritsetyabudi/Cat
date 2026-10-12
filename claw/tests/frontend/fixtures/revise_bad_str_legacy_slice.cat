@@ -1,0 +1,4 @@
+fn main() {
+    val text: Str = "abc"
+    println(text.slice(0, 1))
+}
