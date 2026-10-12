@@ -178,6 +178,30 @@ if [[ "$range_output" != *'define internal i32 @"revise_int32_range::contains"(i
   echo "Int32 range LLVM output did not contain the direct aggregate ABI and expected bound tests" >&2
   exit 1
 fi
+uint8_range_ll="$ARTIFACT_DIR/revise_uint8_range.ll"
+rm -f "$uint8_range_ll"
+run_llvm "test_native/revise_uint8_range.cat" "$SCRIPT_DIR/../native/fixtures/revise_uint8_range.cat" "$uint8_range_ll"
+uint8_range_output="$(tr -d '\r' < "$uint8_range_ll")"
+if [[ "$uint8_range_output" != *'define internal i32 @"revise_uint8_range::contains"(i8 %arg.value, { i8, i8, i1 } %arg.range)'* ]] ||
+   [[ "$uint8_range_output" != *'icmp uge i8'* ]] ||
+   [[ "$uint8_range_output" != *'icmp ult i8'* ]] ||
+   [[ "$uint8_range_output" != *'icmp ule i8'* ]] ||
+   [[ "$uint8_range_output" != *'add i8'* ]] ||
+   [[ "$uint8_range_output" != *'icmp eq i8'* ]] ||
+   [[ "$uint8_range_output" != *'declare void @"claw.runtime.println.u8"(i8 zeroext)'* ]] ||
+   [[ "$uint8_range_output" != *'call void @"claw.runtime.println.u8"(i8 zeroext '* ]]; then
+  echo "UInt8 range LLVM output did not contain its i8 ABI, unsigned bounds, narrow increment, and unsigned printer" >&2
+  exit 1
+fi
+uint8_print_ll="$ARTIFACT_DIR/revise_uint8_print.ll"
+rm -f "$uint8_print_ll"
+run_llvm "test_native/revise_uint8_print.cat" "$SCRIPT_DIR/../native/fixtures/revise_uint8_print.cat" "$uint8_print_ll"
+uint8_print_output="$(tr -d '\r' < "$uint8_print_ll")"
+if [[ "$uint8_print_output" != *'declare void @"claw.runtime.print.u8"(i8 zeroext)'* ]] ||
+   [[ "$uint8_print_output" != *'call void @"claw.runtime.print.u8"(i8 zeroext '* ]]; then
+  echo "UInt8 print LLVM output did not apply zeroext to its declaration and callsite" >&2
+  exit 1
+fi
 char_range_ll="$ARTIFACT_DIR/revise_char_range.ll"
 rm -f "$char_range_ll"
 run_llvm "test_native/revise_char_range.cat" "$SCRIPT_DIR/../native/fixtures/revise_char_range.cat" "$char_range_ll"

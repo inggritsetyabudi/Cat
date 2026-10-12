@@ -20,8 +20,13 @@ void LlvmEmitter::emitRangeScanInit(
     lines.push_back("  " + start + " = extractvalue " + rangeType + " " + rangeValue + ", 0");
     lines.push_back("  " + end + " = extractvalue " + rangeType + " " + rangeValue + ", 1");
     lines.push_back("  " + inclusive + " = extractvalue " + rangeType + " " + rangeValue + ", 2");
-    lines.push_back("  store i32 " + start + ", ptr " + iterState.rangeCurrentSlot + ", align 4");
-    lines.push_back("  store i32 " + end + ", ptr " + iterState.rangeEndSlot + ", align 4");
+    const std::string itemLlvmType = llvmType(value.itemType);
+    lines.push_back(
+        "  store " + itemLlvmType + " " + start + ", ptr " + iterState.rangeCurrentSlot + ", align " +
+        std::to_string(iterState.itemAlign));
+    lines.push_back(
+        "  store " + itemLlvmType + " " + end + ", ptr " + iterState.rangeEndSlot + ", align " +
+        std::to_string(iterState.itemAlign));
     lines.push_back("  store i1 " + inclusive + ", ptr " + iterState.rangeInclusiveSlot + ", align 1");
     lines.push_back("  store i64 0, ptr " + iterState.indexSlot + ", align 8");
     lines.push_back("  store i1 false, ptr " + iterState.rangeFinishedSlot + ", align 1");
@@ -53,17 +58,26 @@ void LlvmEmitter::emitIterNext(
         const std::string hasItem = state.temp("range.scan.has_item");
         const std::string atEnd = state.temp("range.scan.at_end");
         const std::string finalInclusiveItem = state.temp("range.scan.final_inclusive");
+        const std::string itemLlvmType = llvmType(value.itemType);
+        const std::string boundPredicate = value.itemType == "UInt8" ? "ult" : "slt";
+        const std::string inclusivePredicate = value.itemType == "UInt8" ? "ule" : "sle";
         const std::string prepareLabel = state.inlineLabel("range.scan.prepare");
         const std::string finalLabel = state.inlineLabel("range.scan.final");
         const std::string advanceLabel = state.inlineLabel("range.scan.advance");
 
-        lines.push_back("  " + current + " = load i32, ptr " + iterState.rangeCurrentSlot + ", align 4");
-        lines.push_back("  " + end + " = load i32, ptr " + iterState.rangeEndSlot + ", align 4");
+        lines.push_back(
+            "  " + current + " = load " + itemLlvmType + ", ptr " + iterState.rangeCurrentSlot + ", align " +
+            std::to_string(iterState.itemAlign));
+        lines.push_back(
+            "  " + end + " = load " + itemLlvmType + ", ptr " + iterState.rangeEndSlot + ", align " +
+            std::to_string(iterState.itemAlign));
         lines.push_back("  " + inclusive + " = load i1, ptr " + iterState.rangeInclusiveSlot + ", align 1");
         lines.push_back("  " + finished + " = load i1, ptr " + iterState.rangeFinishedSlot + ", align 1");
         lines.push_back("  " + index + " = load i64, ptr " + iterState.indexSlot + ", align 8");
-        lines.push_back("  " + exclusiveBound + " = icmp slt i32 " + current + ", " + end);
-        lines.push_back("  " + inclusiveBound + " = icmp sle i32 " + current + ", " + end);
+        lines.push_back(
+            "  " + exclusiveBound + " = icmp " + boundPredicate + " " + itemLlvmType + " " + current + ", " + end);
+        lines.push_back(
+            "  " + inclusiveBound + " = icmp " + inclusivePredicate + " " + itemLlvmType + " " + current + ", " + end);
         lines.push_back(
             "  " + withinBound + " = select i1 " + inclusive + ", i1 " + inclusiveBound + ", i1 " + exclusiveBound);
         lines.push_back("  " + active + " = icmp eq i1 " + finished + ", false");
@@ -80,7 +94,7 @@ void LlvmEmitter::emitIterNext(
             }
             lines.push_back("  store i64 " + index + ", ptr " + iterState.visibleIndexSlot + ", align 8");
         }
-        lines.push_back("  " + atEnd + " = icmp eq i32 " + current + ", " + end);
+        lines.push_back("  " + atEnd + " = icmp eq " + itemLlvmType + " " + current + ", " + end);
         lines.push_back("  " + finalInclusiveItem + " = and i1 " + inclusive + ", " + atEnd);
         lines.push_back(
             "  br i1 " + finalInclusiveItem + ", label %" + finalLabel + ", label %" + advanceLabel);
@@ -100,8 +114,10 @@ void LlvmEmitter::emitIterNext(
                 nextCurrent);
             lines.push_back("  store i32 " + nextScalar + ", ptr " + iterState.rangeCurrentSlot + ", align 4");
         } else {
-            lines.push_back("  " + nextCurrent + " = add i32 " + current + ", 1");
-            lines.push_back("  store i32 " + nextCurrent + ", ptr " + iterState.rangeCurrentSlot + ", align 4");
+            lines.push_back("  " + nextCurrent + " = add " + itemLlvmType + " " + current + ", 1");
+            lines.push_back(
+                "  store " + itemLlvmType + " " + nextCurrent + ", ptr " + iterState.rangeCurrentSlot + ", align " +
+                std::to_string(iterState.itemAlign));
         }
         lines.push_back("  " + nextIndex + " = add i64 " + index + ", 1");
         lines.push_back("  store i64 " + nextIndex + ", ptr " + iterState.indexSlot + ", align 8");

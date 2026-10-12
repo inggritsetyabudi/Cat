@@ -1,0 +1,11 @@
+fn main() -> Int32 {
+    val whole: Range[UInt8] = 0..=255_UInt8
+    scan item over 0..=255_UInt8 {
+        println(item)
+    }
+    scan item, index over whole {
+        println(item)
+        println(index)
+    }
+    0
+}

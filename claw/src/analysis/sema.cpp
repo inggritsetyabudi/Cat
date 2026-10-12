@@ -2835,7 +2835,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             scan->indexBindingKey = "$scan.binding." + std::to_string(nextScanBindingIdentity++);
             analysisResult.scanIndexTypes[scan] = indexType;
             if (!isSupportedRangeType(iterableType)) {
-                reportError(scan, "An indexed scan is currently supported only over Range[Int32] or Range[Char].");
+                reportError(scan, "An indexed scan is currently supported only over Range[Int32], Range[UInt8], or Range[Char].");
             }
             defineVariable(
                 scan->indexName,
@@ -3652,20 +3652,31 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
             const ResolvedType* endpointExpected = nullptr;
             if (expectedType && expectedType->name == "Range" && expectedType->params.size() == 1 &&
                 isSupportedRangeElementType(expectedType->params.front())) {
-                endpointExpected = expectedType->params.front().name == "Char" ? &charType : &int32Type;
+                endpointExpected = &expectedType->params.front();
             }
             ResolvedType leftType = analyzeExpr(binary->left.get(), endpointExpected);
+            ResolvedType rightType;
+            bool rightAnalyzed = false;
             if (!endpointExpected) {
                 if (isIntegerLiteralType(leftType)) {
-                    endpointExpected = &int32Type;
+                    rightType = analyzeExpr(binary->right.get());
+                    rightAnalyzed = true;
+                    if (isSupportedRangeElementType(rightType)) {
+                        endpointExpected = &rightType;
+                    } else if (isIntegerLiteralType(rightType)) {
+                        endpointExpected = &int32Type;
+                    }
                     leftType = analyzeExpr(binary->left.get(), endpointExpected);
-                } else if (leftType.name == "Char") {
-                    endpointExpected = &charType;
-                } else if (leftType.name == "Int32") {
-                    endpointExpected = &int32Type;
+                    if (isIntegerLiteralType(rightType) && endpointExpected) {
+                        rightType = analyzeExpr(binary->right.get(), endpointExpected);
+                    }
+                } else if (isSupportedRangeElementType(leftType)) {
+                    endpointExpected = &leftType;
                 }
             }
-            const ResolvedType rightType = analyzeExpr(binary->right.get(), endpointExpected);
+            if (!rightAnalyzed) {
+                rightType = analyzeExpr(binary->right.get(), endpointExpected);
+            }
             if (isSupportedRangeElementType(leftType) && isSupportedRangeElementType(rightType) &&
                 sameType(leftType, rightType)) {
                 type = makePlainType("Range");
@@ -3674,7 +3685,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Range bounds currently support only Int32 or Char with matching types, got " +
+                        "Range bounds currently support only Int32, UInt8, or Char with matching types, got " +
                             leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();
@@ -3695,7 +3706,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Operator `in` requires a matching Char/Range[Char] or Int32/Range[Int32] pair, got " +
+                        "Operator `in` requires a matching Char/Range[Char], Int32/Range[Int32], or UInt8/Range[UInt8] pair, got " +
                             leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();

@@ -173,8 +173,12 @@ IteratorState& LlvmEmitter::ensureRangeIteratorState(
     state.entryAllocas.push_back(
         "  " + iterState.itemSlot + " = alloca " + llvmType(std::string(itemType)) + ", align " +
         std::to_string(iterState.itemAlign));
-    state.entryAllocas.push_back("  " + iterState.rangeCurrentSlot + " = alloca i32, align 4");
-    state.entryAllocas.push_back("  " + iterState.rangeEndSlot + " = alloca i32, align 4");
+    state.entryAllocas.push_back(
+        "  " + iterState.rangeCurrentSlot + " = alloca " + llvmType(std::string(itemType)) + ", align " +
+        std::to_string(iterState.itemAlign));
+    state.entryAllocas.push_back(
+        "  " + iterState.rangeEndSlot + " = alloca " + llvmType(std::string(itemType)) + ", align " +
+        std::to_string(iterState.itemAlign));
     state.entryAllocas.push_back("  " + iterState.rangeInclusiveSlot + " = alloca i1, align 1");
     state.entryAllocas.push_back("  " + iterState.rangeFinishedSlot + " = alloca i1, align 1");
     state.entryAllocas.push_back("  store i1 false, ptr " + iterState.rangeFinishedSlot + ", align 1");
@@ -190,7 +194,8 @@ void LlvmEmitter::materializeIterBinding(
     const PendingIterBinding& binding,
     FunctionState& state,
     std::vector<std::string>& lines) {
-    const bool isRange = binding.iterable.type == "Range[Int32]" || binding.iterable.type == "Range[Char]";
+    const bool isRange = binding.iterable.type == "Range[Int32]" || binding.iterable.type == "Range[UInt8]" ||
+        binding.iterable.type == "Range[Char]";
     const std::string itemKey = binding.itemBindingKey.empty() ? binding.itemName : binding.itemBindingKey;
     const std::string indexKey = binding.indexBindingKey.empty() ? binding.indexName : binding.indexBindingKey;
     IteratorState& iterState = isRange

@@ -60,6 +60,8 @@ tuple_owned_output="$ARTIFACT_DIR/revise_tuple_owned_destructuring.exe"
 tuple_pick_output="$ARTIFACT_DIR/revise_tuple_pick.exe"
 range_output="$ARTIFACT_DIR/revise_int32_range.exe"
 char_range_output="$ARTIFACT_DIR/revise_char_range.exe"
+uint8_range_output="$ARTIFACT_DIR/revise_uint8_range.exe"
+uint8_print_output="$ARTIFACT_DIR/revise_uint8_print.exe"
 range_scan_output="$ARTIFACT_DIR/revise_int32_range_scan.exe"
 range_scan_shadow_output="$ARTIFACT_DIR/revise_int32_range_scan_shadowing.exe"
 local_shadowing_output="$ARTIFACT_DIR/revise_local_shadowing_binding_identity.exe"
@@ -98,6 +100,8 @@ rm -f "$single_output" "${single_output%.exe}.ll" \
       "$tuple_pick_output" "${tuple_pick_output%.exe}.ll" \
       "$range_output" "${range_output%.exe}.ll" \
       "$char_range_output" "${char_range_output%.exe}.ll" \
+      "$uint8_range_output" "${uint8_range_output%.exe}.ll" \
+      "$uint8_print_output" "${uint8_print_output%.exe}.ll" \
       "$range_scan_output" "${range_scan_output%.exe}.ll" \
       "$range_scan_shadow_output" "${range_scan_shadow_output%.exe}.ll" \
       "$local_shadowing_output" "${local_shadowing_output%.exe}.ll" \
@@ -219,6 +223,39 @@ if [[ "$range_stdout" != "$expected_range_stdout" ]]; then
   exit 1
 fi
 
+echo "[build/pass] test_native/revise_uint8_range.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_uint8_range.cat" "$uint8_range_output" >/dev/null
+expect_generated_ll "$uint8_range_output"
+uint8_range_ll="${uint8_range_output%.exe}.ll"
+if ! grep -q 'icmp uge i8' "$uint8_range_ll" ||
+   ! grep -q 'icmp ult i8' "$uint8_range_ll" ||
+   ! grep -q 'icmp ule i8' "$uint8_range_ll" ||
+   ! grep -q 'add i8' "$uint8_range_ll" ||
+   ! grep -q 'add i64' "$uint8_range_ll"; then
+  echo "UInt8 range LLVM IR omitted unsigned bounds or USize index advancement" >&2
+  exit 1
+fi
+uint8_range_stdout="$(timeout 10s "$uint8_range_output" | tr -d '\r')"
+expected_uint8_range_stdout=$'1\n1\n0\n0\n1\n0\n1\n0\n0\nmembership-start\nmembership-end\n1\n1\n2\n3\n254\n254\n0\n255\n1\n7\nscan-start\nscan-end\n254\n255\n255\n0\n255\n256'
+if [[ "$uint8_range_stdout" != "$expected_uint8_range_stdout" ]]; then
+  echo "UInt8 range native output was unexpected:" >&2
+  printf '%s\n' "$uint8_range_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_uint8_print.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_uint8_print.cat" "$uint8_print_output" >/dev/null
+expect_generated_ll "$uint8_print_output"
+uint8_print_stdout="$CWD_TEST_DIR/revise_uint8_print.stdout"
+uint8_print_expected="$CWD_TEST_DIR/revise_uint8_print.expected"
+printf '254255' > "$uint8_print_expected"
+"$uint8_print_output" > "$uint8_print_stdout"
+if ! cmp -s "$uint8_print_expected" "$uint8_print_stdout"; then
+  echo "UInt8 print native output did not match the exact no-newline bytes '254255'" >&2
+  od -An -tx1c "$uint8_print_stdout" >&2
+  exit 1
+fi
+
 echo "[build/pass] test_native/revise_char_range.cat"
 "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_char_range.cat" "$char_range_output" >/dev/null
 expect_generated_ll "$char_range_output"
@@ -327,7 +364,7 @@ if range_reject_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_ba
   echo "mixed Char and Int32 range unexpectedly built a native executable" >&2
   exit 1
 fi
-if [[ "$range_reject_diagnostic" != *"Range bounds currently support only Int32 or Char with matching types"* ]]; then
+if [[ "$range_reject_diagnostic" != *"Range bounds currently support only Int32, UInt8, or Char with matching types"* ]]; then
   echo "mixed range native build failed without the expected sema diagnostic" >&2
   echo "$range_reject_diagnostic" >&2
   exit 1
@@ -343,7 +380,7 @@ if indexed_scan_reject_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/re
   echo "indexed scan over Str unexpectedly built a native executable" >&2
   exit 1
 fi
-if [[ "$indexed_scan_reject_diagnostic" != *"An indexed scan is currently supported only over Range[Int32] or Range[Char]."* ]]; then
+if [[ "$indexed_scan_reject_diagnostic" != *"An indexed scan is currently supported only over Range[Int32], Range[UInt8], or Range[Char]."* ]]; then
   echo "unsupported indexed scan build failed without the expected sema diagnostic" >&2
   echo "$indexed_scan_reject_diagnostic" >&2
   exit 1
