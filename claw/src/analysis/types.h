@@ -267,6 +267,8 @@ bool sameType(const ResolvedType& left, const ResolvedType& right);
 bool isNumericTypeName(const std::string& name);
 bool isIntegerLikeTypeName(const std::string& name);
 bool isIntegerLiteralType(const ResolvedType& type);
+bool isSupportedRangeElementType(const ResolvedType& type);
+bool isSupportedRangeType(const ResolvedType& type);
 bool canAssignType(const ResolvedType& from, const ResolvedType& to);
 bool canCompareTypes(const ResolvedType& left, const ResolvedType& right);
 TargetSpec defaultTargetSpec();

@@ -94,8 +94,9 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
     }
 
     if (base == "Range") {
-        if (parsedType.args.size() != 1 || parsedType.args.front() != "Int32") {
-            throw std::runtime_error("LLVM lowering supports only Range[Int32].");
+        if (parsedType.args.size() != 1 ||
+            (parsedType.args.front() != "Int32" && parsedType.args.front() != "Char")) {
+            throw std::runtime_error("LLVM lowering supports only Range[Int32] and Range[Char].");
         }
         return "{ i32, i32, i1 }";
     }
@@ -465,7 +466,8 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
     }
 
     if (base == "Range") {
-        if (parsed.args.size() != 1 || parsed.args.front() != "Int32") {
+        if (parsed.args.size() != 1 ||
+            (parsed.args.front() != "Int32" && parsed.args.front() != "Char")) {
             return std::nullopt;
         }
         return AbiLayout{12, 4};

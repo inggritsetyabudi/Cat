@@ -1,0 +1,11 @@
+fn main() -> Int32 {
+    val letters: Range[Char] = 'a'..='c'
+    scan item over letters {
+        println(item)
+    }
+    scan item, index over letters {
+        println(item)
+        println(index)
+    }
+    0
+}

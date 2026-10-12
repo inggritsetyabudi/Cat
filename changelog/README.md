@@ -19,6 +19,7 @@ Folder ini menyimpan log perubahan compiler dan dokumentasi, termasuk rincian hi
 - [`2026-10-12-air-tuple-expression-rendering.md`](./2026-10-12-air-tuple-expression-rendering.md) mencatat rendering rekursif TupleExpr di AIR, golden tuple, dan validasi output non-tuple.
 - [`2026-10-12-int32-ranges-partial.md`](./2026-10-12-int32-ranges-partial.md) mencatat dukungan parsial `Range[Int32]`/`in`, ABI/native regressions, serta defer iterasi, slicing, `Char`, dan integer widths lain.
 - [`2026-10-12-int32-range-scan.md`](./2026-10-12-int32-range-scan.md) mencatat iterasi `Range[Int32]` tanpa indeks/dengan indeks `USize`, batas inclusive tanpa overflow, dan batas unsupported iterable.
+- [`2026-10-12-char-ranges-partial.md`](./2026-10-12-char-ranges-partial.md) mencatat konstruksi/membership/scan `Range[Char]`, progres scalar yang melewati surrogate, dan batas slicing yang tetap `Range[Int32]`.
 - [`2026-10-12-range-scan-shadowed-binding-identity.md`](./2026-10-12-range-scan-shadowed-binding-identity.md) mencatat perbaikan identity binding untuk nested scan yang men-shadow binding luar.
 - [`2026-10-12-collection-truncate-fail-closed.md`](./2026-10-12-collection-truncate-fail-closed.md) mencatat penolakan semantik `Vec.truncate`/`Queue.truncate` karena kontrak drop dan lowering native belum lengkap.
 - [`2026-10-12-ordinary-local-shadowing-binding-identity.md`](./2026-10-12-ordinary-local-shadowing-binding-identity.md) mencatat keputusan shadowing leksikal, key binding biasa di backend, regresi interaksi local/scan, dan validasi full suite.

@@ -22,6 +22,16 @@ std::string nominalTypeIdentity(std::string_view moduleName, std::string_view ty
     return std::string(moduleName) + "::" + std::string(typeName);
 }
 
+bool isSupportedRangeElementType(const ResolvedType& type) {
+    return type.isPlain() && !type.isGeneric && type.params.empty() &&
+        (type.name == "Int32" || type.name == "Char");
+}
+
+bool isSupportedRangeType(const ResolvedType& type) {
+    return type.name == "Range" && type.isPlain() && type.params.size() == 1 &&
+        isSupportedRangeElementType(type.params.front());
+}
+
 namespace {
 
 bool contains(const std::unordered_set<std::string>& set, const std::string& value) {
@@ -273,8 +283,7 @@ private:
 
     std::optional<TypeLayoutInfo> computeBuiltin(const ResolvedType& type) {
         if (type.name == "Range") {
-            if (type.params.size() != 1 || type.params.front().name != "Int32" ||
-                !type.params.front().isPlain() || type.params.front().isGeneric) {
+            if (type.params.size() != 1 || !isSupportedRangeElementType(type.params.front())) {
                 return std::nullopt;
             }
             ResolvedType boolType;
@@ -959,12 +968,11 @@ ResolvedType TypeCatalog::resolveType(
 
     if (type.name == "Range" && type.params.size() == 1) {
         const ResolvedType& elementType = type.params.front();
-        if (elementType.name != "Int32" || !elementType.isPlain() || elementType.isGeneric ||
-            !elementType.params.empty()) {
+        if (!isSupportedRangeElementType(elementType)) {
             if (diagnostics) {
                 diagnostics->push_back(Diagnostic{
                     "semantic",
-                    "Only Range[Int32] is supported; Char and other integer widths are not implemented yet.",
+                    "Only Range[Int32] and Range[Char] are supported; other integer widths are not implemented yet.",
                     node->span});
             }
             type.category = TypeCategory::Unknown;

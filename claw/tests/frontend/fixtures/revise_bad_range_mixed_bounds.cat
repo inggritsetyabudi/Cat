@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val invalid = 'a'..1_Int32
+    0
+}

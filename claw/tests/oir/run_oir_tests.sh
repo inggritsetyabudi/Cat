@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CLAW_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 FIXTURE_DIR="$CLAW_DIR/tests"
 GOLDEN_DIR="$SCRIPT_DIR/golden"
+OIR_FIXTURE_DIR="$SCRIPT_DIR/fixtures"
 
 if [[ -z "${CLAW_EXE:-}" ]]; then
   if [[ -x "$CLAW_DIR/build/claw" ]]; then
@@ -72,6 +73,7 @@ run_oir_golden "if-pick-values" "$FIXTURE_DIR/native/fixtures/revise_if_pick_val
 run_oir_golden "tuples" "$FIXTURE_DIR/native/fixtures/revise_tuples.cat"
 run_oir_golden "int32-range" "$FIXTURE_DIR/native/fixtures/revise_int32_range.cat"
 run_oir_golden "int32-range-scan" "$FIXTURE_DIR/native/fixtures/revise_int32_range_scan.cat"
+run_oir_golden "char-range-scan" "$OIR_FIXTURE_DIR/char-range-scan.cat"
 run_oir_golden "tuple-destructuring" "$FIXTURE_DIR/native/fixtures/revise_tuple_destructuring.cat"
 run_oir_golden "tuple-owned-destructuring" "$FIXTURE_DIR/native/fixtures/revise_tuple_owned_destructuring.cat"
 run_oir_golden "tuple-pick" "$FIXTURE_DIR/native/fixtures/revise_tuple_pick.cat"
@@ -79,13 +81,14 @@ run_oir_golden "implicit-return" "$FIXTURE_DIR/native/fixtures/revise_implicit_r
 run_oir_golden "discarded-anchor-temporary" "$FIXTURE_DIR/native/fixtures/revise_discarded_anchor_temporary.cat"
 run_oir_golden "discarded-binary-anchor-temporary" "$FIXTURE_DIR/native/fixtures/revise_discarded_binary_anchor_temporary.cat"
 run_oir_fail "middle expression cannot satisfy return" "$FIXTURE_DIR/frontend/fixtures/revise_bad_implicit_return.cat" "must end with a value of type Int32 or use explicit return."
-run_oir_fail "Char range endpoints remain unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_range_char.cat" "Range bounds currently support only Int32"
-run_oir_fail "indexed scans are restricted to Range[Int32]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_indexed_scan_str.cat" "An indexed scan is currently supported only over Range[Int32]."
+run_oir_fail "mixed Char and Int32 range endpoints are rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_mixed_bounds.cat" "Range bounds currently support only Int32 or Char with matching types"
+run_oir_fail "indexed scans reject Str" "$FIXTURE_DIR/frontend/fixtures/revise_bad_indexed_scan_str.cat" "An indexed scan is currently supported only over Range[Int32] or Range[Char]."
+run_oir_fail "Str slicing remains restricted to Range[Int32]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_char_range_index.cat" "Index expression must have type USize, got Range[Char]"
 run_oir_fail "other integer range widths remain unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_range_int64.cat" "Range bounds currently support only Int32"
 run_oir_fail "floating-point range endpoints remain unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_range_float.cat" "Range bounds currently support only Int32"
-run_oir_fail "Range[Char] remains unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_char_type.cat" "Only Range[Int32] is supported"
-run_oir_fail "membership requires Range[Int32]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_membership_rhs.cat" 'Operator `in` currently requires an Int32 left operand and Range[Int32] right operand'
-run_oir_fail "membership requires Int32" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_membership_left.cat" 'Operator `in` currently requires an Int32 left operand and Range[Int32] right operand'
+run_oir_fail "Range[Int64] remains unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_int64.cat" "Only Range[Int32] and Range[Char] are supported"
+run_oir_fail "membership requires a Range right operand" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_membership_rhs.cat" 'Operator `in` requires a matching Char/Range[Char] or Int32/Range[Int32] pair'
+run_oir_fail "membership rejects a non-scalar left operand" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_membership_left.cat" 'Operator `in` requires a matching Char/Range[Char] or Int32/Range[Int32] pair'
 run_oir_fail "range operators are non-associative" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_range_chain.cat" 'Range operators `..` and `..=` are non-associative'
 run_oir_fail "range comparisons are unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_comparison.cat" 'Range values support `in` membership only'
 run_oir_fail "trailing decimal dot remains a single-dot projection" "$FIXTURE_DIR/frontend/fixtures/revise_bad_trailing_decimal_dot.cat" "Type 'IntLiteral' does not expose fields."

@@ -48,6 +48,7 @@ Coverage focus:
 - revised module/workspace rules
 - revised AIR printing
 - revised `Result` / `try` semantic validation
+- `Range[Char]` typing, membership, indexed/plain scans, and Unicode scalar boundaries
 - canonical nominal identity through imported item aliases
 - owned `Result` consumption and payload transfer
 - Anchor stable-storage semantics and scoped/borrow diagnostics
