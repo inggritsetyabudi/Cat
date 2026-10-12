@@ -59,6 +59,7 @@ tuple_destructuring_output="$ARTIFACT_DIR/revise_tuple_destructuring.exe"
 tuple_owned_output="$ARTIFACT_DIR/revise_tuple_owned_destructuring.exe"
 tuple_pick_output="$ARTIFACT_DIR/revise_tuple_pick.exe"
 range_output="$ARTIFACT_DIR/revise_int32_range.exe"
+char_range_output="$ARTIFACT_DIR/revise_char_range.exe"
 range_scan_output="$ARTIFACT_DIR/revise_int32_range_scan.exe"
 range_scan_shadow_output="$ARTIFACT_DIR/revise_int32_range_scan_shadowing.exe"
 local_shadowing_output="$ARTIFACT_DIR/revise_local_shadowing_binding_identity.exe"
@@ -96,6 +97,7 @@ rm -f "$single_output" "${single_output%.exe}.ll" \
       "$tuple_owned_output" "${tuple_owned_output%.exe}.ll" \
       "$tuple_pick_output" "${tuple_pick_output%.exe}.ll" \
       "$range_output" "${range_output%.exe}.ll" \
+      "$char_range_output" "${char_range_output%.exe}.ll" \
       "$range_scan_output" "${range_scan_output%.exe}.ll" \
       "$range_scan_shadow_output" "${range_scan_shadow_output%.exe}.ll" \
       "$local_shadowing_output" "${local_shadowing_output%.exe}.ll" \
@@ -217,6 +219,22 @@ if [[ "$range_stdout" != "$expected_range_stdout" ]]; then
   exit 1
 fi
 
+echo "[build/pass] test_native/revise_char_range.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_char_range.cat" "$char_range_output" >/dev/null
+expect_generated_ll "$char_range_output"
+char_range_ll="${char_range_output%.exe}.ll"
+if ! grep -q '55295' "$char_range_ll" || ! grep -q 'i32 57344' "$char_range_ll" || ! grep -q 'add i64' "$char_range_ll"; then
+  echo "Char range LLVM IR omitted the Unicode scalar successor or USize index advancement" >&2
+  exit 1
+fi
+char_range_stdout="$(timeout 10s "$char_range_output" | tr -d '\r')"
+expected_char_range_stdout=$'1\n1\n0\n1\n0\n0\n0\n0\n1\n10\n11\n12\n13\n20\n21\n22\nscan-start\nscan-end\n30\n31\nmembership-start\nmembership-end\n1\n40\n41\n42\n43\n50\n51\n52\n1\n0'
+if [[ "$char_range_stdout" != "$expected_char_range_stdout" ]]; then
+  echo "Char range native output was unexpected:" >&2
+  printf '%s\n' "$char_range_stdout" >&2
+  exit 1
+fi
+
 echo "[build/pass] test_native/revise_int32_range_scan.cat"
 "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_int32_range_scan.cat" "$range_scan_output" >/dev/null
 expect_generated_ll "$range_scan_output"
@@ -303,14 +321,14 @@ if [[ "$pick_anchor_payload_shadowing_stdout" != "$expected_pick_anchor_payload_
   exit 1
 fi
 
-echo "[build/fail] Char range is rejected before producing a native binary"
+echo "[build/fail] mixed Char and Int32 range bounds are rejected before producing a native binary"
 rm -f "$range_reject_output" "${range_reject_output%.exe}.ll"
-if range_reject_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_int32_range_char.cat" "$range_reject_output" 2>&1)"; then
-  echo "unsupported Char range unexpectedly built a native executable" >&2
+if range_reject_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_range_mixed_bounds.cat" "$range_reject_output" 2>&1)"; then
+  echo "mixed Char and Int32 range unexpectedly built a native executable" >&2
   exit 1
 fi
-if [[ "$range_reject_diagnostic" != *"Range bounds currently support only Int32"* ]]; then
-  echo "Char range native build failed without the expected sema diagnostic" >&2
+if [[ "$range_reject_diagnostic" != *"Range bounds currently support only Int32 or Char with matching types"* ]]; then
+  echo "mixed range native build failed without the expected sema diagnostic" >&2
   echo "$range_reject_diagnostic" >&2
   exit 1
 fi
@@ -325,7 +343,7 @@ if indexed_scan_reject_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/re
   echo "indexed scan over Str unexpectedly built a native executable" >&2
   exit 1
 fi
-if [[ "$indexed_scan_reject_diagnostic" != *"An indexed scan is currently supported only over Range[Int32]."* ]]; then
+if [[ "$indexed_scan_reject_diagnostic" != *"An indexed scan is currently supported only over Range[Int32] or Range[Char]."* ]]; then
   echo "unsupported indexed scan build failed without the expected sema diagnostic" >&2
   echo "$indexed_scan_reject_diagnostic" >&2
   exit 1

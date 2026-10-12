@@ -178,13 +178,14 @@ if [[ "$range_output" != *'define internal i32 @"revise_int32_range::contains"(i
   echo "Int32 range LLVM output did not contain the direct aggregate ABI and expected bound tests" >&2
   exit 1
 fi
-if range_negative="$("$CLAW_EXE" llvm "$FRONTEND_FIXTURE_DIR/revise_bad_int32_range_char.cat" 2>&1)"; then
-  echo "unsupported Char range unexpectedly reached LLVM lowering" >&2
-  exit 1
-fi
-if [[ "$range_negative" != *"Range bounds currently support only Int32"* ]]; then
-  echo "unsupported Char range LLVM failure did not report the sema diagnostic" >&2
-  echo "$range_negative" >&2
+char_range_ll="$ARTIFACT_DIR/revise_char_range.ll"
+rm -f "$char_range_ll"
+run_llvm "test_native/revise_char_range.cat" "$SCRIPT_DIR/../native/fixtures/revise_char_range.cat" "$char_range_ll"
+char_range_output="$(tr -d '\r' < "$char_range_ll")"
+if [[ "$char_range_output" != *"{ i32, i32, i1 }"* ]] ||
+   [[ "$char_range_output" != *"55295"* ]] ||
+   [[ "$char_range_output" != *"57344"* ]]; then
+  echo "Char range LLVM output omitted its 32-bit range layout or surrogate-skip successor" >&2
   exit 1
 fi
 

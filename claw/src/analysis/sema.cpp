@@ -2834,11 +2834,8 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             const ResolvedType indexType = makePlainType("USize");
             scan->indexBindingKey = "$scan.binding." + std::to_string(nextScanBindingIdentity++);
             analysisResult.scanIndexTypes[scan] = indexType;
-            const bool isInt32Range = iterableType.name == "Range" && iterableType.params.size() == 1 &&
-                iterableType.params.front().name == "Int32" && iterableType.params.front().isPlain() &&
-                !iterableType.params.front().isGeneric && iterableType.params.front().params.empty();
-            if (!isInt32Range) {
-                reportError(scan, "An indexed scan is currently supported only over Range[Int32].");
+            if (!isSupportedRangeType(iterableType)) {
+                reportError(scan, "An indexed scan is currently supported only over Range[Int32] or Range[Char].");
             }
             defineVariable(
                 scan->indexName,
@@ -3651,20 +3648,34 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
     } else if (auto* binary = dynamic_cast<BinaryExpr*>(expr)) {
         if (binary->op == ".." || binary->op == "..=") {
             const ResolvedType int32Type = makePlainType("Int32");
-            const ResolvedType leftType = analyzeExpr(binary->left.get(), &int32Type);
-            const ResolvedType rightType = analyzeExpr(binary->right.get(), &int32Type);
-            const auto isInt32 = [](const ResolvedType& operandType) {
-                return operandType.name == "Int32" && operandType.isPlain() && operandType.params.empty();
-            };
-            if (isInt32(leftType) && isInt32(rightType)) {
+            const ResolvedType charType = makePlainType("Char");
+            const ResolvedType* endpointExpected = nullptr;
+            if (expectedType && expectedType->name == "Range" && expectedType->params.size() == 1 &&
+                isSupportedRangeElementType(expectedType->params.front())) {
+                endpointExpected = expectedType->params.front().name == "Char" ? &charType : &int32Type;
+            }
+            ResolvedType leftType = analyzeExpr(binary->left.get(), endpointExpected);
+            if (!endpointExpected) {
+                if (isIntegerLiteralType(leftType)) {
+                    endpointExpected = &int32Type;
+                    leftType = analyzeExpr(binary->left.get(), endpointExpected);
+                } else if (leftType.name == "Char") {
+                    endpointExpected = &charType;
+                } else if (leftType.name == "Int32") {
+                    endpointExpected = &int32Type;
+                }
+            }
+            const ResolvedType rightType = analyzeExpr(binary->right.get(), endpointExpected);
+            if (isSupportedRangeElementType(leftType) && isSupportedRangeElementType(rightType) &&
+                sameType(leftType, rightType)) {
                 type = makePlainType("Range");
-                type.params.push_back(int32Type);
+                type.params.push_back(leftType);
             } else {
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Range bounds currently support only Int32, got " + leftType.describe() + " and " +
-                            rightType.describe() + ".");
+                        "Range bounds currently support only Int32 or Char with matching types, got " +
+                            leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();
             }
@@ -3673,20 +3684,18 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
         }
 
         if (binary->op == "in") {
-            const ResolvedType int32Type = makePlainType("Int32");
-            const ResolvedType leftType = analyzeExpr(binary->left.get(), &int32Type);
             const ResolvedType rightType = analyzeExpr(binary->right.get());
-            const bool validLeft = leftType.name == "Int32" && leftType.isPlain() && leftType.params.empty();
-            const bool validRight = rightType.name == "Range" && rightType.isPlain() && rightType.params.size() == 1 &&
-                rightType.params.front().name == "Int32" && rightType.params.front().isPlain() &&
-                !rightType.params.front().isGeneric;
-            if (validLeft && validRight) {
+            const ResolvedType leftType = isSupportedRangeType(rightType)
+                ? analyzeExpr(binary->left.get(), &rightType.params.front())
+                : analyzeExpr(binary->left.get());
+            if (isSupportedRangeType(rightType) && isSupportedRangeElementType(leftType) &&
+                sameType(leftType, rightType.params.front())) {
                 type = makePlainType("Bool");
             } else {
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Operator `in` currently requires an Int32 left operand and Range[Int32] right operand, got " +
+                        "Operator `in` requires a matching Char/Range[Char] or Int32/Range[Int32] pair, got " +
                             leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();

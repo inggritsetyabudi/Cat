@@ -110,13 +110,15 @@ run_check_warning "implicit block-tail return" "$SCRIPT_DIR/../native/fixtures/r
 run_check_fail "middle expression is not an implicit return" "$FIXTURE_DIR/revise_bad_implicit_return.cat" "must end with a value of type Int32 or use explicit return."
 run_check_pass "Int32 ranges, membership, Float64 literals, and tuple projections" "$SCRIPT_DIR/../native/fixtures/revise_int32_range.cat"
 run_check_pass "Range[Int32] scans with optional USize index" "$SCRIPT_DIR/../native/fixtures/revise_int32_range_scan.cat"
+run_check_pass "Range[Char] construction, membership, scans, and Unicode scalar boundaries" "$SCRIPT_DIR/../native/fixtures/revise_char_range.cat"
+run_check_pass "Range[Char] type annotations" "$FIXTURE_DIR/revise_bad_range_char_type.cat"
 run_check_pass "ordinary local shadowing across nested branches, tuples, and scans" "$SCRIPT_DIR/../native/fixtures/revise_local_shadowing_binding_identity.cat"
 run_check_pass "builtin member receiver shadowing preserves binding identity" "$SCRIPT_DIR/../native/fixtures/revise_builtin_member_receiver_shadowing.cat"
 run_check_pass "try result shadowing preserves binding identity" "$SCRIPT_DIR/../native/fixtures/revise_try_result_shadowing.cat"
 run_check_pass "choice payload shadowing preserves binding identity" "$SCRIPT_DIR/../native/fixtures/revise_pick_payload_shadowing.cat"
 run_check_pass "Anchor choice payload shadowing preserves cleanup identity" "$SCRIPT_DIR/../native/fixtures/revise_pick_anchor_payload_shadowing.cat"
 run_check_fail "same-scope duplicate local names remain rejected" "$FIXTURE_DIR/revise_bad_same_scope_duplicate_binding.cat" "Duplicate variable declaration: repeated"
-run_check_fail "indexed scans are restricted to Range[Int32]" "$FIXTURE_DIR/revise_bad_indexed_scan_str.cat" "An indexed scan is currently supported only over Range[Int32]."
+run_check_fail "indexed scans reject Str" "$FIXTURE_DIR/revise_bad_indexed_scan_str.cat" "An indexed scan is currently supported only over Range[Int32] or Range[Char]."
 range_scan_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_int32_range_scan.cat")"
 if [[ "$range_scan_air_output" != *"scan item: Int32 over (1 .. 4) : Range[Int32]"* ]] ||
    [[ "$range_scan_air_output" != *"scan item: Int32, index: USize over (3 ..= 5) : Range[Int32]"* ]]; then
@@ -124,12 +126,14 @@ if [[ "$range_scan_air_output" != *"scan item: Int32 over (1 .. 4) : Range[Int32
   echo "$range_scan_air_output" >&2
   exit 1
 fi
-run_check_fail "Char range endpoints remain unsupported" "$FIXTURE_DIR/revise_bad_int32_range_char.cat" "Range bounds currently support only Int32"
 run_check_fail "other integer range widths remain unsupported" "$FIXTURE_DIR/revise_bad_int32_range_int64.cat" "Range bounds currently support only Int32"
 run_check_fail "floating-point range endpoints remain unsupported" "$FIXTURE_DIR/revise_bad_int32_range_float.cat" "Range bounds currently support only Int32"
-run_check_fail "Range[Char] remains unsupported" "$FIXTURE_DIR/revise_bad_range_char_type.cat" "Only Range[Int32] is supported"
-run_check_fail "membership requires a Range[Int32] right operand" "$FIXTURE_DIR/revise_bad_range_membership_rhs.cat" 'Operator `in` currently requires an Int32 left operand and Range[Int32] right operand'
-run_check_fail "membership requires an Int32 left operand" "$FIXTURE_DIR/revise_bad_range_membership_left.cat" 'Operator `in` currently requires an Int32 left operand and Range[Int32] right operand'
+run_check_fail "Range endpoints reject mixed scalar types" "$FIXTURE_DIR/revise_bad_range_mixed_bounds.cat" "Range bounds currently support only Int32 or Char with matching types"
+run_check_fail "Range membership rejects mixed scalar types" "$FIXTURE_DIR/revise_bad_range_mixed_membership.cat" 'Operator `in` requires a matching Char/Range[Char] or Int32/Range[Int32] pair'
+run_check_fail "Str slicing remains restricted to Range[Int32]" "$FIXTURE_DIR/revise_bad_str_char_range_index.cat" "Index expression must have type USize, got Range[Char]"
+run_check_fail "other Range element types remain unsupported" "$FIXTURE_DIR/revise_bad_range_int64.cat" "Only Range[Int32] and Range[Char] are supported"
+run_check_fail "membership requires a Range right operand" "$FIXTURE_DIR/revise_bad_range_membership_rhs.cat" 'Operator `in` requires a matching Char/Range[Char] or Int32/Range[Int32] pair'
+run_check_fail "membership rejects a non-scalar left operand" "$FIXTURE_DIR/revise_bad_range_membership_left.cat" 'Operator `in` requires a matching Char/Range[Char] or Int32/Range[Int32] pair'
 run_check_fail "range operators are non-associative" "$FIXTURE_DIR/revise_bad_int32_range_chain.cat" 'Range operators `..` and `..=` are non-associative'
 run_check_fail "range comparisons are not implicit membership" "$FIXTURE_DIR/revise_bad_range_comparison.cat" 'Range values support `in` membership only'
 run_check_fail "trailing decimal dot remains a single-dot projection" "$FIXTURE_DIR/revise_bad_trailing_decimal_dot.cat" "Type 'IntLiteral' does not expose fields."

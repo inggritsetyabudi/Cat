@@ -1,0 +1,97 @@
+fn contains_char(value: Char, range: Range[Char]) -> Int32 {
+    if value in range { 1 } else { 0 }
+}
+
+fn scan_start() -> Char {
+    println("scan-start")
+    return 'b'
+}
+
+fn scan_end() -> Char {
+    println("scan-end")
+    return 'c'
+}
+
+fn membership_start() -> Char {
+    println("membership-start")
+    return 'a'
+}
+
+fn membership_end() -> Char {
+    println("membership-end")
+    return 'c'
+}
+
+fn main() -> Int32 {
+    val exclusive: Range[Char] = 'a'..'c'
+    println(contains_char('a', exclusive))
+    println(contains_char('b', exclusive))
+    println(contains_char('c', exclusive))
+
+    val inclusive: Range[Char] = 'a'..='c'
+    println(contains_char('c', inclusive))
+    println(contains_char('d', inclusive))
+
+    val empty: Range[Char] = 'b'..'b'
+    val reversed: Range[Char] = 'c'..='a'
+    val equalExclusive: Range[Char] = 'm'..'m'
+    val equalInclusive: Range[Char] = 'm'..='m'
+    println(contains_char('b', empty))
+    println(contains_char('b', reversed))
+    println(contains_char('m', equalExclusive))
+    println(contains_char('m', equalInclusive))
+
+    scan ch over 'a'..='c' {
+        if ch == 'a' { println(10) }
+        else if ch == 'b' { println(11) }
+        else if ch == 'c' { println(12) }
+        else { println(99) }
+    }
+    scan ch over 'm'..'m' {
+        println(98)
+    }
+    scan ch over 'c'..'a' {
+        println(97)
+    }
+    scan ch over 'm'..='m' {
+        if ch == 'm' { println(13) } else { println(99) }
+    }
+
+    scan ch, index over 'p'..='r' {
+        if index == 0 and ch == 'p' { println(20) }
+        else if index == 1 and ch == 'q' { println(21) }
+        else if index == 2 and ch == 'r' { println(22) }
+        else { println(99) }
+    }
+
+    val stored: Range[Char] = scan_start()..=scan_end()
+    scan ch over stored {
+        if ch == 'b' { println(30) }
+        else if ch == 'c' { println(31) }
+        else { println(99) }
+    }
+    if 'b' in membership_start()..=membership_end() { println(1) } else { println(0) }
+
+    scan ch, index over '\u{D7FE}'..='\u{E001}' {
+        if index == 0 and ch == '\u{D7FE}' { println(40) }
+        else if index == 1 and ch == '\u{D7FF}' { println(41) }
+        else if index == 2 and ch == '\u{E000}' { println(42) }
+        else if index == 3 and ch == '\u{E001}' { println(43) }
+        else { println(99) }
+    }
+
+    scan ch, index over '\u{10FFFE}'..='\u{10FFFF}' {
+        if index == 0 and ch == '\u{10FFFE}' { println(50) }
+        else if index == 1 and ch == '\u{10FFFF}' { println(51) }
+        else { println(99) }
+    }
+    scan ch over '\u{10FFFF}'..='\u{10FFFF}' {
+        if ch == '\u{10FFFF}' { println(52) } else { println(99) }
+    }
+    scan ch over '\u{10FFFF}'..'\u{10FFFF}' {
+        println(96)
+    }
+    if '\u{10FFFF}' in '\u{10FFFE}'..='\u{10FFFF}' { println(1) } else { println(0) }
+    if '\u{10FFFF}' in '\u{10FFFE}'..'\u{10FFFF}' { println(96) } else { println(0) }
+    0
+}

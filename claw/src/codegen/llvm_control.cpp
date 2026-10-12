@@ -90,8 +90,19 @@ void LlvmEmitter::emitIterNext(
         lines.push_back(advanceLabel + ":");
         const std::string nextCurrent = state.temp("range.scan.next_current");
         const std::string nextIndex = state.temp("range.scan.next_index");
-        lines.push_back("  " + nextCurrent + " = add i32 " + current + ", 1");
-        lines.push_back("  store i32 " + nextCurrent + ", ptr " + iterState.rangeCurrentSlot + ", align 4");
+        if (value.itemType == "Char") {
+            const std::string afterLastPreSurrogate = state.temp("range.scan.after_last_pre_surrogate");
+            const std::string nextScalar = state.temp("range.scan.next_scalar");
+            lines.push_back("  " + nextCurrent + " = add i32 " + current + ", 1");
+            lines.push_back("  " + afterLastPreSurrogate + " = icmp eq i32 " + current + ", 55295");
+            lines.push_back(
+                "  " + nextScalar + " = select i1 " + afterLastPreSurrogate + ", i32 57344, i32 " +
+                nextCurrent);
+            lines.push_back("  store i32 " + nextScalar + ", ptr " + iterState.rangeCurrentSlot + ", align 4");
+        } else {
+            lines.push_back("  " + nextCurrent + " = add i32 " + current + ", 1");
+            lines.push_back("  store i32 " + nextCurrent + ", ptr " + iterState.rangeCurrentSlot + ", align 4");
+        }
         lines.push_back("  " + nextIndex + " = add i64 " + index + ", 1");
         lines.push_back("  store i64 " + nextIndex + ", ptr " + iterState.indexSlot + ", align 8");
         lines.push_back("  br label %" + blockLabel(value.bodyLabel));

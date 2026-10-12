@@ -190,7 +190,7 @@ void LlvmEmitter::materializeIterBinding(
     const PendingIterBinding& binding,
     FunctionState& state,
     std::vector<std::string>& lines) {
-    const bool isRange = binding.iterable.type == "Range[Int32]";
+    const bool isRange = binding.iterable.type == "Range[Int32]" || binding.iterable.type == "Range[Char]";
     const std::string itemKey = binding.itemBindingKey.empty() ? binding.itemName : binding.itemBindingKey;
     const std::string indexKey = binding.indexBindingKey.empty() ? binding.indexName : binding.indexBindingKey;
     IteratorState& iterState = isRange
