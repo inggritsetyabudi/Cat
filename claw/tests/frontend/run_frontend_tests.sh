@@ -680,3 +680,11 @@ for expected_char_value in "65 : Char" "233 : Char" "128512 : Char" "1114111 : C
     exit 1
   fi
 done
+
+run_check_pass "Str Range[Int32] indexing, get Maybe provenance, and UTF-8 boundaries" \
+  "$SCRIPT_DIR/../native/fixtures/revise_str_range_views.cat"
+run_check_fail "legacy public Str.slice(start,length) is removed" \
+  "$FIXTURE_DIR/revise_bad_str_legacy_slice.cat" "Type 'Str' does not provide method 'slice'."
+run_check_fail "Maybe[ref Str] from Str.get cannot escape a local receiver" \
+  "$FIXTURE_DIR/revise_bad_str_range_local_return.cat" \
+  "Borrowed-returning functions must return a view derived from one of their borrowed parameters."

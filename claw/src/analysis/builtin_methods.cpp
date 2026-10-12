@@ -90,7 +90,14 @@ const std::vector<BuiltinMethodSpec>& builtinMethodSpecs() {
         entries.push_back(BuiltinMethodSpec{"Str", "contains", "look", {asViewType(makeOwnedType("Str"), "look")}, makePlainType("Bool")});
         entries.push_back(BuiltinMethodSpec{"Str", "contains_byte", "look", {makePlainType("UInt8")}, makePlainType("Bool")});
 
-        addSliceViewMethod("Str");
+        ResolvedType int32Type = makePlainType("Int32");
+        ResolvedType byteRange = makePlainType("Range");
+        byteRange.params.push_back(int32Type);
+        ResolvedType safeStrRange = makePlainType("Maybe");
+        safeStrRange.params.push_back(asViewType(makeOwnedType("Str"), "look"));
+        entries.push_back(BuiltinMethodSpec{
+            "Str", "get", "look", {byteRange}, safeStrRange, std::nullopt, true});
+
         addSliceViewMethod("Span");
 
         addCapacityLookMethod("Vec");

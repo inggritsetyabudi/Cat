@@ -884,3 +884,65 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for Unicode Char tests"
 fi
+
+echo "[build/pass] Str range-view indexing and safe get"
+str_range_views_output="$ARTIFACT_DIR/revise_str_range_views.exe"
+rm -f "$str_range_views_output" "${str_range_views_output%.exe}.ll"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_str_range_views.cat" "$str_range_views_output" >/dev/null
+expect_generated_ll "$str_range_views_output"
+str_range_views_stdout="$(normalize_stdout "$str_range_views_output")"
+expected_str_range_views_stdout=$'A\nA\né\né\né\né\n\n\nAéB\nA\néB\n\nnone\nnone\nnone\nnone\nnone\nnone\nA'
+if [[ "$str_range_views_stdout" != "$expected_str_range_views_stdout" ]]; then
+  echo "Str range-view native output was unexpected:" >&2
+  printf '%s\n' "$str_range_views_stdout" >&2
+  exit 1
+fi
+str_range_views_ll="${str_range_views_output%.exe}.ll"
+range_guard_line="$(grep -m1 -n 'br i1 %str.range.valid' "$str_range_views_ll" | cut -d: -f1 || true)"
+range_gep_line="$(grep -m1 -n 'getelementptr inbounds i8, ptr %str.ptr' "$str_range_views_ll" | cut -d: -f1 || true)"
+if [[ -z "$range_guard_line" || -z "$range_gep_line" || "$range_guard_line" -ge "$range_gep_line" ]]; then
+  echo "Str range LLVM did not branch on validated bounds before its first source-byte GEP" >&2
+  exit 1
+fi
+if ! grep -Eq 'sext i32 %str\.range\.end\.[^ ]+ to i64' "$str_range_views_ll" ||
+   ! grep -Eq 'add i64 %str\.range\.end\.i64\.[0-9]+, 1' "$str_range_views_ll"; then
+  echo "Str range LLVM did not widen the inclusive endpoint before incrementing it" >&2
+  exit 1
+fi
+
+run_expect_str_range_defect() {
+  local fixture="$1"
+  local stem="${fixture%.cat}"
+  local output="$ARTIFACT_DIR/${stem}.exe"
+  rm -f "$output" "${output%.exe}.ll"
+  "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/$fixture" "$output" >/dev/null
+  expect_generated_ll "$output"
+  if "$output" >/dev/null 2>&1; then
+    echo "expected direct Str range defect for $fixture, but execution succeeded" >&2
+    exit 1
+  fi
+  echo "[defect/pass] direct Str range rejects $fixture"
+}
+
+ulimit -c 0
+run_expect_str_range_defect "revise_str_range_negative_defect.cat"
+run_expect_str_range_defect "revise_str_range_reversed_defect.cat"
+run_expect_str_range_defect "revise_str_range_oob_defect.cat"
+run_expect_str_range_defect "revise_str_range_utf8_defect.cat"
+run_expect_str_range_defect "revise_str_range_inclusive_overflow_defect.cat"
+
+if [[ -x "$CWD_TEST_DIR/asan_probe" ]]; then
+  str_range_views_sanitized="$CWD_TEST_DIR/revise_str_range_views_sanitized"
+  echo "[sanitizer/pass] Str range-view valid/invalid-safe cases under ASan and UBSan"
+  clang -fsanitize=address,undefined -fno-omit-frame-pointer -O1 -g \
+    "$str_range_views_ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$str_range_views_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 \
+    "$str_range_views_sanitized" > "$CWD_TEST_DIR/revise_str_range_views_sanitized.out"
+  sanitized_str_range_views_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_str_range_views_sanitized.out")"
+  if [[ "$sanitized_str_range_views_stdout" != "$expected_str_range_views_stdout" ]]; then
+    echo "sanitized Str range-view output was unexpected" >&2
+    exit 1
+  fi
+else
+  echo "[sanitizer/skip] clang ASan/UBSan runtimes are unavailable for Str range-view test"
+fi

@@ -565,6 +565,129 @@ void LlvmEmitter::emitIndexLoad(const LirIndexInst& value, FunctionState& state,
     state.namedValues[value.result] = result;
 }
 
+void LlvmEmitter::emitStrRangeView(
+    const LirStrRangeViewInst& value,
+    FunctionState& state,
+    std::vector<std::string>& lines) {
+    const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(value.receiver.type)));
+    if (baseType != "Str") {
+        throw std::runtime_error("LLVM Str range-view lowering received non-Str receiver type '" +
+            value.receiver.type + "'.");
+    }
+
+    const std::string receiverValue = ensureValue(value.receiver, state, lines);
+    const std::string basePointer = extractPointer(receiverValue, value.receiver.type, state, lines);
+    const std::string lengthValue = extractLength(receiverValue, value.receiver.type, state, lines);
+    const std::string rangeValue = ensureValue(value.range, state, lines);
+    const std::string rangeLlvmType = llvmType(value.range.type);
+    const std::string start = state.temp("str.range.start");
+    const std::string end = state.temp("str.range.end");
+    const std::string inclusive = state.temp("str.range.inclusive");
+    lines.push_back("  " + start + " = extractvalue " + rangeLlvmType + " " + rangeValue + ", 0");
+    lines.push_back("  " + end + " = extractvalue " + rangeLlvmType + " " + rangeValue + ", 1");
+    lines.push_back("  " + inclusive + " = extractvalue " + rangeLlvmType + " " + rangeValue + ", 2");
+
+    const std::string startNonnegative = state.temp("str.range.start.nonnegative");
+    const std::string endNonnegative = state.temp("str.range.end.nonnegative");
+    const std::string ordered = state.temp("str.range.ordered");
+    const std::string endAsI64 = state.temp("str.range.end.i64");
+    const std::string endPlusOne = state.temp("str.range.end.plus_one");
+    const std::string effectiveEnd = state.temp("str.range.end.exclusive");
+    const std::string startAsI64 = state.temp("str.range.start.i64");
+    const std::string startWithin = state.temp("str.range.start.within");
+    const std::string endWithin = state.temp("str.range.end.within");
+    lines.push_back("  " + startNonnegative + " = icmp sge i32 " + start + ", 0");
+    lines.push_back("  " + endNonnegative + " = icmp sge i32 " + end + ", 0");
+    lines.push_back("  " + ordered + " = icmp sle i32 " + start + ", " + end);
+    lines.push_back("  " + startAsI64 + " = sext i32 " + start + " to i64");
+    lines.push_back("  " + endAsI64 + " = sext i32 " + end + " to i64");
+    lines.push_back("  " + endPlusOne + " = add i64 " + endAsI64 + ", 1");
+    lines.push_back("  " + effectiveEnd + " = select i1 " + inclusive + ", i64 " + endPlusOne + ", i64 " + endAsI64);
+    lines.push_back("  " + startWithin + " = icmp ule i64 " + startAsI64 + ", " + lengthValue);
+    lines.push_back("  " + endWithin + " = icmp ule i64 " + effectiveEnd + ", " + lengthValue);
+
+    const std::string nonnegative = state.temp("str.range.nonnegative");
+    const std::string endpointsSafe = state.temp("str.range.endpoints.safe");
+    const std::string validRange = state.temp("str.range.valid");
+    lines.push_back("  " + nonnegative + " = and i1 " + startNonnegative + ", " + endNonnegative);
+    lines.push_back("  " + endpointsSafe + " = and i1 " + startWithin + ", " + endWithin);
+    const std::string rangeChecks = state.temp("str.range.checks");
+    lines.push_back("  " + rangeChecks + " = and i1 " + nonnegative + ", " + ordered);
+    lines.push_back("  " + validRange + " = and i1 " + rangeChecks + ", " + endpointsSafe);
+
+    const std::string rangeValidLabel = state.inlineLabel("str.range.bounds_ok");
+    const std::string invalidLabel = state.inlineLabel("str.range.invalid");
+    const std::string endCheckLabel = state.inlineLabel("str.range.check_end_utf8");
+    const std::string successLabel = state.inlineLabel("str.range.success");
+    const std::string joinLabel = state.inlineLabel("str.range.join");
+    lines.push_back("  br i1 " + validRange + ", label %" + rangeValidLabel + ", label %" + invalidLabel);
+    lines.push_back(rangeValidLabel + ":");
+
+    auto emitBoundaryCheck = [&](const std::string& offset, const std::string& nextLabel, std::string_view suffix) {
+        const std::string atZero = state.temp(std::string("str.range.") + std::string(suffix) + ".at_zero");
+        const std::string atEnd = state.temp(std::string("str.range.") + std::string(suffix) + ".at_end");
+        const std::string atNaturalBoundary = state.temp(std::string("str.range.") + std::string(suffix) + ".natural_boundary");
+        const std::string inspectLabel = state.inlineLabel(std::string("str.range.") + std::string(suffix) + ".inspect");
+        const std::string byteLabel = state.inlineLabel(std::string("str.range.") + std::string(suffix) + ".byte");
+        const std::string inString = state.temp(std::string("str.range.") + std::string(suffix) + ".in_string");
+        lines.push_back("  " + atZero + " = icmp eq i64 " + offset + ", 0");
+        lines.push_back("  " + atEnd + " = icmp eq i64 " + offset + ", " + lengthValue);
+        lines.push_back("  " + atNaturalBoundary + " = or i1 " + atZero + ", " + atEnd);
+        lines.push_back("  br i1 " + atNaturalBoundary + ", label %" + nextLabel + ", label %" + inspectLabel);
+        lines.push_back(inspectLabel + ":");
+        lines.push_back("  " + inString + " = icmp ult i64 " + offset + ", " + lengthValue);
+        lines.push_back("  br i1 " + inString + ", label %" + byteLabel + ", label %" + invalidLabel);
+        lines.push_back(byteLabel + ":");
+        const std::string bytePointer = state.temp(std::string("str.range.") + std::string(suffix) + ".byte_ptr");
+        const std::string byteValue = state.temp(std::string("str.range.") + std::string(suffix) + ".byte");
+        const std::string byteClass = state.temp(std::string("str.range.") + std::string(suffix) + ".byte_class");
+        const std::string isBoundary = state.temp(std::string("str.range.") + std::string(suffix) + ".is_boundary");
+        lines.push_back("  " + bytePointer + " = getelementptr inbounds i8, ptr " + basePointer + ", i64 " + offset);
+        lines.push_back("  " + byteValue + " = load i8, ptr " + bytePointer + ", align 1");
+        lines.push_back("  " + byteClass + " = and i8 " + byteValue + ", 192");
+        lines.push_back("  " + isBoundary + " = icmp ne i8 " + byteClass + ", 128");
+        lines.push_back("  br i1 " + isBoundary + ", label %" + nextLabel + ", label %" + invalidLabel);
+    };
+
+    emitBoundaryCheck(startAsI64, endCheckLabel, "start");
+    lines.push_back(endCheckLabel + ":");
+    emitBoundaryCheck(effectiveEnd, successLabel, "end");
+    lines.push_back(successLabel + ":");
+
+    const std::string resultPointer = state.temp("str.range.result_ptr");
+    const std::string resultLength = state.temp("str.range.result_len");
+    const std::string sliceWithPointer = state.temp("str.range.slice_ptr");
+    const std::string sliceValue = state.temp("str.range.slice");
+    lines.push_back("  " + resultPointer + " = getelementptr inbounds i8, ptr " + basePointer + ", i64 " + startAsI64);
+    lines.push_back("  " + resultLength + " = sub i64 " + effectiveEnd + ", " + startAsI64);
+    lines.push_back("  " + sliceWithPointer + " = insertvalue %claw.slice poison, ptr " + resultPointer + ", 0");
+    lines.push_back("  " + sliceValue + " = insertvalue %claw.slice " + sliceWithPointer + ", i64 " + resultLength + ", 1");
+
+    if (value.safeResult) {
+        const auto addressIt = state.namedAddresses.find(value.result);
+        if (addressIt == state.namedAddresses.end()) {
+            throw std::runtime_error("LLVM lowering did not preallocate safe Str range result '" + value.result + "'.");
+        }
+        const LirValue borrowedSlice{sliceValue, "ref Str", false};
+        constructChoiceValueAtAddress(addressIt->second, value.type, "Some", {borrowedSlice}, state, lines);
+        lines.push_back("  br label %" + joinLabel);
+        lines.push_back(invalidLabel + ":");
+        constructChoiceValueAtAddress(addressIt->second, value.type, "None", {}, state, lines);
+        lines.push_back("  br label %" + joinLabel);
+        lines.push_back(joinLabel + ":");
+        state.valueTypes[value.result] = value.type;
+    } else {
+        lines.push_back("  br label %" + joinLabel);
+        lines.push_back(invalidLabel + ":");
+        lines.push_back("  call void @llvm.trap()");
+        lines.push_back("  unreachable");
+        lines.push_back(joinLabel + ":");
+        state.valueTypes[value.result] = value.type;
+        state.namedValues[value.result] = sliceValue;
+        needsTrap = true;
+    }
+}
+
 void LlvmEmitter::emitIndexStore(const LirStoreIndexInst& value, FunctionState& state, std::vector<std::string>& lines) {
     const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(value.object.type)));
     if (baseType == "Str") {

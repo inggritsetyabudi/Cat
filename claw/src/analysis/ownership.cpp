@@ -13,8 +13,14 @@ bool isDefinitelyInitialized(StorageState state) {
     return state == StorageState::Initialized;
 }
 
+bool isBorrowedStrMaybeType(const ResolvedType& type) {
+    return type.name == "Maybe" && type.params.size() == 1 &&
+        type.params.front().name == "Str" && type.params.front().isView() &&
+        type.params.front().viewKind == "look" && type.params.front().params.empty();
+}
+
 bool isBorrowCarrierType(const ResolvedType& type) {
-    return type.isView() || type.name == "Span";
+    return type.isView() || type.name == "Span" || isBorrowedStrMaybeType(type);
 }
 
 bool isBorrowRootType(const ResolvedType& type) {
@@ -1069,7 +1075,7 @@ void OwnershipChecker::checkCallExpr(CallExpr* call) {
         const ResolvedType paramType = i < signature->paramTypes.size() ? signature->paramTypes[i] : makeUnknownType();
         Expr* arg = call->args[i].get();
 
-        if (paramType.isView()) {
+        if (isBorrowCarrierType(paramType)) {
             acquireView(arg, paramType);
             borrowedArgs.push_back({arg, paramType});
             checkExpr(arg, false);
@@ -1238,6 +1244,14 @@ std::optional<BorrowToken> OwnershipChecker::resolveBorrowPath(Expr* expr) const
     }
 
     if (auto* call = dynamic_cast<CallExpr*>(expr)) {
+        if (semantic != nullptr) {
+            const auto constructorIt = semantic->result().choiceConstructors.find(call);
+            if (constructorIt != semantic->result().choiceConstructors.end() &&
+                isBorrowedStrMaybeType(constructorIt->second.resultType) &&
+                constructorIt->second.variantName == "Some" && call->args.size() == 1) {
+                return resolveBorrowPath(call->args.front().get());
+            }
+        }
         const FunctionSignature* signature = resolveCallSignature(call->callee.get());
         const auto methodSignature = resolveMethodSignature(call->callee.get());
         if (methodSignature.has_value()) {
@@ -1255,7 +1269,9 @@ std::optional<BorrowToken> OwnershipChecker::resolveBorrowPath(Expr* expr) const
                 return std::nullopt;
             }
         }
-        if (!signature || !signature->returnType.isView() || !signature->viewReturnSourceParam.has_value()) {
+        if (!signature ||
+            !(signature->returnType.isView() || isBorrowedStrMaybeType(signature->returnType)) ||
+            !signature->viewReturnSourceParam.has_value()) {
             return std::nullopt;
         }
 

@@ -548,6 +548,7 @@ private:
         FunctionState& state,
         std::vector<std::string>& lines);
     void emitIndexLoad(const LirIndexInst& value, FunctionState& state, std::vector<std::string>& lines);
+    void emitStrRangeView(const LirStrRangeViewInst& value, FunctionState& state, std::vector<std::string>& lines);
     void emitIndexStore(const LirStoreIndexInst& value, FunctionState& state, std::vector<std::string>& lines);
     std::string ensureValue(const LirValue& value, FunctionState& state, std::vector<std::string>& lines);
     std::string symbolForDirectCall(std::string_view callee) const;

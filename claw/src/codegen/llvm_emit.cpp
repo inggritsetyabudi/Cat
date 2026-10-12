@@ -170,6 +170,26 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
         }
     }
 
+    for (const auto& block : fn.blocks) {
+        for (const auto& inst : block.insts) {
+            const auto* rangeView = std::get_if<LirStrRangeViewInst>(&inst);
+            if (!rangeView || !rangeView->safeResult) {
+                continue;
+            }
+            const auto layout = abiLayoutForType(rangeView->type);
+            if (!layout.has_value()) {
+                throw std::runtime_error("LLVM lowering could not resolve safe Str range result layout for '" +
+                    rangeView->type + "'.");
+            }
+            const std::string address = state.temp(rangeView->result + ".str.range.maybe.addr");
+            state.entryAllocas.push_back(
+                "  " + address + " = alloca " + llvmType(rangeView->type) + ", align " +
+                std::to_string(layout->align));
+            state.namedAddresses[rangeView->result] = address;
+            state.valueTypes[rangeView->result] = rangeView->type;
+        }
+    }
+
     std::ostringstream out;
     out << "define " << llvmFunctionLinkage(fn.linkage) << llvmFunctionReturnType(fn) << " "
         << quoteGlobal(fn.linkage.symbol) << "(";
@@ -468,6 +488,9 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                 },
                 [&](const LirIndexInst& value) {
                     emitIndexLoad(value, state, blockLines);
+                },
+                [&](const LirStrRangeViewInst& value) {
+                    emitStrRangeView(value, state, blockLines);
                 },
                 [&](const LirStoreIndexInst& value) {
                     emitIndexStore(value, state, blockLines);
