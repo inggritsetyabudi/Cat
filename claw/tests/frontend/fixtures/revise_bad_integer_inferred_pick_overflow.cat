@@ -1,0 +1,17 @@
+choice Route {
+    left(value: Int32)
+    right(value: Int32)
+}
+
+fn main() -> Int32 {
+    val route: Route = left(0)
+    val selected = pick route {
+        left(value) {
+            0x8000_0000
+        }
+        right(value) {
+            0
+        }
+    }
+    return selected
+}

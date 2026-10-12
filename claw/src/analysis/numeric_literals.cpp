@@ -5,7 +5,9 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace claw::frontend::numeric_literals {
 namespace {
@@ -72,6 +74,98 @@ std::optional<unsigned> integerLikeBitWidth(const std::string& typeName) {
     return it != widths.end() ? std::optional<unsigned>(it->second) : std::nullopt;
 }
 
+std::optional<size_t> exactNumericSuffixPosition(const std::string& text) {
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (text[i] != '_') {
+            continue;
+        }
+        const std::string suffix = text.substr(i + 1);
+        if (!suffix.empty() && isNumericTypeName(suffix)) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+std::string withoutSeparators(const std::string& text) {
+    std::string result;
+    result.reserve(text.size());
+    for (char c : text) {
+        if (c != '_') {
+            result += c;
+        }
+    }
+    return result;
+}
+
+int digitValue(char c) {
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10;
+    }
+    if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10;
+    }
+    return -1;
+}
+
+bool consumeDecimalDigits(std::string_view text, size_t& position) {
+    bool sawDigit = false;
+    bool previousWasDigit = false;
+    while (position < text.size()) {
+        const char c = text[position];
+        if (std::isdigit(static_cast<unsigned char>(c))) {
+            sawDigit = true;
+            previousWasDigit = true;
+            ++position;
+            continue;
+        }
+        if (c == '_') {
+            if (!previousWasDigit || position + 1 >= text.size() ||
+                !std::isdigit(static_cast<unsigned char>(text[position + 1]))) {
+                return false;
+            }
+            previousWasDigit = false;
+            ++position;
+            continue;
+        }
+        break;
+    }
+    return sawDigit && previousWasDigit;
+}
+
+std::string toDecimalMagnitude(const std::string& digits, unsigned radix) {
+    std::vector<unsigned> decimalDigits{0}; // little-endian decimal digits
+    for (char c : digits) {
+        if (c == '_') {
+            continue;
+        }
+        const unsigned value = static_cast<unsigned>(digitValue(c));
+        unsigned carry = value;
+        for (unsigned& decimalDigit : decimalDigits) {
+            const unsigned expanded = decimalDigit * radix + carry;
+            decimalDigit = expanded % 10;
+            carry = expanded / 10;
+        }
+        while (carry != 0) {
+            decimalDigits.push_back(carry % 10);
+            carry /= 10;
+        }
+    }
+
+    while (decimalDigits.size() > 1 && decimalDigits.back() == 0) {
+        decimalDigits.pop_back();
+    }
+    std::string result;
+    result.reserve(decimalDigits.size());
+    for (auto it = decimalDigits.rbegin(); it != decimalDigits.rend(); ++it) {
+        result.push_back(static_cast<char>('0' + *it));
+    }
+    return result;
+}
+
 } // namespace
 
 bool isConcreteNumericType(const ResolvedType& type) {
@@ -105,11 +199,100 @@ bool isFloatTypeName(const std::string& name) {
 }
 
 NumericLiteralParts splitNumericLiteralText(const std::string& text) {
-    const size_t suffixPos = text.find('_');
-    if (suffixPos == std::string::npos) {
-        return {text, {}};
+    const auto suffixPosition = exactNumericSuffixPosition(text);
+    if (!suffixPosition.has_value()) {
+        return {withoutSeparators(text), {}};
     }
-    return {text.substr(0, suffixPos), text.substr(suffixPos + 1)};
+    return {
+        withoutSeparators(text.substr(0, *suffixPosition)),
+        text.substr(*suffixPosition + 1)};
+}
+
+ParsedIntegerLiteral parseIntegerLiteralText(const std::string& text) {
+    ParsedIntegerLiteral parsed;
+    std::string_view digits(text);
+    if (const auto suffixPosition = exactNumericSuffixPosition(text); suffixPosition.has_value()) {
+        parsed.suffix = text.substr(*suffixPosition + 1);
+        digits = std::string_view(text).substr(0, *suffixPosition);
+    }
+
+    if (digits.size() >= 2 && digits[0] == '0') {
+        switch (digits[1]) {
+        case 'x': parsed.radix = 16; digits.remove_prefix(2); break;
+        case 'b': parsed.radix = 2; digits.remove_prefix(2); break;
+        case 'o': parsed.radix = 8; digits.remove_prefix(2); break;
+        default: break;
+        }
+    }
+
+    if (digits.empty()) {
+        return parsed;
+    }
+
+    bool previousWasDigit = false;
+    bool sawDigit = false;
+    std::string normalizedDigits;
+    normalizedDigits.reserve(digits.size());
+    for (size_t i = 0; i < digits.size(); ++i) {
+        const char c = digits[i];
+        if (c == '_') {
+            if (!previousWasDigit || i + 1 >= digits.size()) {
+                return parsed;
+            }
+            const int nextValue = digitValue(digits[i + 1]);
+            if (nextValue < 0 || static_cast<unsigned>(nextValue) >= parsed.radix) {
+                return parsed;
+            }
+            previousWasDigit = false;
+            continue;
+        }
+
+        const int value = digitValue(c);
+        if (value < 0 || static_cast<unsigned>(value) >= parsed.radix) {
+            return parsed;
+        }
+        normalizedDigits += c;
+        previousWasDigit = true;
+        sawDigit = true;
+    }
+    if (!sawDigit || !previousWasDigit) {
+        return parsed;
+    }
+
+    parsed.valid = true;
+    parsed.magnitude = toDecimalMagnitude(normalizedDigits, parsed.radix);
+    return parsed;
+}
+
+bool isValidFloatLiteralText(const std::string& text) {
+    const auto suffixPosition = exactNumericSuffixPosition(text);
+    const std::string_view magnitude = suffixPosition.has_value()
+        ? std::string_view(text).substr(0, *suffixPosition)
+        : std::string_view(text);
+    size_t position = 0;
+    if (!consumeDecimalDigits(magnitude, position)) {
+        return false;
+    }
+
+    bool sawFractionOrExponent = false;
+    if (position < magnitude.size() && magnitude[position] == '.') {
+        sawFractionOrExponent = true;
+        ++position;
+        if (!consumeDecimalDigits(magnitude, position)) {
+            return false;
+        }
+    }
+    if (position < magnitude.size() && (magnitude[position] == 'e' || magnitude[position] == 'E')) {
+        sawFractionOrExponent = true;
+        ++position;
+        if (position < magnitude.size() && (magnitude[position] == '+' || magnitude[position] == '-')) {
+            ++position;
+        }
+        if (!consumeDecimalDigits(magnitude, position)) {
+            return false;
+        }
+    }
+    return sawFractionOrExponent && position == magnitude.size();
 }
 
 std::optional<ResolvedType> resolveNumericLiteralSuffixType(const std::string& suffix) {
@@ -126,16 +309,12 @@ bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& t
     }
 
     const unsigned pointerWidthBits = std::min(target.pointerWidthBits == 0 ? 64u : target.pointerWidthBits, 128u);
-    const unsigned ptrdiffWidthBits = std::min(target.ptrdiffWidthBits == 0 ? 64u : target.ptrdiffWidthBits, 128u);
-
     if (targetName == "Char") {
         return value <= UInt128{0x10FFFF};
     }
     if (targetName == "USize") {
         return value <= maxUnsignedBits(pointerWidthBits);
     }
-
-
 
     if (const auto bits = integerLikeBitWidth(targetName)) {
         if (targetName.rfind("Int", 0) == 0) {
@@ -145,10 +324,10 @@ bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& t
     }
 
     if (targetName == "Float32") {
-        return value <= UInt128{1} << 24;
+        return value <= (UInt128{1} << 24);
     }
     if (targetName == "Float64") {
-        return value <= UInt128{1} << 53;
+        return value <= (UInt128{1} << 53);
     }
 
     return false;
@@ -172,8 +351,9 @@ bool floatLiteralFitsTarget(const std::string& magnitude, const std::string& tar
     }
 
     try {
-        const long double value = std::stold(magnitude);
-        if (!std::isfinite(value)) {
+        size_t parsedLength = 0;
+        const long double value = std::stold(magnitude, &parsedLength);
+        if (parsedLength != magnitude.size() || !std::isfinite(value)) {
             return false;
         }
         const bool nonZeroMagnitude = literalMagnitudeHasNonZeroDigit(magnitude);

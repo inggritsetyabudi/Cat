@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val bad = 0o8
+    return 0
+}

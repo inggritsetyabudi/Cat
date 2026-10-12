@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val too_large: UInt128 = 0x1_00000000000000000000000000000000_UInt128
+    return 0
+}

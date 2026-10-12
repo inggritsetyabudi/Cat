@@ -1,0 +1,17 @@
+fn main() -> Int32 {
+    val grouped: Int32 = 1_000_000
+    val hex_separator: Int32 = 0xAB_CD
+    val hex_suffix: UInt8 = 0xFF_UInt8
+    val binary: UInt8 = 0b1111_1111
+    val octal: UInt16 = 0o17_755
+    val exact_suffix: Int8 = 1_Int8
+    val hex_float_suffix: Float32 = 0xFF_Float32
+    val signed_min: Int8 = -0x80_Int8
+    val wide_signed_min: Int128 = -0x80000000000000000000000000000000_Int128
+    val wide_unsigned_max: UInt128 = 0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_UInt128
+    val inferred_separator = 1_0
+    val tight_range = 1..5
+    val decimal_float: Float64 = 1.5
+    val separated_float: Float64 = 1_000.5
+    0
+}

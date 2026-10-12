@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val too_large = 0x8000_0000
+    return 0
+}

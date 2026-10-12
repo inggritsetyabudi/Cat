@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val too_large: Int8 = 0x80_Int8
+    return 0
+}

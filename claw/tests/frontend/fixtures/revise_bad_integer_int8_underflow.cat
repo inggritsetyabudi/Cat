@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val too_small: Int8 = -0x81_Int8
+    return 0
+}

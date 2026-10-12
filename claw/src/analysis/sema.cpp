@@ -2082,6 +2082,21 @@ ResolvedType SemanticAnalyzer::analyzeBlockValue(BlockStmt* block, const Resolve
     return makePlainType("Unit");
 }
 
+void SemanticAnalyzer::validateInferredIntegerLiteral(const Expr* expr, const std::string& targetName) {
+    const auto* integerExpr = dynamic_cast<const IntExpr*>(expr);
+    if (!integerExpr) {
+        return;
+    }
+
+    const auto literal = parseIntegerLiteralText(integerExpr->value);
+    if (literal.valid && literal.suffix.empty() &&
+        !integerLiteralFitsTarget(literal.magnitude, targetName, target)) {
+        reportError(
+            integerExpr,
+            "Integer literal '" + literal.magnitude + "' does not fit target type " + targetName + ".");
+    }
+}
+
 ResolvedType SemanticAnalyzer::unifyBranchTypes(
     const AstNode* owner,
     const std::vector<ResolvedType>& branchTypes,
@@ -2090,7 +2105,27 @@ ResolvedType SemanticAnalyzer::unifyBranchTypes(
     bool hasValueBranch = false;
     ResolvedType commonType = makeUnknownType();
 
-    for (const auto& branchType : branchTypes) {
+    const auto branchValue = [&](size_t index) -> const Expr* {
+        const BlockStmt* block = nullptr;
+        if (const auto* ifExpr = dynamic_cast<const IfExpr*>(owner)) {
+            block = index == 0 ? ifExpr->thenBlock.get() : ifExpr->elseBlock.get();
+        } else if (const auto* pickExpr = dynamic_cast<const PickExpr*>(owner)) {
+            if (index < pickExpr->branches.size()) {
+                block = pickExpr->branches[index].body.get();
+            }
+        }
+        if (!block || block->statements.empty()) {
+            return nullptr;
+        }
+        const auto* tail = dynamic_cast<const ExprStmt*>(block->statements.back().get());
+        return tail ? tail->expr.get() : nullptr;
+    };
+
+    for (size_t branchIndex = 0; branchIndex < branchTypes.size(); ++branchIndex) {
+        const auto& branchType = branchTypes[branchIndex];
+        if (!expectedType && isIntegerLiteralType(branchType)) {
+            validateInferredIntegerLiteral(branchValue(branchIndex), "Int32");
+        }
         if (branchType.name == "Never") {
             continue;
         }
@@ -2318,6 +2353,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
         }
 
         if (!bind->type && bind->value && isIntegerLiteralType(valueType)) {
+            validateInferredIntegerLiteral(bind->value.get(), finalType.name);
             analysisResult.exprTypes[bind->value.get()] = finalType;
         }
 
@@ -2519,6 +2555,9 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                     if (sym->type.isUnknown()) {
                         const ResolvedType inferredType = normalizeInferredLiteralType(valueType);
                         if (!inferredType.isUnknown()) {
+                            if (isIntegerLiteralType(valueType)) {
+                                validateInferredIntegerLiteral(assign->value.get(), inferredType.name);
+                            }
                             sym->type = inferredType;
                             if (sym->bindingDecl) {
                                 analysisResult.bindingTypes[sym->bindingDecl] = inferredType;
@@ -2988,36 +3027,42 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
     if (dynamic_cast<BoolExpr*>(expr)) {
         type = makePlainType("Bool");
     } else if (auto* intExpr = dynamic_cast<IntExpr*>(expr)) {
-        const auto literal = splitNumericLiteralText(intExpr->value);
-        const auto fitsTarget = [&](const std::string& targetName) {
-            return allowNegativeIntegerMagnitude
-                ? integerLiteralFitsNegatedTarget(literal.magnitude, targetName, target)
-                : integerLiteralFitsTarget(literal.magnitude, targetName, target);
-        };
-        if (!literal.suffix.empty()) {
-            const auto suffixType = resolveNumericLiteralSuffixType(literal.suffix);
-            if (!suffixType.has_value()) {
-                reportError(intExpr, "Unknown numeric literal suffix: " + literal.suffix);
-            } else {
-                type = *suffixType;
-                if (!fitsTarget(type.name)) {
-                    reportError(intExpr, "Integer literal '" + literal.magnitude + "' does not fit target type " + type.name + ".");
-                }
-            }
-        } else if (shouldUseExpectedIntegerType(expectedType) || shouldUseExpectedFloatType(expectedType)) {
-            type = *expectedType;
-            if (!fitsTarget(type.name)) {
-                const std::string detail = shouldUseExpectedFloatType(expectedType)
-                    ? "does not fit exactly in target type "
-                    : "does not fit target type ";
-                reportError(intExpr, "Integer literal '" + literal.magnitude + "' " + detail + type.name + ".");
-            }
+        const auto literal = parseIntegerLiteralText(intExpr->value);
+        if (!literal.valid) {
+            reportError(intExpr, "Malformed integer literal '" + intExpr->value + "'.");
         } else {
-            type = makeIntegerLiteralType();
+            const auto fitsTarget = [&](const std::string& targetName) {
+                return allowNegativeIntegerMagnitude
+                    ? integerLiteralFitsNegatedTarget(literal.magnitude, targetName, target)
+                    : integerLiteralFitsTarget(literal.magnitude, targetName, target);
+            };
+            if (!literal.suffix.empty()) {
+                const auto suffixType = resolveNumericLiteralSuffixType(literal.suffix);
+                if (!suffixType.has_value()) {
+                    reportError(intExpr, "Unknown numeric literal suffix: " + literal.suffix);
+                } else {
+                    type = *suffixType;
+                    if (!fitsTarget(type.name)) {
+                        reportError(intExpr, "Integer literal '" + literal.magnitude + "' does not fit target type " + type.name + ".");
+                    }
+                }
+            } else if (shouldUseExpectedIntegerType(expectedType) || shouldUseExpectedFloatType(expectedType)) {
+                type = *expectedType;
+                if (!fitsTarget(type.name)) {
+                    const std::string detail = shouldUseExpectedFloatType(expectedType)
+                        ? "does not fit exactly in target type "
+                        : "does not fit target type ";
+                    reportError(intExpr, "Integer literal '" + literal.magnitude + "' " + detail + type.name + ".");
+                }
+            } else {
+                type = makeIntegerLiteralType();
+            }
         }
     } else if (auto* floatExpr = dynamic_cast<FloatExpr*>(expr)) {
         const auto literal = splitNumericLiteralText(floatExpr->value);
-        if (!literal.suffix.empty()) {
+        if (!isValidFloatLiteralText(floatExpr->value)) {
+            reportError(floatExpr, "Malformed float literal '" + floatExpr->value + "'.");
+        } else if (!literal.suffix.empty()) {
             const auto suffixType = resolveNumericLiteralSuffixType(literal.suffix);
             if (!suffixType.has_value()) {
                 reportError(floatExpr, "Unknown numeric literal suffix: " + literal.suffix);
@@ -3063,6 +3108,9 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 const ResolvedType* expectedElement = expectedArityMatches ? &expectedType->params[i] : nullptr;
                 ResolvedType elementType = analyzeExpr(tupleExpr->elements[i].get(), expectedElement);
                 if (isNumericLiteralType(elementType)) {
+                    if (isIntegerLiteralType(elementType)) {
+                        validateInferredIntegerLiteral(tupleExpr->elements[i].get(), "Int32");
+                    }
                     elementType = normalizeInferredLiteralType(elementType);
                     analysisResult.exprTypes[tupleExpr->elements[i].get()] = elementType;
                 }
@@ -3538,7 +3586,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
             if (operandType.isUnknown() || isNumericTypeName(operandType.name) || isNumericLiteralType(operandType)) {
                 type = isNumericLiteralType(operandType) ? normalizeInferredLiteralType(operandType) : operandType;
                 if (allowNegativeMagnitude && isIntegerLiteralType(operandType)) {
-                    const auto literal = splitNumericLiteralText(negatedIntegerLiteral->value);
+                    const auto literal = parseIntegerLiteralText(negatedIntegerLiteral->value);
                     if (literal.suffix.empty() && !shouldUseExpectedIntegerType(expectedType) && !shouldUseExpectedFloatType(expectedType)) {
                         if (!integerLiteralFitsNegatedTarget(literal.magnitude, "Int32", target)) {
                             reportError(
@@ -3753,6 +3801,9 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 type = *expectedType;
             } else {
                 type = makeOwnedType("Anchor");
+                if (isIntegerLiteralType(payloadType)) {
+                    validateInferredIntegerLiteral(call->args.front().get(), "Int32");
+                }
                 type.params.push_back(normalizeInferredLiteralType(payloadType));
             }
             if (canValidatePayloadGraph && !validateAnchorPayloadType(type, call, "Anchor.new payloads")) {
@@ -3858,6 +3909,9 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                                     ? &expectedType->params.front()
                                     : nullptr;
                             ResolvedType payloadType = analyzeExpr(call->args[0].get(), payloadExpectedType);
+                            if (isIntegerLiteralType(payloadType)) {
+                                validateInferredIntegerLiteral(call->args[0].get(), "Int32");
+                            }
                             payloadType = normalizeInferredLiteralType(payloadType);
                             if (isNumericLiteralType(payloadType)) {
                                 analysisResult.exprTypes[call->args[0].get()] = payloadType;

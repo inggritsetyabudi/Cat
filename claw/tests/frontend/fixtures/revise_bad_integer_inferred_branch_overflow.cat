@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val selected = if true { 0x8000_0000 } else { 0 }
+    return 0
+}

@@ -1,0 +1,25 @@
+fn main() -> Int32 {
+    val grouped: Int32 = 1_000_000
+    val hex_separator: Int32 = 0xAB_CD
+    val hex_suffix: UInt8 = 0xFF_UInt8
+    val binary: UInt16 = 0b1010_1010
+    val octal: Int16 = 0o755
+    val exact_suffix: Int8 = 1_Int8
+    val hex_float_suffix: Float32 = 0xFF_Float32
+    val separated_float: Float64 = 1_000.5
+    val signed_min: Int128 = -0x80000000000000000000000000000000_Int128
+    val unsigned_max: UInt128 = 0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_UInt128
+
+    if grouped == 1_000_000 { println("grouped-ok") } else { println("grouped-fail") }
+    if hex_separator == 43_981 { println("hex-separator-ok") } else { println("hex-separator-fail") }
+    if hex_suffix == 255_UInt8 { println("hex-suffix-ok") } else { println("hex-suffix-fail") }
+    if binary == 170 { println("binary-ok") } else { println("binary-fail") }
+    if octal == 493 { println("octal-ok") } else { println("octal-fail") }
+    if exact_suffix == 1_Int8 { println("int-suffix-ok") } else { println("int-suffix-fail") }
+    if hex_float_suffix == 255.0_Float32 { println("hex-float-suffix-ok") } else { println("hex-float-suffix-fail") }
+    if separated_float == 1_000.5 { println("float-separator-ok") } else { println("float-separator-fail") }
+    if signed_min == -170141183460469231731687303715884105728_Int128 { println("int128-min-ok") } else { println("int128-min-fail") }
+    if unsigned_max == 340282366920938463463374607431768211455_UInt128 { println("uint128-max-ok") } else { println("uint128-max-fail") }
+
+    return 0
+}

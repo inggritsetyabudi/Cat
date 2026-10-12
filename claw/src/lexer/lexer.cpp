@@ -131,17 +131,37 @@ Token Lexer::readNumber(bool allowFraction) {
     const size_t startPos = pos;
 
     std::string text;
-    while (!isAtEnd() && std::isdigit(static_cast<unsigned char>(peek()))) {
+
+    if (peek() == '0' && (peekAhead(1) == 'x' || peekAhead(1) == 'b' || peekAhead(1) == 'o')) {
         text += advance();
+        text += advance();
+        while (!isAtEnd() && (std::isalnum(static_cast<unsigned char>(peek())) || peek() == '_')) {
+            text += advance();
+        }
+        return makeToken(TokenKind::IntLiteral, text, startLine, startColumn, pos - startPos);
     }
+
+    const auto readDecimalDigitsAndSeparators = [&]() {
+        while (!isAtEnd()) {
+            const unsigned char current = static_cast<unsigned char>(peek());
+            if (std::isdigit(current)) {
+                text += advance();
+                continue;
+            }
+            if (peek() == '_' && !std::isalpha(static_cast<unsigned char>(peekAhead(1)))) {
+                text += advance();
+                continue;
+            }
+            break;
+        }
+    };
+    readDecimalDigitsAndSeparators();
 
     bool isFloat = false;
     if (allowFraction && !isAtEnd() && peek() == '.' && std::isdigit(static_cast<unsigned char>(peekAhead(1)))) {
         isFloat = true;
         text += advance();
-        while (!isAtEnd() && std::isdigit(static_cast<unsigned char>(peek()))) {
-            text += advance();
-        }
+        readDecimalDigitsAndSeparators();
     }
 
     const auto hasExponent = [&]() {
@@ -163,9 +183,7 @@ Token Lexer::readNumber(bool allowFraction) {
         if (!isAtEnd() && (peek() == '+' || peek() == '-')) {
             text += advance();
         }
-        while (!isAtEnd() && std::isdigit(static_cast<unsigned char>(peek()))) {
-            text += advance();
-        }
+        readDecimalDigitsAndSeparators();
     }
 
     if (!isAtEnd() && peek() == '_' && std::isalpha(static_cast<unsigned char>(peekAhead(1)))) {

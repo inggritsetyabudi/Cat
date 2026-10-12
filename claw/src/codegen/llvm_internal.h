@@ -106,19 +106,17 @@ inline bool isIntegerLiteral(std::string_view text) {
         }
         index = 1;
     }
-    bool sawDigit = false;
+    if (index >= text.size() || std::isdigit(static_cast<unsigned char>(text[index])) == 0) {
+        return false;
+    }
     for (; index < text.size(); ++index) {
         const char c = text[index];
-        if (std::isdigit(static_cast<unsigned char>(c)) != 0) {
-            sawDigit = true;
+        if (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '_') {
             continue;
-        }
-        if (c == '_') {
-            return sawDigit;
         }
         return false;
     }
-    return sawDigit;
+    return true;
 }
 
 inline std::string stripLiteralSuffix(std::string_view text) {

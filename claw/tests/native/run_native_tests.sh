@@ -70,6 +70,7 @@ pick_anchor_payload_shadowing_output="$ARTIFACT_DIR/revise_pick_anchor_payload_s
 range_reject_output="$ARTIFACT_DIR/revise_int32_range_reject.exe"
 indexed_scan_reject_output="$ARTIFACT_DIR/revise_indexed_scan_reject.exe"
 numeric_literals_output="$ARTIFACT_DIR/revise_numeric_literals.exe"
+radix_literals_output="$ARTIFACT_DIR/revise_integer_radix_literals.exe"
 choice_resolution_output="$ARTIFACT_DIR/revise_choice_resolution.exe"
 workspace_output="$ARTIFACT_DIR/revise_workspace.exe"
 maybe_output="$ARTIFACT_DIR/revise_maybe.exe"
@@ -106,6 +107,7 @@ rm -f "$single_output" "${single_output%.exe}.ll" \
       "$range_reject_output" "${range_reject_output%.exe}.ll" \
       "$indexed_scan_reject_output" "${indexed_scan_reject_output%.exe}.ll" \
       "$numeric_literals_output" "${numeric_literals_output%.exe}.ll" \
+      "$radix_literals_output" "${radix_literals_output%.exe}.ll" \
       "$choice_resolution_output" "${choice_resolution_output%.exe}.ll" \
       "$workspace_output" "${workspace_output%.exe}.ll" \
       "$maybe_output" "${maybe_output%.exe}.ll" \
@@ -339,6 +341,27 @@ expect_generated_ll "$numeric_literals_output"
 numeric_literals_stdout="$(normalize_stdout "$numeric_literals_output")"
 if [[ "$numeric_literals_stdout" != "127" ]]; then
   echo "numeric-literal native build produced unexpected output: $numeric_literals_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_integer_radix_literals.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_integer_radix_literals.cat" "$radix_literals_output" >/dev/null
+expect_generated_ll "$radix_literals_output"
+radix_literals_ll="${radix_literals_output%.exe}.ll"
+if ! grep -Fq 'store i32 43981,' "$radix_literals_ll" ||
+   ! grep -Fq 'store i8 255,' "$radix_literals_ll" ||
+   ! grep -Fq 'store i16 170,' "$radix_literals_ll" ||
+   ! grep -Fq 'store i16 493,' "$radix_literals_ll" ||
+   ! grep -Fq 'store i128 340282366920938463463374607431768211455,' "$radix_literals_ll" ||
+   ! grep -Fq 'sub i128 0, 170141183460469231731687303715884105728' "$radix_literals_ll"; then
+  echo "radix integer LLVM constants were not normalized to their expected decimal values" >&2
+  exit 1
+fi
+radix_literals_stdout="$(normalize_stdout "$radix_literals_output")"
+expected_radix_literals_stdout=$'grouped-ok\nhex-separator-ok\nhex-suffix-ok\nbinary-ok\noctal-ok\nint-suffix-ok\nhex-float-suffix-ok\nfloat-separator-ok\nint128-min-ok\nuint128-max-ok'
+if [[ "$radix_literals_stdout" != "$expected_radix_literals_stdout" ]]; then
+  echo "radix integer native output did not match normalized values/types:" >&2
+  echo "$radix_literals_stdout" >&2
   exit 1
 fi
 

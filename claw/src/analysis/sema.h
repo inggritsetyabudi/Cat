@@ -103,6 +103,7 @@ private:
 
     void analyzeBlock(BlockStmt* block);
     ResolvedType analyzeBlockValue(BlockStmt* block, const ResolvedType* expectedType);
+    void validateInferredIntegerLiteral(const Expr* expr, const std::string& targetName);
     bool analyzeTuplePickPattern(const PickPattern* pattern, const ResolvedType& type, const std::string& path);
     void bindTuplePickPattern(PickPattern* pattern, const ResolvedType& type);
     ResolvedType unifyBranchTypes(

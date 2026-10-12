@@ -12,6 +12,13 @@ struct NumericLiteralParts {
     std::string suffix;
 };
 
+struct ParsedIntegerLiteral {
+    bool valid = false;
+    std::string magnitude;
+    std::string suffix;
+    unsigned radix = 10;
+};
+
 ResolvedType makeIntegerLiteralType();
 ResolvedType makeFloatLiteralType();
 bool isFloatLiteralType(const ResolvedType& type);
@@ -19,6 +26,8 @@ bool isNumericLiteralType(const ResolvedType& type);
 bool isConcreteNumericType(const ResolvedType& type);
 bool isFloatTypeName(const std::string& name);
 NumericLiteralParts splitNumericLiteralText(const std::string& text);
+ParsedIntegerLiteral parseIntegerLiteralText(const std::string& text);
+bool isValidFloatLiteralText(const std::string& text);
 std::optional<ResolvedType> resolveNumericLiteralSuffixType(const std::string& suffix);
 bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target);
 bool integerLiteralFitsNegatedTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target);

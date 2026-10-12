@@ -1,4 +1,5 @@
 #include "codegen/llvm_internal.h"
+#include "analysis/numeric_literals.h"
 
 #include <bit>
 #include <charconv>
@@ -10,7 +11,11 @@ namespace claw::codegen {
 namespace {
 
 std::string llvmFloatConstant(std::string_view rawText, std::string_view typeName) {
-    const std::string text = stripLiteralSuffix(std::string(rawText));
+    std::string text = numeric_literals::splitNumericLiteralText(std::string(rawText)).magnitude;
+    const auto integerLiteral = numeric_literals::parseIntegerLiteralText(std::string(rawText));
+    if (integerLiteral.valid) {
+        text = integerLiteral.magnitude;
+    }
     std::uint64_t bits = 0;
     if (typeName == "Float32") {
         float value = 0.0f;
@@ -629,7 +634,17 @@ std::string LlvmEmitter::ensureValue(const LirValue& value, FunctionState& state
         return llvmFloatConstant(value.text, baseType);
     }
     if (isIntegerLiteral(value.text)) {
-        return stripLiteralSuffix(value.text);
+        std::string_view magnitudeText = value.text;
+        bool isNegative = false;
+        if (!magnitudeText.empty() && magnitudeText.front() == '-') {
+            isNegative = true;
+            magnitudeText.remove_prefix(1);
+        }
+        const auto literal = frontend::numeric_literals::parseIntegerLiteralText(std::string(magnitudeText));
+        if (!literal.valid) {
+            throw std::runtime_error("LLVM lowering could not parse integer literal '" + value.text + "'.");
+        }
+        return isNegative ? "-" + literal.magnitude : literal.magnitude;
     }
 
     throw std::runtime_error("LLVM lowering does not yet support value '" + value.text + "' of type '" + value.type + "'.");
