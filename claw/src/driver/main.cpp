@@ -1,12 +1,26 @@
 #include <cctype>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <string_view>
 #include <system_error>
+#include <thread>
 #include <unordered_map>
 #include <vector>
+
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 #include "analysis/ownership.h"
 #include "ast/ast.h"
@@ -22,6 +36,240 @@
 #include "parser/parser.h"
 
 namespace {
+
+bool standardErrorIsTerminal() {
+#if defined(_WIN32)
+    return _isatty(_fileno(stderr)) != 0;
+#else
+    return isatty(fileno(stderr)) != 0;
+#endif
+}
+
+class BuildProgress {
+public:
+    explicit BuildProgress(bool enabled)
+        : enabled_(enabled),
+          terminal_(enabled && standardErrorIsTerminal()),
+          color_(terminal_ && ansiColorSupported() && std::getenv("NO_COLOR") == nullptr) {}
+
+    ~BuildProgress() {
+        stopSpinner();
+    }
+
+    void begin() {
+        if (!enabled_ || started_) {
+            return;
+        }
+        started_ = true;
+        std::cerr << styled("C@ Forge | Native optimized (-O2)", "1;35") << '\n';
+        std::cerr << "Key: = complete, > active, . waiting\nPlan: ";
+        for (size_t i = 0; i < kPhases.size(); ++i) {
+            if (i != 0) {
+                std::cerr << " > ";
+            }
+            std::cerr << kPhases[i];
+        }
+        std::cerr << '\n';
+        render(phaseLabel(current_));
+    }
+
+    void advance() {
+        if (!enabled_ || finished_) {
+            return;
+        }
+        if (!started_) {
+            begin();
+        }
+        stopSpinner();
+        if (current_ >= kPhases.size()) {
+            return;
+        }
+        ++completed_;
+        current_ = completed_;
+        if (current_ < kPhases.size()) {
+            render(phaseLabel(current_));
+            if (current_ == kPhases.size() - 1 && terminal_) {
+                startSpinner();
+            }
+        }
+    }
+
+    void beforeMessage() {
+        if (!enabled_) {
+            return;
+        }
+        stopSpinner();
+        if (terminal_ && lineOpen_) {
+            std::cerr << '\n';
+            lineOpen_ = false;
+            lastLineWidth_ = 0;
+        }
+    }
+
+    void succeed() {
+        if (!enabled_ || finished_) {
+            return;
+        }
+        if (!started_) {
+            begin();
+        }
+        stopSpinner();
+        completed_ = kPhases.size();
+        current_ = kPhases.size();
+        render("FORGE READY | native artifact ready", false, true);
+        finishLine();
+        finished_ = true;
+    }
+
+    void fail(std::string_view reason) {
+        if (!enabled_ || finished_) {
+            return;
+        }
+        if (!started_) {
+            begin();
+        }
+        stopSpinner();
+        render(std::string("FORGE HALTED | ") + std::string(reason), true);
+        finishLine();
+        finished_ = true;
+    }
+
+private:
+    static constexpr std::array<std::string_view, 6> kPhases = {
+        "Resolve input path",
+        "Load Cat package graph",
+        "Check types + entry graph",
+        "Verify entry contract",
+        "Check ownership",
+        "Lower LLVM + link native code",
+    };
+
+    static bool ansiColorSupported() {
+#if defined(_WIN32)
+        // Windows terminal ANSI support varies; plain text is the safe fallback.
+        return false;
+#else
+        const char* term = std::getenv("TERM");
+        return term == nullptr || std::string_view(term) != "dumb";
+#endif
+    }
+
+    static bool liveSpinnerSupported() {
+#if defined(_WIN32)
+        return false;
+#else
+        return true;
+#endif
+    }
+
+    std::string phaseLabel(size_t index) const {
+        std::string label(kPhases[index]);
+        if (index == kPhases.size() - 1) {
+            label += " (working; progress is indeterminate)";
+        }
+        return label;
+    }
+
+    std::string styled(std::string_view text, std::string_view ansi) const {
+        if (!color_) {
+            return std::string(text);
+        }
+        return std::string("\x1b[") + std::string(ansi) + "m" + std::string(text) + "\x1b[0m";
+    }
+
+    void render(std::string_view label, bool failure = false, bool success = false, char active = '>') {
+        std::string plainBar;
+        plainBar.reserve(kPhases.size());
+        for (size_t i = 0; i < kPhases.size(); ++i) {
+            if (i < completed_) {
+                plainBar += '=';
+            } else if (!success && i == current_) {
+                plainBar += failure ? '!' : active;
+            } else {
+                plainBar += '.';
+            }
+        }
+        const std::string plainLine = "[" + plainBar + "] | " + std::string(label);
+        if (terminal_ && lineOpen_) {
+            std::cerr << '\r';
+        }
+        std::cerr << '[';
+        for (size_t i = 0; i < kPhases.size(); ++i) {
+            if (i < completed_) {
+                std::cerr << styled(std::string_view(&plainBar[i], 1), "32;1");
+            } else if (!success && i == current_) {
+                const char* tone = failure ? "31;1" : "36;1";
+                std::cerr << styled(std::string_view(&plainBar[i], 1), tone);
+            } else {
+                std::cerr << styled(std::string_view(&plainBar[i], 1), "2");
+            }
+        }
+        const char* labelTone = failure ? "31;1" : (success ? "32;1" : "36;1");
+        std::cerr << "] | " << styled(label, labelTone);
+        if (terminal_) {
+            if (lastLineWidth_ > plainLine.size()) {
+                std::cerr << std::string(lastLineWidth_ - plainLine.size(), ' ');
+            }
+            if (plainLine.size() > lastLineWidth_) {
+                lastLineWidth_ = plainLine.size();
+            }
+            lineOpen_ = true;
+            std::cerr.flush();
+        } else {
+            std::cerr << '\n';
+        }
+    }
+
+    void finishLine() {
+        if (terminal_ && lineOpen_) {
+            std::cerr << '\n';
+            lineOpen_ = false;
+            lastLineWidth_ = 0;
+        }
+    }
+
+    void startSpinner() {
+        if (!terminal_ || !liveSpinnerSupported() || spinnerThread_.joinable()) {
+            return;
+        }
+        stopSpinnerRequested_.store(false);
+        spinnerThread_ = std::thread([this]() {
+            constexpr std::array<char, 4> frames = {'|', '/', '-', '\\'};
+            size_t frame = 0;
+            while (!stopSpinnerRequested_.load()) {
+                render(phaseLabel(current_), false, false, frames[frame % frames.size()]);
+                ++frame;
+                std::unique_lock<std::mutex> lock(spinnerMutex_);
+                spinnerWake_.wait_for(lock, std::chrono::milliseconds(90), [this]() {
+                    return stopSpinnerRequested_.load();
+                });
+            }
+        });
+    }
+
+    void stopSpinner() {
+        if (!spinnerThread_.joinable()) {
+            return;
+        }
+        stopSpinnerRequested_.store(true);
+        spinnerWake_.notify_all();
+        spinnerThread_.join();
+    }
+
+    bool enabled_;
+    bool terminal_;
+    bool color_;
+    bool started_ = false;
+    bool finished_ = false;
+    bool lineOpen_ = false;
+    size_t completed_ = 0;
+    size_t current_ = 0;
+    size_t lastLineWidth_ = 0;
+    std::atomic<bool> stopSpinnerRequested_{false};
+    std::mutex spinnerMutex_;
+    std::condition_variable spinnerWake_;
+    std::thread spinnerThread_;
+};
 
 std::string maybeConvertMsysPath(std::string_view rawPath) {
 #if defined(_WIN32)
@@ -594,8 +842,13 @@ std::string canonicalizeCommand(std::string_view rawCommand) {
 } // namespace
 
 int main(int argc, char** argv) {
+    const bool requestedBuild = argc > 1 &&
+        (std::string_view(argv[1]) == "build" || std::string_view(argv[1]) == "build-native");
+    BuildProgress buildProgress(requestedBuild);
+
     if (argc < 3 || argc > 4) {
         printUsage();
+        buildProgress.fail("command usage incomplete");
         return 1;
     }
 
@@ -610,24 +863,40 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    buildProgress.begin();
+
     std::filesystem::path openedPath;
     std::vector<std::filesystem::path> triedPaths;
-    if (!resolveInputPath(filepath, &openedPath, &triedPaths)) {
-        printOpenFailure(filepath, triedPaths);
+    std::string source;
+    std::string diagnosticPath;
+    try {
+        if (!resolveInputPath(filepath, &openedPath, &triedPaths)) {
+            buildProgress.beforeMessage();
+            printOpenFailure(filepath, triedPaths);
+            buildProgress.fail("input path unresolved; see details");
+            return 1;
+        }
+
+        source = std::filesystem::is_regular_file(openedPath)
+            ? readFileBestEffort(openedPath.string())
+            : std::string{};
+        diagnosticPath = openedPath.empty() ? filepath : openedPath.string();
+    } catch (const std::filesystem::filesystem_error& e) {
+        buildProgress.beforeMessage();
+        std::cerr << "Input path check failed: " << e.what() << "\n";
+        buildProgress.fail("input path check failed; see error above");
         return 1;
     }
 
-    const std::string source = std::filesystem::is_regular_file(openedPath)
-        ? readFileBestEffort(openedPath.string())
-        : std::string{};
-    const std::string diagnosticPath = openedPath.empty() ? filepath : openedPath.string();
-
+    buildProgress.advance();
     try {
         claw::workspace::ProjectLoader loader;
         auto project = loader.load(openedPath.empty() ? std::filesystem::path(filepath) : openedPath);
+        buildProgress.advance();
 
         const auto warnings = collectProjectWarnings(project);
         if (!warnings.empty()) {
+            buildProgress.beforeMessage();
             std::cerr << formatDiagnosticsWithSources(warnings, diagnosticPath, source) << "\n";
         }
         neutralizeRootEntrySharedDecls(project);
@@ -642,6 +911,7 @@ int main(int argc, char** argv) {
             const auto emitSemanticWarnings = [&]() {
                 const auto semanticWarnings = attachPath(sema->warnings(), unit.path);
                 if (!semanticWarnings.empty()) {
+                    buildProgress.beforeMessage();
                     std::cerr << formatDiagnosticsWithSources(semanticWarnings, diagnosticPath, source) << "\n";
                 }
             };
@@ -655,7 +925,9 @@ int main(int argc, char** argv) {
             analyzers.push_back(std::move(sema));
         }
 
+        buildProgress.advance();
         validateEntryPoint(project, *analyzers[project.entryIndex], command == "validate" || command == "build");
+        buildProgress.advance();
 
         if (command == "air") {
             claw::frontend::AirEmitter air(*analyzers[project.entryIndex]);
@@ -674,6 +946,7 @@ int main(int argc, char** argv) {
             }
             ownershipCheckers.push_back(std::move(ownership));
         }
+        buildProgress.advance();
 
         if (command == "oir" || command == "lir" || command == "llvm" || command == "build") {
             std::vector<claw::frontend::OirUnitView> units;
@@ -723,8 +996,10 @@ int main(int argc, char** argv) {
                     project.units[project.entryIndex].ast->name,
                     units,
                     std::filesystem::path(argv[0]),
-                    outputPath);
+                    outputPath,
+                    [&buildProgress]() { buildProgress.beforeMessage(); });
                 std::cout << "Built native executable: " << builtPath.string() << "\n";
+                buildProgress.succeed();
             }
             return 0;
         }
@@ -742,16 +1017,16 @@ int main(int argc, char** argv) {
         std::cout << "Check passed for module: " << project.units[project.entryIndex].ast->name
                   << "\n";
     } catch (const claw::frontend::DiagnosticError& e) {
+        buildProgress.beforeMessage();
         std::cerr << formatDiagnosticsWithSources(e.diagnostics(), diagnosticPath, source) << "\n";
+        buildProgress.fail("compile rejected; see diagnostics");
         return 1;
     } catch (const std::exception& e) {
+        buildProgress.beforeMessage();
         std::cerr << "Compilation failed: " << e.what() << "\n";
+        buildProgress.fail("native build failed; see error above");
         return 1;
     }
 
     return 0;
 }
-
-
-
-
