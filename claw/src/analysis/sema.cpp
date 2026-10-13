@@ -2835,7 +2835,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             scan->indexBindingKey = "$scan.binding." + std::to_string(nextScanBindingIdentity++);
             analysisResult.scanIndexTypes[scan] = indexType;
             if (!isSupportedRangeType(iterableType)) {
-                reportError(scan, "An indexed scan is currently supported only over Range[Int32], Range[UInt8], or Range[Char].");
+                reportError(scan, "An indexed scan is currently supported only over Range[Int8], Range[Int32], Range[UInt8], or Range[Char].");
             }
             defineVariable(
                 scan->indexName,
@@ -3685,7 +3685,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Range bounds currently support only Int32, UInt8, or Char with matching types, got " +
+                        "Range bounds currently support only Int8, Int32, UInt8, or Char with matching types, got " +
                             leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();
@@ -3706,7 +3706,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Operator `in` requires a matching Char/Range[Char], Int32/Range[Int32], or UInt8/Range[UInt8] pair, got " +
+                        "Operator `in` requires a matching Int8/Range[Int8], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair, got " +
                             leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();

@@ -1,0 +1,46 @@
+oir.module int8-range-scan
+oir.choice Result of T, E [abi=claw link=internal symbol=int8-range-scan::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=int8-range-scan::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=int8-range-scan::main ffi=false]
+  block entry:
+    %t0 = neg 128_Int8 : Int8
+    %t1 = range_inclusive %t0, 127_Int8 : Range[Int8]
+    val annotated: Range[Int8] = %t1
+    %t2 = neg 2_Int8 : Int8
+    %t3 = range_exclusive %t2, 2_Int8 : Range[Int8]
+    val inferred: Range[Int8] = %t3
+    %t4 = neg 2_Int8 : Int8
+    %t5 = in %t4, inferred : Bool
+    branch %t5 -> if_then_0, if_join_1
+  block if_then_0:
+    call println(1) : Unit
+    goto if_join_1
+  block if_join_1:
+    range_scan_init item: Int8 from inferred : Range[Int8]
+    goto scan_header_2
+  block scan_header_2:
+    scan item: Int8 over inferred -> scan_body_3, scan_exit_4
+  block scan_body_3:
+    call println(item) : Unit
+    goto scan_header_2
+  block scan_exit_4:
+    range_scan_init item: Int8, index: USize from annotated : Range[Int8]
+    goto scan_header_5
+  block scan_header_5:
+    scan item: Int8, index: USize over annotated -> scan_body_6, scan_exit_7
+  block scan_body_6:
+    %t6 = eq index, 0 : Bool
+    branch %t6 -> if_then_8, if_join_9
+  block if_then_8:
+    call println(item) : Unit
+    goto if_join_9
+  block if_join_9:
+    goto scan_header_5
+  block scan_exit_7:
+    return 0 : Int32

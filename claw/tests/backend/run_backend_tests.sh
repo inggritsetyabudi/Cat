@@ -52,8 +52,9 @@ str_search_ll="$ARTIFACT_DIR/revise_str_search_methods.ll"
 implements_ll="$ARTIFACT_DIR/revise_implements.ll"
 if_pick_values_ll="$ARTIFACT_DIR/revise_if_pick_values.ll"
 try_contract_ll="$ARTIFACT_DIR/revise_try_contract.ll"
+int8_range_ll="$ARTIFACT_DIR/revise_int8_range.ll"
 rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll" "$if_pick_values_ll"
-rm -f "$try_contract_ll"
+rm -f "$try_contract_ll" "$int8_range_ll"
 
 run_llvm "test_backend/revise_result_llvm.cat" "$BACKEND_FIXTURE_DIR/revise_result_llvm.cat" "$result_ll"
 llvm_output="$(tr -d '\r' < "$result_ll")"
@@ -191,6 +192,31 @@ if [[ "$uint8_range_output" != *'define internal i32 @"revise_uint8_range::conta
    [[ "$uint8_range_output" != *'declare void @"claw.runtime.println.u8"(i8 zeroext)'* ]] ||
    [[ "$uint8_range_output" != *'call void @"claw.runtime.println.u8"(i8 zeroext '* ]]; then
   echo "UInt8 range LLVM output did not contain its i8 ABI, unsigned bounds, narrow increment, and unsigned printer" >&2
+  exit 1
+fi
+run_llvm "test_native/revise_int8_range.cat" "$SCRIPT_DIR/../native/fixtures/revise_int8_range.cat" "$int8_range_ll"
+int8_range_output="$(tr -d '\r' < "$int8_range_ll")"
+if [[ "$int8_range_output" != *'define internal i32 @"revise_int8_range::contains"(i8 %arg.value, { i8, i8, i1 } %arg.range)'* ]] ||
+   [[ "$int8_range_output" != *'icmp sge i8'* ]] ||
+   [[ "$int8_range_output" != *'icmp slt i8'* ]] ||
+   [[ "$int8_range_output" != *'icmp sle i8'* ]] ||
+   [[ "$int8_range_output" != *'icmp eq i8'* ]] ||
+   [[ "$int8_range_output" != *'add i8'* ]] ||
+   [[ "$int8_range_output" != *'add i64'* ]] ||
+   [[ "$int8_range_output" == *'icmp uge i8'* || "$int8_range_output" == *'icmp ult i8'* || "$int8_range_output" == *'icmp ule i8'* ]]; then
+  echo "Int8 range LLVM output did not preserve signed i8 bounds, narrow terminal checks, or USize scan indexes" >&2
+  exit 1
+fi
+int8_print_ll="$ARTIFACT_DIR/revise_int8_print.ll"
+rm -f "$int8_print_ll"
+run_llvm "test_native/revise_int8_print.cat" "$SCRIPT_DIR/../native/fixtures/revise_int8_print.cat" "$int8_print_ll"
+int8_print_output="$(tr -d '\r' < "$int8_print_ll")"
+if [[ "$int8_print_output" != *'declare void @"claw.runtime.print.i8"(i8 signext)'* ]] ||
+   [[ "$int8_print_output" != *'call void @"claw.runtime.print.i8"(i8 signext '* ]] ||
+   [[ "$int8_print_output" != *'declare void @"claw.runtime.println.i8"(i8 signext)'* ]] ||
+   [[ "$int8_print_output" != *'call void @"claw.runtime.println.i8"(i8 signext '* ]] ||
+   [[ "$int8_print_output" == *'i8 zeroext'* ]]; then
+  echo "Int8 runtime printer LLVM output did not use signed extension consistently at declarations and callsites" >&2
   exit 1
 fi
 uint8_print_ll="$ARTIFACT_DIR/revise_uint8_print.ll"

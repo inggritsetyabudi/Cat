@@ -1,0 +1,16 @@
+fn main() -> Int32 {
+    val annotated: Range[Int8] = -128_Int8..=127_Int8
+    val inferred = -2_Int8..2_Int8
+    if -2_Int8 in inferred {
+        println(1)
+    }
+    scan item over inferred {
+        println(item)
+    }
+    scan item, index over annotated {
+        if index == 0 {
+            println(item)
+        }
+    }
+    return 0
+}

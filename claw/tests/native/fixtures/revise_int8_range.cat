@@ -1,0 +1,93 @@
+fn contains(value: Int8, range: Range[Int8]) -> Int32 {
+    if value in range { 1 } else { 0 }
+}
+
+fn endpoint_start() -> Int8 {
+    println("start-once")
+    return -2_Int8
+}
+
+fn endpoint_end() -> Int8 {
+    println("end-once")
+    return 0_Int8
+}
+
+fn main() -> Int32 {
+    val annotated: Range[Int8] = -2_Int8..=2_Int8
+    val inferred = -2_Int8..2_Int8
+
+    println(contains(-2_Int8, inferred))
+    println(contains(2_Int8, inferred))
+    println(contains(-2_Int8, annotated))
+    println(contains(2_Int8, annotated))
+    println(contains(-128_Int8, -128_Int8..=-128_Int8))
+    println(contains(127_Int8, 127_Int8..=127_Int8))
+    println(contains(0_Int8, 2_Int8..=-2_Int8))
+
+    var ordinary_count: Int32 = 0
+    scan value over inferred {
+        println(value)
+        if value == -2_Int8 {
+            println("ordinary-negative")
+        }
+        if value == 0_Int8 {
+            println("ordinary-zero")
+        }
+        if value == 1_Int8 {
+            println("ordinary-positive")
+        }
+        ordinary_count = ordinary_count + 1
+    }
+    println(ordinary_count)
+
+    scan value, index over -1_Int8..=1_Int8 {
+        println(value)
+        println(index)
+        if index == 0 and value == -1_Int8 {
+            println("index-zero-value")
+        }
+        if index == 1 and value == 0_Int8 {
+            println("index-one-value")
+        }
+        if index == 2 and value == 1_Int8 {
+            println("index-two-value")
+        }
+    }
+
+    println("empty-exclusive")
+    scan value over 5_Int8..5_Int8 {
+        println("unexpected-exclusive-item")
+    }
+    println("empty-reversed")
+    scan value over 5_Int8..=4_Int8 {
+        println("unexpected-reversed-item")
+    }
+    println("equal-inclusive")
+    scan value over 7_Int8..=7_Int8 {
+        if value == 7_Int8 {
+            println("equal-item")
+        }
+    }
+
+    if -1_Int8 in endpoint_start()..=endpoint_end() {
+        println(1)
+    } else {
+        println(0)
+    }
+
+    val whole: Range[Int8] = -128_Int8..=127_Int8
+    var full_count: Int32 = 0
+    scan item, index over whole {
+        if index == 0 and item == -128_Int8 {
+            println(item)
+            println("minimum-edge")
+        }
+        if index == 255 and item == 127_Int8 {
+            println(item)
+            println("maximum-edge")
+        }
+        full_count = full_count + 1
+    }
+    println(full_count)
+    return 0
+}

@@ -95,11 +95,12 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
 
     if (base == "Range") {
         if (parsedType.args.size() != 1 ||
-            (parsedType.args.front() != "Int32" && parsedType.args.front() != "UInt8" &&
+            (parsedType.args.front() != "Int8" && parsedType.args.front() != "Int32" &&
+             parsedType.args.front() != "UInt8" &&
              parsedType.args.front() != "Char")) {
-            throw std::runtime_error("LLVM lowering supports only Range[Int32], Range[UInt8], and Range[Char].");
+            throw std::runtime_error("LLVM lowering supports only Range[Int8], Range[Int32], Range[UInt8], and Range[Char].");
         }
-        if (parsedType.args.front() == "UInt8") return "{ i8, i8, i1 }";
+        if (parsedType.args.front() == "Int8" || parsedType.args.front() == "UInt8") return "{ i8, i8, i1 }";
         return "{ i32, i32, i1 }";
     }
 
@@ -351,6 +352,7 @@ bool LlvmEmitter::usesRuntimePointerAbi(const std::string& argType) const {
 }
 
 std::string LlvmEmitter::llvmRuntimeParamType(const std::string& argType) const {
+    if (argType == "Int8") return "i8 signext";
     if (argType == "UInt8") return "i8 zeroext";
     return usesRuntimePointerAbi(argType) ? std::string("ptr") : llvmType(argType);
 }
@@ -471,11 +473,12 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
 
     if (base == "Range") {
         if (parsed.args.size() != 1 ||
-            (parsed.args.front() != "Int32" && parsed.args.front() != "UInt8" &&
+            (parsed.args.front() != "Int8" && parsed.args.front() != "Int32" &&
+             parsed.args.front() != "UInt8" &&
              parsed.args.front() != "Char")) {
             return std::nullopt;
         }
-        if (parsed.args.front() == "UInt8") return AbiLayout{3, 1};
+        if (parsed.args.front() == "Int8" || parsed.args.front() == "UInt8") return AbiLayout{3, 1};
         return AbiLayout{12, 4};
     }
 

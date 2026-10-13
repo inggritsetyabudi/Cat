@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val finish: Int32 = 1
+    val invalid = -1_Int8..finish
+    return 0
+}
