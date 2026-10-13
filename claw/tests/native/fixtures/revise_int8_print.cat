@@ -1,0 +1,10 @@
+fn main() -> Int32 {
+    print(-128_Int8)
+    print(",")
+    print(-1_Int8)
+    print(",")
+    print(0_Int8)
+    print(",")
+    println(127_Int8)
+    return 0
+}

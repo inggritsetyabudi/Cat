@@ -1,0 +1,6 @@
+fn main() -> Int32 {
+    val start: UInt8 = 1_UInt8
+    val finish: Int32 = 3
+    val invalid = start..=finish
+    0
+}

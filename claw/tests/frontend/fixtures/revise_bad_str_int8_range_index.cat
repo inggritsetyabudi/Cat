@@ -1,0 +1,6 @@
+fn main() -> Int32 {
+    val text = "cat"
+    val range: Range[Int8] = 0_Int8..=1_Int8
+    val part = text[range]
+    return 0
+}

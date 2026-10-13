@@ -1,0 +1,6 @@
+fn main() -> Int32 {
+    val text: Str = "abc"
+    val range: Range[UInt8] = 0_UInt8..=1_UInt8
+    val invalid = text[range]
+    0
+}

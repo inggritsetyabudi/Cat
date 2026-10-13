@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val unsupported: Range[UInt16] = 1_UInt16..=3_UInt16
+    0
+}

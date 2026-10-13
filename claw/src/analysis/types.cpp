@@ -24,7 +24,7 @@ std::string nominalTypeIdentity(std::string_view moduleName, std::string_view ty
 
 bool isSupportedRangeElementType(const ResolvedType& type) {
     return type.isPlain() && !type.isGeneric && type.params.empty() &&
-        (type.name == "Int32" || type.name == "Char");
+        (type.name == "Int8" || type.name == "Int32" || type.name == "UInt8" || type.name == "Char");
 }
 
 bool isSupportedRangeType(const ResolvedType& type) {
@@ -972,7 +972,7 @@ ResolvedType TypeCatalog::resolveType(
             if (diagnostics) {
                 diagnostics->push_back(Diagnostic{
                     "semantic",
-                    "Only Range[Int32] and Range[Char] are supported; other integer widths are not implemented yet.",
+                    "Only Range[Int8], Range[Int32], Range[UInt8], and Range[Char] are supported; other integer widths are not implemented yet.",
                     node->span});
             }
             type.category = TypeCategory::Unknown;

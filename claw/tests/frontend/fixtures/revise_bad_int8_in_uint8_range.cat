@@ -1,0 +1,6 @@
+fn main() -> Int32 {
+    val value: Int8 = 1_Int8
+    val range: Range[UInt8] = 0_UInt8..=2_UInt8
+    val invalid = value in range
+    return 0
+}

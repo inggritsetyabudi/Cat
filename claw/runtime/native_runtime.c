@@ -174,6 +174,7 @@ static void claw_finish_print(bool newline) {
 
 void claw_runtime_print_i1(_Bool value) __asm__(CLAW_RT_ASM(claw.runtime.print.i1));
 void claw_runtime_print_i8(int8_t value) __asm__(CLAW_RT_ASM(claw.runtime.print.i8));
+void claw_runtime_print_u8(uint8_t value) __asm__(CLAW_RT_ASM(claw.runtime.print.u8));
 void claw_runtime_print_i16(int16_t value) __asm__(CLAW_RT_ASM(claw.runtime.print.i16));
 void claw_runtime_print_i32(int32_t value) __asm__(CLAW_RT_ASM(claw.runtime.print.i32));
 void claw_runtime_print_i64(int64_t value) __asm__(CLAW_RT_ASM(claw.runtime.print.i64));
@@ -186,6 +187,7 @@ void claw_runtime_print_buffer(const claw_buffer* value) __asm__(CLAW_RT_ASM(cla
 
 void claw_runtime_println_i1(_Bool value) __asm__(CLAW_RT_ASM(claw.runtime.println.i1));
 void claw_runtime_println_i8(int8_t value) __asm__(CLAW_RT_ASM(claw.runtime.println.i8));
+void claw_runtime_println_u8(uint8_t value) __asm__(CLAW_RT_ASM(claw.runtime.println.u8));
 void claw_runtime_println_i16(int16_t value) __asm__(CLAW_RT_ASM(claw.runtime.println.i16));
 void claw_runtime_println_i32(int32_t value) __asm__(CLAW_RT_ASM(claw.runtime.println.i32));
 void claw_runtime_println_i64(int64_t value) __asm__(CLAW_RT_ASM(claw.runtime.println.i64));
@@ -207,6 +209,11 @@ void claw_runtime_print_i1(_Bool value) {
 
 void claw_runtime_print_i8(int8_t value) {
     fprintf(stdout, "%d", (int)value);
+    claw_finish_print(false);
+}
+
+void claw_runtime_print_u8(uint8_t value) {
+    fprintf(stdout, "%u", (unsigned)value);
     claw_finish_print(false);
 }
 
@@ -262,6 +269,11 @@ void claw_runtime_println_i1(_Bool value) {
 
 void claw_runtime_println_i8(int8_t value) {
     fprintf(stdout, "%d\n", (int)value);
+    fflush(stdout);
+}
+
+void claw_runtime_println_u8(uint8_t value) {
+    fprintf(stdout, "%u\n", (unsigned)value);
     fflush(stdout);
 }
 

@@ -95,9 +95,12 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
 
     if (base == "Range") {
         if (parsedType.args.size() != 1 ||
-            (parsedType.args.front() != "Int32" && parsedType.args.front() != "Char")) {
-            throw std::runtime_error("LLVM lowering supports only Range[Int32] and Range[Char].");
+            (parsedType.args.front() != "Int8" && parsedType.args.front() != "Int32" &&
+             parsedType.args.front() != "UInt8" &&
+             parsedType.args.front() != "Char")) {
+            throw std::runtime_error("LLVM lowering supports only Range[Int8], Range[Int32], Range[UInt8], and Range[Char].");
         }
+        if (parsedType.args.front() == "Int8" || parsedType.args.front() == "UInt8") return "{ i8, i8, i1 }";
         return "{ i32, i32, i1 }";
     }
 
@@ -349,13 +352,16 @@ bool LlvmEmitter::usesRuntimePointerAbi(const std::string& argType) const {
 }
 
 std::string LlvmEmitter::llvmRuntimeParamType(const std::string& argType) const {
+    if (argType == "Int8") return "i8 signext";
+    if (argType == "UInt8") return "i8 zeroext";
     return usesRuntimePointerAbi(argType) ? std::string("ptr") : llvmType(argType);
 }
-
 std::string LlvmEmitter::runtimeSymbol(std::string_view callee, const std::string& argType) {
     const std::string llvmArgType = llvmType(argType);
     std::string suffix;
-    if (llvmArgType == "%claw.slice") {
+    if ((callee == "print" || callee == "println") && argType == "UInt8") {
+        suffix = "u8";
+    } else if (llvmArgType == "%claw.slice") {
         suffix = "slice";
     } else if (llvmArgType == "%claw.buffer") {
         suffix = "buffer";
@@ -467,9 +473,12 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
 
     if (base == "Range") {
         if (parsed.args.size() != 1 ||
-            (parsed.args.front() != "Int32" && parsed.args.front() != "Char")) {
+            (parsed.args.front() != "Int8" && parsed.args.front() != "Int32" &&
+             parsed.args.front() != "UInt8" &&
+             parsed.args.front() != "Char")) {
             return std::nullopt;
         }
+        if (parsed.args.front() == "Int8" || parsed.args.front() == "UInt8") return AbiLayout{3, 1};
         return AbiLayout{12, 4};
     }
 
