@@ -1,0 +1,66 @@
+fn contains(value: UInt8, range: Range[UInt8]) -> Int32 {
+    if value in range { 1 } else { 0 }
+}
+fn scan_start() -> UInt8 {
+    println("scan-start")
+    return 254_UInt8
+}
+fn scan_end() -> UInt8 {
+    println("scan-end")
+    return 255_UInt8
+}
+fn membership_start() -> UInt8 {
+    println("membership-start")
+    return 254_UInt8
+}
+fn membership_end() -> UInt8 {
+    println("membership-end")
+    return 255_UInt8
+}
+fn main() -> Int32 {
+    val inferred = 0..=255_UInt8
+    val annotated: Range[UInt8] = 1_UInt8..=3_UInt8
+    println(contains(0_UInt8, inferred))
+    println(contains(255_UInt8, inferred))
+    println(contains(127_UInt8, 128_UInt8..=255_UInt8))
+    println(contains(255_UInt8, 128_UInt8..255_UInt8))
+    println(contains(2_UInt8, annotated))
+    println(contains(3_UInt8, 1_UInt8..3_UInt8))
+    println(contains(3_UInt8, 1_UInt8..=3_UInt8))
+    println(contains(5_UInt8, 5_UInt8..5_UInt8))
+    println(contains(255_UInt8, 255_UInt8..=254_UInt8))
+    if 255_UInt8 in membership_start()..=membership_end() { println(1) } else { println(0) }
+    scan value over 1_UInt8..=3_UInt8 {
+        println(value)
+    }
+    scan value over 254_UInt8..255_UInt8 {
+        println(value)
+    }
+    scan value, index over 254_UInt8..=255_UInt8 {
+        println(value)
+        println(index)
+    }
+    scan value over 4_UInt8..4_UInt8 {
+        println(98)
+    }
+    scan value over 5_UInt8..=4_UInt8 {
+        println(99)
+    }
+    scan value over 7_UInt8..=7_UInt8 {
+        println(value)
+    }
+    scan value over scan_start()..=scan_end() {
+        println(value)
+    }
+    scan value over 0..=255_UInt8 {
+        if value == 255_UInt8 { println(value) }
+    }
+    var seen: Int32 = 0
+    scan value, index over inferred {
+        if index == 0 { println(value) }
+        if index == 255 { println(value) }
+        seen = seen + 1
+    }
+    println(seen)
+    return 0
+}

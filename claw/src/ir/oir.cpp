@@ -1049,7 +1049,8 @@ std::optional<size_t> lowerStmt(
         const std::string headerLabel = context.blockName("scan_header");
         const std::string bodyLabel = context.blockName("scan_body");
         const std::string exitLabel = context.blockName("scan_exit");
-        if (iterable.type == "Range[Int32]" || iterable.type == "Range[Char]") {
+        if (iterable.type == "Range[Int8]" || iterable.type == "Range[Int32]" || iterable.type == "Range[UInt8]" ||
+            iterable.type == "Range[Char]") {
             appendInst(
                 context,
                 currentBlockIndex,

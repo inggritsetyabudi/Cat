@@ -74,6 +74,8 @@ run_oir_golden "tuples" "$FIXTURE_DIR/native/fixtures/revise_tuples.cat"
 run_oir_golden "int32-range" "$FIXTURE_DIR/native/fixtures/revise_int32_range.cat"
 run_oir_golden "int32-range-scan" "$FIXTURE_DIR/native/fixtures/revise_int32_range_scan.cat"
 run_oir_golden "char-range-scan" "$OIR_FIXTURE_DIR/char-range-scan.cat"
+run_oir_golden "uint8-range-scan" "$OIR_FIXTURE_DIR/uint8-range-scan.cat"
+run_oir_golden "int8-range-scan" "$OIR_FIXTURE_DIR/int8-range-scan.cat"
 run_oir_golden "tuple-destructuring" "$FIXTURE_DIR/native/fixtures/revise_tuple_destructuring.cat"
 run_oir_golden "tuple-owned-destructuring" "$FIXTURE_DIR/native/fixtures/revise_tuple_owned_destructuring.cat"
 run_oir_golden "tuple-pick" "$FIXTURE_DIR/native/fixtures/revise_tuple_pick.cat"
@@ -81,14 +83,25 @@ run_oir_golden "implicit-return" "$FIXTURE_DIR/native/fixtures/revise_implicit_r
 run_oir_golden "discarded-anchor-temporary" "$FIXTURE_DIR/native/fixtures/revise_discarded_anchor_temporary.cat"
 run_oir_golden "discarded-binary-anchor-temporary" "$FIXTURE_DIR/native/fixtures/revise_discarded_binary_anchor_temporary.cat"
 run_oir_fail "middle expression cannot satisfy return" "$FIXTURE_DIR/frontend/fixtures/revise_bad_implicit_return.cat" "must end with a value of type Int32 or use explicit return."
-run_oir_fail "mixed Char and Int32 range endpoints are rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_mixed_bounds.cat" "Range bounds currently support only Int32 or Char with matching types"
-run_oir_fail "indexed scans reject Str" "$FIXTURE_DIR/frontend/fixtures/revise_bad_indexed_scan_str.cat" "An indexed scan is currently supported only over Range[Int32] or Range[Char]."
+run_oir_fail "mixed Char and Int32 range endpoints are rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_mixed_bounds.cat" "Range bounds currently support only Int8, Int32, UInt8, or Char with matching types"
+run_oir_fail "indexed scans reject Str" "$FIXTURE_DIR/frontend/fixtures/revise_bad_indexed_scan_str.cat" "An indexed scan is currently supported only over Range[Int8], Range[Int32], Range[UInt8], or Range[Char]."
 run_oir_fail "Str slicing remains restricted to Range[Int32]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_char_range_index.cat" "Index expression must have type USize, got Range[Char]"
-run_oir_fail "other integer range widths remain unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_range_int64.cat" "Range bounds currently support only Int32"
-run_oir_fail "floating-point range endpoints remain unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_range_float.cat" "Range bounds currently support only Int32"
-run_oir_fail "Range[Int64] remains unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_int64.cat" "Only Range[Int32] and Range[Char] are supported"
-run_oir_fail "membership requires a Range right operand" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_membership_rhs.cat" 'Operator `in` requires a matching Char/Range[Char] or Int32/Range[Int32] pair'
-run_oir_fail "membership rejects a non-scalar left operand" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_membership_left.cat" 'Operator `in` requires a matching Char/Range[Char] or Int32/Range[Int32] pair'
+run_oir_fail "other integer range widths remain unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_range_int64.cat" "Range bounds currently support only Int8, Int32, UInt8, or Char"
+run_oir_fail "floating-point range endpoints remain unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_range_float.cat" "Range bounds currently support only Int8, Int32, UInt8, or Char"
+run_oir_fail "Range[Int64] remains unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_int64.cat" "Only Range[Int8], Range[Int32], Range[UInt8], and Range[Char] are supported"
+run_oir_fail "Range[UInt16] remains unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_uint16.cat" "Only Range[Int8], Range[Int32], Range[UInt8], and Range[Char] are supported"
+run_oir_fail "UInt8 and Int32 range bounds cannot be mixed" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_mixed_uint8_int32.cat" "Range bounds currently support only Int8, Int32, UInt8, or Char with matching types"
+run_oir_fail "Int8 and UInt8 range bounds cannot be mixed" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int8_range_uint8_bounds.cat" "Range bounds currently support only Int8, Int32, UInt8, or Char with matching types"
+run_oir_fail "Int8 and Int32 range bounds cannot be mixed" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int8_range_int32_bounds.cat" "Range bounds currently support only Int8, Int32, UInt8, or Char with matching types"
+run_oir_fail "UInt8 membership requires Range[UInt8]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_mixed_uint8_membership.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair'
+run_oir_fail "UInt8 membership rejects Range[Int8]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_uint8_in_int8_range.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair'
+run_oir_fail "Int8 membership rejects Range[UInt8]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int8_in_uint8_range.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair'
+run_oir_fail "Int8 membership rejects Range[Int32]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int8_in_int32_range.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair'
+run_oir_fail "Int32 membership rejects Range[Int8]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_in_int8_range.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair'
+run_oir_fail "Str slicing rejects Range[UInt8]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_uint8_range_index.cat" "Index expression must have type USize, got Range[UInt8]"
+run_oir_fail "membership requires a Range right operand" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_membership_rhs.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair'
+run_oir_fail "membership rejects a non-scalar left operand" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_membership_left.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair'
+run_oir_fail "Str slicing rejects Range[Int8]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_int8_range_index.cat" "Index expression must have type USize, got Range[Int8]"
 run_oir_fail "range operators are non-associative" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int32_range_chain.cat" 'Range operators `..` and `..=` are non-associative'
 run_oir_fail "range comparisons are unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_range_comparison.cat" 'Range values support `in` membership only'
 run_oir_fail "trailing decimal dot remains a single-dot projection" "$FIXTURE_DIR/frontend/fixtures/revise_bad_trailing_decimal_dot.cat" "Type 'IntLiteral' does not expose fields."

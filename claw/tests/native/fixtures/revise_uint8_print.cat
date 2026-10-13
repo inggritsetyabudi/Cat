@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    print(254_UInt8)
+    print(255_UInt8)
+    return 0
+}
