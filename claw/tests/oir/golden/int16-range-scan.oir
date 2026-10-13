@@ -1,0 +1,188 @@
+oir.module revise_int16_range
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_int16_range::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_int16_range::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn contains(value: Int16 [scalar], range: Range[Int16] [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_int16_range::contains ffi=false]
+  block entry:
+    %t0 = in value, range : Bool
+    var %t1: Int32
+    branch %t0 -> if_then_0, if_else_1
+  block if_then_0:
+    store %t1 <- 1 : Int32
+    goto if_join_2
+  block if_else_1:
+    store %t1 <- 0 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t1 : Int32
+oir.fn endpoint_start() -> Int16 [scalar] [abi=claw link=internal symbol=revise_int16_range::endpoint_start ffi=false]
+  block entry:
+    call println("start-once") : Unit
+    %t0 = neg 1_Int16 : Int16
+    return %t0 : Int16
+oir.fn endpoint_end() -> Int16 [scalar] [abi=claw link=internal symbol=revise_int16_range::endpoint_end ffi=false]
+  block entry:
+    call println("end-once") : Unit
+    return 1_Int16 : Int16
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int16_range::main ffi=false]
+  block entry:
+    %t0 = neg 32768_Int16 : Int16
+    %t1 = range_inclusive %t0, 32767_Int16 : Range[Int16]
+    val whole: Range[Int16] = %t1
+    %t2 = neg 2_Int16 : Int16
+    %t3 = range_inclusive %t2, 2_Int16 : Range[Int16]
+    val inferred: Range[Int16] = %t3
+    %t4 = neg 32768_Int16 : Int16
+    %t5 = call contains(%t4, whole) : Int32
+    call println(%t5) : Unit
+    %t6 = call contains(32767_Int16, whole) : Int32
+    call println(%t6) : Unit
+    %t7 = neg 32768_Int16 : Int16
+    %t8 = neg 32768_Int16 : Int16
+    %t9 = range_exclusive %t8, 32767_Int16 : Range[Int16]
+    %t10 = call contains(%t7, %t9) : Int32
+    call println(%t10) : Unit
+    %t11 = neg 32768_Int16 : Int16
+    %t12 = range_exclusive %t11, 32767_Int16 : Range[Int16]
+    %t13 = call contains(32767_Int16, %t12) : Int32
+    call println(%t13) : Unit
+    %t14 = range_inclusive 5_Int16, 4_Int16 : Range[Int16]
+    %t15 = call contains(0_Int16, %t14) : Int32
+    call println(%t15) : Unit
+    var ordinary_small_count: Int32 = 0
+    range_scan_init item: Int16 from inferred : Range[Int16]
+    goto scan_header_0
+  block scan_header_0:
+    scan item: Int16 over inferred -> scan_body_1, scan_exit_2
+  block scan_body_1:
+    call println(item) : Unit
+    %t16 = add ordinary_small_count, 1 : Int32
+    store ordinary_small_count <- %t16 : Int32
+    goto scan_header_0
+  block scan_exit_2:
+    call println(ordinary_small_count) : Unit
+    %t17 = neg 1_Int16 : Int16
+    %t18 = range_inclusive %t17, 1_Int16 : Range[Int16]
+    range_scan_init item: Int16, index: USize from %t18 : Range[Int16]
+    goto scan_header_3
+  block scan_header_3:
+    scan item: Int16, index: USize over %t18 -> scan_body_4, scan_exit_5
+  block scan_body_4:
+    call println(item) : Unit
+    call println(index) : Unit
+    goto scan_header_3
+  block scan_exit_5:
+    call println("empty-exclusive") : Unit
+    %t19 = range_exclusive 5_Int16, 5_Int16 : Range[Int16]
+    range_scan_init item: Int16 from %t19 : Range[Int16]
+    goto scan_header_6
+  block scan_header_6:
+    scan item: Int16 over %t19 -> scan_body_7, scan_exit_8
+  block scan_body_7:
+    call println("unexpected-exclusive-item") : Unit
+    goto scan_header_6
+  block scan_exit_8:
+    call println("empty-reversed") : Unit
+    %t20 = range_inclusive 5_Int16, 4_Int16 : Range[Int16]
+    range_scan_init item: Int16 from %t20 : Range[Int16]
+    goto scan_header_9
+  block scan_header_9:
+    scan item: Int16 over %t20 -> scan_body_10, scan_exit_11
+  block scan_body_10:
+    call println("unexpected-reversed-item") : Unit
+    goto scan_header_9
+  block scan_exit_11:
+    call println("equal-inclusive") : Unit
+    %t21 = range_inclusive 7_Int16, 7_Int16 : Range[Int16]
+    range_scan_init item: Int16 from %t21 : Range[Int16]
+    goto scan_header_12
+  block scan_header_12:
+    scan item: Int16 over %t21 -> scan_body_13, scan_exit_14
+  block scan_body_13:
+    call println("equal-item") : Unit
+    goto scan_header_12
+  block scan_exit_14:
+    %t22 = call endpoint_start() : Int16
+    %t23 = call endpoint_end() : Int16
+    %t24 = range_inclusive %t22, %t23 : Range[Int16]
+    %t25 = in 0_Int16, %t24 : Bool
+    branch %t25 -> if_then_15, if_else_16
+  block if_then_15:
+    call println(1) : Unit
+    goto if_join_17
+  block if_else_16:
+    call println(0) : Unit
+    goto if_join_17
+  block if_join_17:
+    var ordinary_full_count: Int32 = 0
+    range_scan_init item: Int16 from whole : Range[Int16]
+    goto scan_header_18
+  block scan_header_18:
+    scan item: Int16 over whole -> scan_body_19, scan_exit_20
+  block scan_body_19:
+    %t26 = neg 32768_Int16 : Int16
+    %t27 = eq item, %t26 : Bool
+    var %t28: Bool
+    branch %t27 -> logic_short_22, logic_rhs_21
+  block logic_rhs_21:
+    %t29 = eq item, 32767_Int16 : Bool
+    store %t28 <- %t29 : Bool
+    goto logic_merge_23
+  block logic_short_22:
+    store %t28 <- true : Bool
+    goto logic_merge_23
+  block logic_merge_23:
+    branch %t28 -> if_then_24, if_join_25
+  block if_then_24:
+    call println(item) : Unit
+    goto if_join_25
+  block if_join_25:
+    %t30 = add ordinary_full_count, 1 : Int32
+    store ordinary_full_count <- %t30 : Int32
+    goto scan_header_18
+  block scan_exit_20:
+    call println(ordinary_full_count) : Unit
+    var indexed_full_count: Int32 = 0
+    range_scan_init item: Int16, index: USize from whole : Range[Int16]
+    goto scan_header_26
+  block scan_header_26:
+    scan item: Int16, index: USize over whole -> scan_body_27, scan_exit_28
+  block scan_body_27:
+    %t31 = eq index, 0 : Bool
+    var %t32: Bool
+    branch %t31 -> logic_short_30, logic_rhs_29
+  block logic_rhs_29:
+    %t33 = eq index, 32768 : Bool
+    store %t32 <- %t33 : Bool
+    goto logic_merge_31
+  block logic_short_30:
+    store %t32 <- true : Bool
+    goto logic_merge_31
+  block logic_merge_31:
+    var %t34: Bool
+    branch %t32 -> logic_short_33, logic_rhs_32
+  block logic_rhs_32:
+    %t35 = eq index, 65535 : Bool
+    store %t34 <- %t35 : Bool
+    goto logic_merge_34
+  block logic_short_33:
+    store %t34 <- true : Bool
+    goto logic_merge_34
+  block logic_merge_34:
+    branch %t34 -> if_then_35, if_join_36
+  block if_then_35:
+    call println(item) : Unit
+    call println(index) : Unit
+    goto if_join_36
+  block if_join_36:
+    %t36 = add indexed_full_count, 1 : Int32
+    store indexed_full_count <- %t36 : Int32
+    goto scan_header_26
+  block scan_exit_28:
+    call println(indexed_full_count) : Unit
+    return 0 : Int32

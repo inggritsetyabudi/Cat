@@ -95,12 +95,13 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
 
     if (base == "Range") {
         if (parsedType.args.size() != 1 ||
-            (parsedType.args.front() != "Int8" && parsedType.args.front() != "Int32" &&
+            (parsedType.args.front() != "Int8" && parsedType.args.front() != "Int16" && parsedType.args.front() != "Int32" &&
              parsedType.args.front() != "UInt8" &&
              parsedType.args.front() != "Char")) {
-            throw std::runtime_error("LLVM lowering supports only Range[Int8], Range[Int32], Range[UInt8], and Range[Char].");
+            throw std::runtime_error("LLVM lowering supports only Range[Int8], Range[Int16], Range[Int32], Range[UInt8], and Range[Char].");
         }
         if (parsedType.args.front() == "Int8" || parsedType.args.front() == "UInt8") return "{ i8, i8, i1 }";
+        if (parsedType.args.front() == "Int16") return "{ i16, i16, i1 }";
         return "{ i32, i32, i1 }";
     }
 
@@ -354,6 +355,7 @@ bool LlvmEmitter::usesRuntimePointerAbi(const std::string& argType) const {
 std::string LlvmEmitter::llvmRuntimeParamType(const std::string& argType) const {
     if (argType == "Int8") return "i8 signext";
     if (argType == "UInt8") return "i8 zeroext";
+    if (argType == "Int16") return "i16 signext";
     return usesRuntimePointerAbi(argType) ? std::string("ptr") : llvmType(argType);
 }
 std::string LlvmEmitter::runtimeSymbol(std::string_view callee, const std::string& argType) {
@@ -473,12 +475,13 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
 
     if (base == "Range") {
         if (parsed.args.size() != 1 ||
-            (parsed.args.front() != "Int8" && parsed.args.front() != "Int32" &&
+            (parsed.args.front() != "Int8" && parsed.args.front() != "Int16" && parsed.args.front() != "Int32" &&
              parsed.args.front() != "UInt8" &&
              parsed.args.front() != "Char")) {
             return std::nullopt;
         }
         if (parsed.args.front() == "Int8" || parsed.args.front() == "UInt8") return AbiLayout{3, 1};
+        if (parsed.args.front() == "Int16") return AbiLayout{6, 2};
         return AbiLayout{12, 4};
     }
 

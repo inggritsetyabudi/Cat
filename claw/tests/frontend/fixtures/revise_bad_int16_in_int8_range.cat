@@ -1,0 +1,7 @@
+fn main() -> Int32 {
+    val range: Range[Int8] = -1_Int8..=1_Int8
+    if 0_Int16 in range {
+        println(1)
+    }
+    return 0
+}

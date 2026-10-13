@@ -1,0 +1,6 @@
+fn main() -> Int32 {
+    val text: Str = "cat"
+    val part = text[0_Int16..2_Int16]
+    println(part)
+    return 0
+}

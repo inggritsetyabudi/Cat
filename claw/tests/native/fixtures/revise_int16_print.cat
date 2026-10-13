@@ -1,0 +1,8 @@
+fn main() -> Int32 {
+    println(-32768_Int16)
+    println(-1_Int16)
+    println(0_Int16)
+    println(1_Int16)
+    println(32767_Int16)
+    return 0
+}

@@ -53,8 +53,9 @@ implements_ll="$ARTIFACT_DIR/revise_implements.ll"
 if_pick_values_ll="$ARTIFACT_DIR/revise_if_pick_values.ll"
 try_contract_ll="$ARTIFACT_DIR/revise_try_contract.ll"
 int8_range_ll="$ARTIFACT_DIR/revise_int8_range.ll"
+int16_range_ll="$ARTIFACT_DIR/revise_int16_range.ll"
 rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll" "$if_pick_values_ll"
-rm -f "$try_contract_ll" "$int8_range_ll"
+rm -f "$try_contract_ll" "$int8_range_ll" "$int16_range_ll"
 
 run_llvm "test_backend/revise_result_llvm.cat" "$BACKEND_FIXTURE_DIR/revise_result_llvm.cat" "$result_ll"
 llvm_output="$(tr -d '\r' < "$result_ll")"
@@ -207,6 +208,19 @@ if [[ "$int8_range_output" != *'define internal i32 @"revise_int8_range::contain
   echo "Int8 range LLVM output did not preserve signed i8 bounds, narrow terminal checks, or USize scan indexes" >&2
   exit 1
 fi
+run_llvm "test_native/revise_int16_range.cat" "$SCRIPT_DIR/../native/fixtures/revise_int16_range.cat" "$int16_range_ll"
+int16_range_output="$(tr -d '\r' < "$int16_range_ll")"
+if [[ "$int16_range_output" != *'define internal i32 @"revise_int16_range::contains"(i16 %arg.value, { i16, i16, i1 } %arg.range)'* ]] ||
+   [[ "$int16_range_output" != *'icmp sge i16'* ]] ||
+   [[ "$int16_range_output" != *'icmp slt i16'* ]] ||
+   [[ "$int16_range_output" != *'icmp sle i16'* ]] ||
+   [[ "$int16_range_output" != *'icmp eq i16'* ]] ||
+   [[ "$int16_range_output" != *'add i16'* ]] ||
+   [[ "$int16_range_output" != *'add i64'* ]] ||
+   [[ "$int16_range_output" == *'icmp uge i16'* || "$int16_range_output" == *'icmp ult i16'* || "$int16_range_output" == *'icmp ule i16'* ]]; then
+  echo "Int16 range LLVM output did not preserve its aggregate ABI, signed comparisons, terminal check, or USize scan indexes" >&2
+  exit 1
+fi
 int8_print_ll="$ARTIFACT_DIR/revise_int8_print.ll"
 rm -f "$int8_print_ll"
 run_llvm "test_native/revise_int8_print.cat" "$SCRIPT_DIR/../native/fixtures/revise_int8_print.cat" "$int8_print_ll"
@@ -217,6 +231,16 @@ if [[ "$int8_print_output" != *'declare void @"claw.runtime.print.i8"(i8 signext
    [[ "$int8_print_output" != *'call void @"claw.runtime.println.i8"(i8 signext '* ]] ||
    [[ "$int8_print_output" == *'i8 zeroext'* ]]; then
   echo "Int8 runtime printer LLVM output did not use signed extension consistently at declarations and callsites" >&2
+  exit 1
+fi
+int16_print_ll="$ARTIFACT_DIR/revise_int16_print.ll"
+rm -f "$int16_print_ll"
+run_llvm "test_native/revise_int16_print.cat" "$SCRIPT_DIR/../native/fixtures/revise_int16_print.cat" "$int16_print_ll"
+int16_print_output="$(tr -d '\r' < "$int16_print_ll")"
+if [[ "$int16_print_output" != *'declare void @"claw.runtime.println.i16"(i16 signext)'* ]] ||
+   [[ "$int16_print_output" != *'call void @"claw.runtime.println.i16"(i16 signext '* ]] ||
+   [[ "$int16_print_output" == *'i16 zeroext'* ]]; then
+  echo "Int16 runtime printer LLVM output did not use signed extension consistently at declarations and callsites" >&2
   exit 1
 fi
 uint8_print_ll="$ARTIFACT_DIR/revise_uint8_print.ll"

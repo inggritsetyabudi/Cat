@@ -1,0 +1,75 @@
+fn contains(value: Int16, range: Range[Int16]) -> Int32 {
+    if value in range { 1 } else { 0 }
+}
+
+fn endpoint_start() -> Int16 {
+    println("start-once")
+    return -1_Int16
+}
+
+fn endpoint_end() -> Int16 {
+    println("end-once")
+    return 1_Int16
+}
+
+fn main() -> Int32 {
+    val whole: Range[Int16] = -32768_Int16..=32767_Int16
+    val inferred = -2_Int16..=2_Int16
+
+    println(contains(-32768_Int16, whole))
+    println(contains(32767_Int16, whole))
+    println(contains(-32768_Int16, -32768_Int16..32767_Int16))
+    println(contains(32767_Int16, -32768_Int16..32767_Int16))
+    println(contains(0_Int16, 5_Int16..=4_Int16))
+
+    var ordinary_small_count: Int32 = 0
+    scan item over inferred {
+        println(item)
+        ordinary_small_count = ordinary_small_count + 1
+    }
+    println(ordinary_small_count)
+
+    scan item, index over -1_Int16..=1_Int16 {
+        println(item)
+        println(index)
+    }
+
+    println("empty-exclusive")
+    scan item over 5_Int16..5_Int16 {
+        println("unexpected-exclusive-item")
+    }
+    println("empty-reversed")
+    scan item over 5_Int16..=4_Int16 {
+        println("unexpected-reversed-item")
+    }
+    println("equal-inclusive")
+    scan item over 7_Int16..=7_Int16 {
+        println("equal-item")
+    }
+
+    if 0_Int16 in endpoint_start()..=endpoint_end() {
+        println(1)
+    } else {
+        println(0)
+    }
+
+    var ordinary_full_count: Int32 = 0
+    scan item over whole {
+        if item == -32768_Int16 or item == 32767_Int16 {
+            println(item)
+        }
+        ordinary_full_count = ordinary_full_count + 1
+    }
+    println(ordinary_full_count)
+
+    var indexed_full_count: Int32 = 0
+    scan item, index over whole {
+        if index == 0 or index == 32768 or index == 65535 {
+            println(item)
+            println(index)
+        }
+        indexed_full_count = indexed_full_count + 1
+    }
+    println(indexed_full_count)
+    return 0
+}
