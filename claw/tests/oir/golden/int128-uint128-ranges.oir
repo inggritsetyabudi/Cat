@@ -1,0 +1,216 @@
+oir.module revise_int128_uint128_ranges
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_int128_uint128_ranges::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_int128_uint128_ranges::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn contains_i128(value: Int128 [scalar], bounds: Range[Int128] [indirect]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_int128_uint128_ranges::contains_i128 ffi=false]
+  block entry:
+    %t0 = in value, bounds : Bool
+    branch %t0 -> if_then_0, if_join_1
+  block if_then_0:
+    return 1 : Int32
+  block if_join_1:
+    return 0 : Int32
+oir.fn contains_u128(value: UInt128 [scalar], bounds: Range[UInt128] [indirect]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_int128_uint128_ranges::contains_u128 ffi=false]
+  block entry:
+    %t0 = in value, bounds : Bool
+    branch %t0 -> if_then_0, if_join_1
+  block if_then_0:
+    return 1 : Int32
+  block if_join_1:
+    return 0 : Int32
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_int128_uint128_ranges::main ffi=false]
+  block entry:
+    %t0 = neg 170141183460469231731687303715884105728_Int128 : Int128
+    val signed_min: Int128 = %t0
+    %t1 = neg 170141183460469231731687303715884105727_Int128 : Int128
+    val signed_min_plus1: Int128 = %t1
+    %t2 = neg 170141183460469231731687303715884105726_Int128 : Int128
+    val signed_min_plus2: Int128 = %t2
+    val signed_max_minus2: Int128 = 170141183460469231731687303715884105725_Int128
+    val signed_max_minus1: Int128 = 170141183460469231731687303715884105726_Int128
+    val signed_max: Int128 = 170141183460469231731687303715884105727_Int128
+    val unsigned_zero: UInt128 = 0_UInt128
+    val unsigned_one: UInt128 = 1_UInt128
+    val unsigned_two: UInt128 = 2_UInt128
+    val unsigned_max_minus2: UInt128 = 340282366920938463463374607431768211453_UInt128
+    val unsigned_max_minus1: UInt128 = 340282366920938463463374607431768211454_UInt128
+    val unsigned_max: UInt128 = 340282366920938463463374607431768211455_UInt128
+    val unsigned_high_bit: UInt128 = 170141183460469231731687303715884105728_UInt128
+    val unsigned_high_bit_plus1: UInt128 = 170141183460469231731687303715884105729_UInt128
+    %t3 = range_inclusive signed_min, signed_min_plus1 : Range[Int128]
+    val signed_low: Range[Int128] = %t3
+    %t4 = range_inclusive signed_max_minus1, signed_max : Range[Int128]
+    val signed_high: Range[Int128] = %t4
+    %t5 = range_inclusive signed_max, signed_max : Range[Int128]
+    val signed_singleton: Range[Int128] = %t5
+    %t6 = range_exclusive signed_max_minus1, signed_max : Range[Int128]
+    val signed_exclusive: Range[Int128] = %t6
+    %t7 = range_inclusive unsigned_zero, unsigned_one : Range[UInt128]
+    val unsigned_low: Range[UInt128] = %t7
+    %t8 = range_inclusive unsigned_max_minus1, unsigned_max : Range[UInt128]
+    val unsigned_high: Range[UInt128] = %t8
+    %t9 = range_inclusive unsigned_max, unsigned_max : Range[UInt128]
+    val unsigned_singleton: Range[UInt128] = %t9
+    %t10 = range_exclusive unsigned_max_minus1, unsigned_max : Range[UInt128]
+    val unsigned_exclusive: Range[UInt128] = %t10
+    %t11 = range_inclusive unsigned_high_bit, unsigned_high_bit_plus1 : Range[UInt128]
+    val unsigned_high_bit_range: Range[UInt128] = %t11
+    %t12 = call contains_i128(signed_min, signed_low) : Int32
+    call println(%t12) : Unit
+    %t13 = call contains_i128(signed_min_plus1, signed_low) : Int32
+    call println(%t13) : Unit
+    %t14 = call contains_i128(signed_min_plus2, signed_low) : Int32
+    call println(%t14) : Unit
+    %t15 = call contains_i128(signed_max_minus2, signed_high) : Int32
+    call println(%t15) : Unit
+    %t16 = call contains_i128(signed_max_minus1, signed_high) : Int32
+    call println(%t16) : Unit
+    %t17 = call contains_i128(signed_max, signed_high) : Int32
+    call println(%t17) : Unit
+    %t18 = call contains_i128(signed_max, signed_singleton) : Int32
+    call println(%t18) : Unit
+    %t19 = call contains_i128(signed_max_minus1, signed_singleton) : Int32
+    call println(%t19) : Unit
+    %t20 = call contains_i128(signed_max_minus1, signed_exclusive) : Int32
+    call println(%t20) : Unit
+    %t21 = call contains_i128(signed_max, signed_exclusive) : Int32
+    call println(%t21) : Unit
+    %t22 = call contains_u128(unsigned_zero, unsigned_low) : Int32
+    call println(%t22) : Unit
+    %t23 = call contains_u128(unsigned_one, unsigned_low) : Int32
+    call println(%t23) : Unit
+    %t24 = call contains_u128(unsigned_two, unsigned_low) : Int32
+    call println(%t24) : Unit
+    %t25 = call contains_u128(unsigned_max_minus2, unsigned_high) : Int32
+    call println(%t25) : Unit
+    %t26 = call contains_u128(unsigned_max_minus1, unsigned_high) : Int32
+    call println(%t26) : Unit
+    %t27 = call contains_u128(unsigned_max, unsigned_high) : Int32
+    call println(%t27) : Unit
+    %t28 = call contains_u128(unsigned_max, unsigned_singleton) : Int32
+    call println(%t28) : Unit
+    %t29 = call contains_u128(unsigned_max_minus1, unsigned_singleton) : Int32
+    call println(%t29) : Unit
+    %t30 = call contains_u128(unsigned_max_minus1, unsigned_exclusive) : Int32
+    call println(%t30) : Unit
+    %t31 = call contains_u128(unsigned_max, unsigned_exclusive) : Int32
+    call println(%t31) : Unit
+    %t32 = call contains_u128(unsigned_high_bit, unsigned_high_bit_range) : Int32
+    call println(%t32) : Unit
+    %t33 = call contains_u128(unsigned_high_bit_plus1, unsigned_high_bit_range) : Int32
+    call println(%t33) : Unit
+    %t34 = call contains_u128(unsigned_max, unsigned_high_bit_range) : Int32
+    call println(%t34) : Unit
+    val %t35: Tuple[Range[Int128], Int32]
+    store_field %t35.0 <- signed_high : Range[Int128]
+    store_field %t35.1 <- 41_Int32 : Int32
+    val nested_signed: Tuple[Range[Int128], Int32] = %t35
+    val %t36: Tuple[Range[UInt128], Int32]
+    store_field %t36.0 <- unsigned_high : Range[UInt128]
+    store_field %t36.1 <- 42_Int32 : Int32
+    val nested_unsigned: Tuple[Range[UInt128], Int32] = %t36
+    %t37 = field nested_signed.0 : Range[Int128]
+    %t38 = call contains_i128(signed_max, %t37) : Int32
+    call println(%t38) : Unit
+    %t39 = field nested_signed.1 : Int32
+    call println(%t39) : Unit
+    %t40 = field nested_unsigned.0 : Range[UInt128]
+    %t41 = call contains_u128(unsigned_max, %t40) : Int32
+    call println(%t41) : Unit
+    %t42 = field nested_unsigned.1 : Int32
+    call println(%t42) : Unit
+    var signed_low_count: Int32 = 0
+    range_scan_init item: Int128 from signed_low : Range[Int128]
+    goto scan_header_0
+  block scan_header_0:
+    scan item: Int128 over signed_low -> scan_body_1, scan_exit_2
+  block scan_body_1:
+    %t43 = add signed_low_count, 1 : Int32
+    store signed_low_count <- %t43 : Int32
+    goto scan_header_0
+  block scan_exit_2:
+    call println(signed_low_count) : Unit
+    var signed_high_count: Int32 = 0
+    range_scan_init item: Int128, index: USize from signed_high : Range[Int128]
+    goto scan_header_3
+  block scan_header_3:
+    scan item: Int128, index: USize over signed_high -> scan_body_4, scan_exit_5
+  block scan_body_4:
+    %t44 = eq item, signed_max : Bool
+    branch %t44 -> if_then_6, if_join_7
+  block if_then_6:
+    call println(index) : Unit
+    goto if_join_7
+  block if_join_7:
+    %t45 = add signed_high_count, 1 : Int32
+    store signed_high_count <- %t45 : Int32
+    goto scan_header_3
+  block scan_exit_5:
+    call println(signed_high_count) : Unit
+    var signed_singleton_count: Int32 = 0
+    range_scan_init item: Int128 from signed_singleton : Range[Int128]
+    goto scan_header_8
+  block scan_header_8:
+    scan item: Int128 over signed_singleton -> scan_body_9, scan_exit_10
+  block scan_body_9:
+    %t46 = add signed_singleton_count, 1 : Int32
+    store signed_singleton_count <- %t46 : Int32
+    goto scan_header_8
+  block scan_exit_10:
+    call println(signed_singleton_count) : Unit
+    var unsigned_low_count: Int32 = 0
+    range_scan_init item: UInt128 from unsigned_low : Range[UInt128]
+    goto scan_header_11
+  block scan_header_11:
+    scan item: UInt128 over unsigned_low -> scan_body_12, scan_exit_13
+  block scan_body_12:
+    %t47 = add unsigned_low_count, 1 : Int32
+    store unsigned_low_count <- %t47 : Int32
+    goto scan_header_11
+  block scan_exit_13:
+    call println(unsigned_low_count) : Unit
+    var unsigned_high_count: Int32 = 0
+    range_scan_init item: UInt128, index: USize from unsigned_high : Range[UInt128]
+    goto scan_header_14
+  block scan_header_14:
+    scan item: UInt128, index: USize over unsigned_high -> scan_body_15, scan_exit_16
+  block scan_body_15:
+    %t48 = eq item, unsigned_max : Bool
+    branch %t48 -> if_then_17, if_join_18
+  block if_then_17:
+    call println(index) : Unit
+    goto if_join_18
+  block if_join_18:
+    %t49 = add unsigned_high_count, 1 : Int32
+    store unsigned_high_count <- %t49 : Int32
+    goto scan_header_14
+  block scan_exit_16:
+    call println(unsigned_high_count) : Unit
+    var unsigned_singleton_count: Int32 = 0
+    range_scan_init item: UInt128 from unsigned_singleton : Range[UInt128]
+    goto scan_header_19
+  block scan_header_19:
+    scan item: UInt128 over unsigned_singleton -> scan_body_20, scan_exit_21
+  block scan_body_20:
+    %t50 = add unsigned_singleton_count, 1 : Int32
+    store unsigned_singleton_count <- %t50 : Int32
+    goto scan_header_19
+  block scan_exit_21:
+    call println(unsigned_singleton_count) : Unit
+    var unsigned_high_bit_count: Int32 = 0
+    range_scan_init item: UInt128 from unsigned_high_bit_range : Range[UInt128]
+    goto scan_header_22
+  block scan_header_22:
+    scan item: UInt128 over unsigned_high_bit_range -> scan_body_23, scan_exit_24
+  block scan_body_23:
+    %t51 = add unsigned_high_bit_count, 1 : Int32
+    store unsigned_high_bit_count <- %t51 : Int32
+    goto scan_header_22
+  block scan_exit_24:
+    call println(unsigned_high_bit_count) : Unit
+    return 0 : Int32

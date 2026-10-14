@@ -1,0 +1,91 @@
+fn contains_i64(value: Int64, bounds: Range[Int64]) -> Int32 {
+    if value in bounds { 1 } else { 0 }
+}
+fn contains_u16(value: UInt16, bounds: Range[UInt16]) -> Int32 {
+    if value in bounds { 1 } else { 0 }
+}
+fn contains_u32(value: UInt32, bounds: Range[UInt32]) -> Int32 {
+    if value in bounds { 1 } else { 0 }
+}
+fn contains_u64(value: UInt64, bounds: Range[UInt64]) -> Int32 {
+    if value in bounds { 1 } else { 0 }
+}
+fn contains_usize(value: USize, bounds: Range[USize]) -> Int32 {
+    if value in bounds { 1 } else { 0 }
+}
+
+fn main() -> Int32 {
+    val signed: Range[Int64] = 9223372036854775806_Int64..=9223372036854775807_Int64
+    val signed_negative = -2_Int64..=0_Int64
+    val unsigned16: Range[UInt16] = 1_UInt16..=65535_UInt16
+    val unsigned16_narrow = 65534_UInt16..=65535_UInt16
+    val unsigned32: Range[UInt32] = 1_UInt32..=4294967295_UInt32
+    val unsigned32_narrow = 4294967294_UInt32..=4294967295_UInt32
+    val unsigned64: Range[UInt64] = 1_UInt64..=18446744073709551615_UInt64
+    val unsigned64_narrow = 18446744073709551614_UInt64..=18446744073709551615_UInt64
+    val usize: Range[USize] = 1_USize..=18446744073709551615_USize
+    val usize_narrow = 18446744073709551614_USize..=18446744073709551615_USize
+
+    println(contains_i64(9223372036854775807_Int64, signed))
+    println(contains_i64(-2_Int64, signed_negative))
+    println(contains_i64(1_Int64, signed_negative))
+    println(contains_u16(32768_UInt16, unsigned16))
+    println(contains_u16(0_UInt16, unsigned16))
+    println(contains_u32(2147483648_UInt32, unsigned32))
+    println(contains_u32(0_UInt32, unsigned32))
+    println(contains_u64(9223372036854775808_UInt64, unsigned64))
+    println(contains_u64(0_UInt64, unsigned64))
+    println(contains_usize(9223372036854775808_USize, usize))
+    println(contains_usize(0_USize, usize))
+
+    var signed_count: Int32 = 0
+    scan item over signed {
+        if item == 9223372036854775807_Int64 { println(1) }
+        signed_count = signed_count + 1
+    }
+    println(signed_count)
+    scan item, index over signed {
+        if item == 9223372036854775807_Int64 { println(index) }
+    }
+
+    var u16_count: Int32 = 0
+    scan item over unsigned16_narrow {
+        if item == 65535_UInt16 { println(1) }
+        u16_count = u16_count + 1
+    }
+    println(u16_count)
+    scan item, index over unsigned16_narrow {
+        if item == 65535_UInt16 { println(index) }
+    }
+
+    var u32_count: Int32 = 0
+    scan item over unsigned32_narrow {
+        if item == 4294967295_UInt32 { println(1) }
+        u32_count = u32_count + 1
+    }
+    println(u32_count)
+    scan item, index over unsigned32_narrow {
+        if item == 4294967295_UInt32 { println(index) }
+    }
+
+    var u64_count: Int32 = 0
+    scan item over unsigned64_narrow {
+        if item == 18446744073709551615_UInt64 { println(1) }
+        u64_count = u64_count + 1
+    }
+    println(u64_count)
+    scan item, index over unsigned64_narrow {
+        if item == 18446744073709551615_UInt64 { println(index) }
+    }
+
+    var usize_count: Int32 = 0
+    scan item over usize_narrow {
+        if item == 18446744073709551615_USize { println(1) }
+        usize_count = usize_count + 1
+    }
+    println(usize_count)
+    scan item, index over usize_narrow {
+        if item == 18446744073709551615_USize { println(index) }
+    }
+    return 0
+}

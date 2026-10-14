@@ -1,0 +1,7 @@
+fn main() -> Int32 {
+    val text = "wide range slicing stays unsupported"
+    val range: Range[Int128] = 0_Int128..=1_Int128
+    val part = text[range]
+    println(part)
+    return 0
+}

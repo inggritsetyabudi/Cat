@@ -219,6 +219,11 @@ inline bool isSignedIntegerType(std::string_view typeName) {
         typeName == "Int128";
 }
 
+inline bool isUnsignedIntegerType(std::string_view typeName) {
+    return typeName == "UInt8" || typeName == "UInt16" || typeName == "UInt32" || typeName == "UInt64" ||
+        typeName == "UInt128" || typeName == "USize";
+}
+
 inline bool isFloatingType(std::string_view typeName) {
     return typeName == "Float32" || typeName == "Float64";
 }

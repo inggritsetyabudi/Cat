@@ -54,8 +54,10 @@ if_pick_values_ll="$ARTIFACT_DIR/revise_if_pick_values.ll"
 try_contract_ll="$ARTIFACT_DIR/revise_try_contract.ll"
 int8_range_ll="$ARTIFACT_DIR/revise_int8_range.ll"
 int16_range_ll="$ARTIFACT_DIR/revise_int16_range.ll"
+wide_range_ll="$ARTIFACT_DIR/revise_wide_integer_ranges.ll"
+int128_range_ll="$ARTIFACT_DIR/revise_int128_uint128_ranges.ll"
 rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll" "$if_pick_values_ll"
-rm -f "$try_contract_ll" "$int8_range_ll" "$int16_range_ll"
+rm -f "$try_contract_ll" "$int8_range_ll" "$int16_range_ll" "$int128_range_ll"
 
 run_llvm "test_backend/revise_result_llvm.cat" "$BACKEND_FIXTURE_DIR/revise_result_llvm.cat" "$result_ll"
 llvm_output="$(tr -d '\r' < "$result_ll")"
@@ -219,6 +221,92 @@ if [[ "$int16_range_output" != *'define internal i32 @"revise_int16_range::conta
    [[ "$int16_range_output" != *'add i64'* ]] ||
    [[ "$int16_range_output" == *'icmp uge i16'* || "$int16_range_output" == *'icmp ult i16'* || "$int16_range_output" == *'icmp ule i16'* ]]; then
   echo "Int16 range LLVM output did not preserve its aggregate ABI, signed comparisons, terminal check, or USize scan indexes" >&2
+  exit 1
+fi
+run_llvm "test_native/revise_wide_integer_ranges.cat" "$SCRIPT_DIR/../native/fixtures/revise_wide_integer_ranges.cat" "$wide_range_ll"
+wide_range_output="$(tr -d '\r' < "$wide_range_ll")"
+if [[ "$wide_range_output" != *"{ i16, i16, i1 }"* ]] ||
+   [[ "$wide_range_output" != *"{ i32, i32, i1 }"* ]] ||
+   [[ "$wide_range_output" != *"{ i64, i64, i1 }"* ]] ||
+   [[ "$wide_range_output" != *"icmp sge i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp slt i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp sle i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp uge i16"* ]] ||
+   [[ "$wide_range_output" != *"icmp ult i16"* ]] ||
+   [[ "$wide_range_output" != *"icmp ule i16"* ]] ||
+   [[ "$wide_range_output" != *"icmp uge i32"* ]] ||
+   [[ "$wide_range_output" != *"icmp ult i32"* ]] ||
+   [[ "$wide_range_output" != *"icmp ule i32"* ]] ||
+   [[ "$wide_range_output" != *"icmp uge i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp ult i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp ule i64"* ]] ||
+   [[ "$wide_range_output" != *"add i16"* ]] ||
+   [[ "$wide_range_output" != *"add i32"* ]] ||
+   [[ "$wide_range_output" != *"add i64"* ]]; then
+  echo "wide integer Range LLVM IR omitted an expected aggregate width, signedness predicate, or narrow iterator increment" >&2
+  exit 1
+fi
+for width in 16 32 64; do
+  for field_index in 0 1 2; do
+    if ! grep -Eq "extractvalue \\{ i${width}, i${width}, i1 \\} [^,]+, ${field_index}$" "$wide_range_ll"; then
+      echo "wide integer Range LLVM IR omitted field ${field_index} for its i${width} aggregate" >&2
+      exit 1
+    fi
+  done
+done
+
+run_llvm "test_native/revise_int128_uint128_ranges.cat" "$SCRIPT_DIR/../native/fixtures/revise_int128_uint128_ranges.cat" "$int128_range_ll"
+int128_range_output="$(tr -d '\r' < "$int128_range_ll")"
+if [[ "$int128_range_output" != *"{ i128, i128, i1 }"* ]] ||
+   [[ "$int128_range_output" != *"icmp sge i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp slt i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp sle i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp uge i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp ult i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp ule i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp eq i128"* ]] ||
+   [[ "$int128_range_output" != *"add i128"* ]] ||
+   [[ "$int128_range_output" != *"alloca { i128, i128, i1 }, align 16"* ]] ||
+   [[ "$int128_range_output" != *"alloca { { i128, i128, i1 }, i32 }, align 16"* ]]; then
+  echo "128-bit Range LLVM output omitted aggregate layout, signed/unsigned comparisons, guarded increments, or natural alignment" >&2
+  exit 1
+fi
+
+wide_range_tuple_ll="$ARTIFACT_DIR/revise_wide_range_tuple_layout.ll"
+rm -f "$wide_range_tuple_ll"
+run_llvm "test_native/revise_wide_range_tuple_layout.cat" "$SCRIPT_DIR/../native/fixtures/revise_wide_range_tuple_layout.cat" "$wide_range_tuple_ll"
+wide_range_tuple_output="$(tr -d '\r' < "$wide_range_tuple_ll")"
+if [[ "$wide_range_tuple_output" != *'alloca { { i16, i16, i1 }, i32 }, align 4'* ]] ||
+   [[ "$wide_range_tuple_output" != *'alloca { { i64, i64, i1 }, i16 }, align 8'* ]]; then
+  echo "nested Range tuple alloca did not preserve the LLVM aggregate shape or natural alignment" >&2
+  exit 1
+fi
+if ! grep -Fq 'getelementptr inbounds { { i16, i16, i1 }, i32 }, ptr %nested_u16.addr, i32 0, i32 1' "$wide_range_tuple_ll" ||
+   ! grep -Fq 'getelementptr inbounds { { i64, i64, i1 }, i16 }, ptr %nested_u64.addr, i32 0, i32 1' "$wide_range_tuple_ll"; then
+  echo "nested Range tuple LLVM IR omitted the typed field-1 GEP from a stored aggregate" >&2
+  exit 1
+fi
+
+wide_unsigned_print_ll="$ARTIFACT_DIR/revise_wide_unsigned_print.ll"
+rm -f "$wide_unsigned_print_ll"
+run_llvm "test_native/revise_wide_unsigned_print.cat" "$SCRIPT_DIR/../native/fixtures/revise_wide_unsigned_print.cat" "$wide_unsigned_print_ll"
+wide_unsigned_print_output="$(tr -d '\r' < "$wide_unsigned_print_ll")"
+for spec in 'u16|i16 zeroext' 'u32|i32' 'u64|i64' 'usize|i64'; do
+  suffix="${spec%%|*}"
+  llvm_param="${spec#*|}"
+  for callee in print println; do
+    if [[ "$wide_unsigned_print_output" != *"declare void @\"claw.runtime.${callee}.${suffix}\"(${llvm_param})"* ]] ||
+       [[ "$wide_unsigned_print_output" != *"call void @\"claw.runtime.${callee}.${suffix}\"(${llvm_param} "* ]]; then
+      echo "${callee}(${suffix}) declaration/call ABI did not match ${llvm_param}" >&2
+      exit 1
+    fi
+  done
+done
+if [[ "$wide_unsigned_print_output" != *'declare void @"claw.runtime.print.i64"(i64)'* ]] ||
+   [[ "$wide_unsigned_print_output" != *'call void @"claw.runtime.print.i64"(i64 '* ]] ||
+   [[ "$wide_unsigned_print_output" != *'declare void @"claw.runtime.println.i64"(i64)'* ]] ||
+   [[ "$wide_unsigned_print_output" != *'call void @"claw.runtime.println.i64"(i64 '* ]]; then
+  echo "signed Int64 runtime print path was not preserved" >&2
   exit 1
 fi
 int8_print_ll="$ARTIFACT_DIR/revise_int8_print.ll"

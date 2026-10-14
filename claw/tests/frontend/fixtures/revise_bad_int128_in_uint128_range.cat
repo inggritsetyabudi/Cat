@@ -1,0 +1,6 @@
+fn main() -> Int32 {
+    val bounds: Range[UInt128] = 0_UInt128..=1_UInt128
+    val value: Int128 = 1_Int128
+    if value in bounds { return 1 }
+    return 0
+}

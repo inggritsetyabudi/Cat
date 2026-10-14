@@ -397,9 +397,10 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                         const std::string belowExclusiveEnd = state.temp("range.below.exclusive.end");
                         const std::string belowInclusiveEnd = state.temp("range.below.inclusive.end");
                         const std::string belowEnd = state.temp("range.below.end");
-                        const std::string startPredicate = baseType == "UInt8" ? "uge" : "sge";
-                        const std::string exclusivePredicate = baseType == "UInt8" ? "ult" : "slt";
-                        const std::string inclusivePredicate = baseType == "UInt8" ? "ule" : "sle";
+                        const bool isUnsigned = isUnsignedIntegerType(baseType);
+                        const std::string startPredicate = isUnsigned ? "uge" : "sge";
+                        const std::string exclusivePredicate = isUnsigned ? "ult" : "slt";
+                        const std::string inclusivePredicate = isUnsigned ? "ule" : "sle";
                         blockLines.push_back("  " + start + " = extractvalue " + rangeType + " " + right + ", 0");
                         blockLines.push_back("  " + end + " = extractvalue " + rangeType + " " + right + ", 1");
                         blockLines.push_back("  " + inclusive + " = extractvalue " + rangeType + " " + right + ", 2");

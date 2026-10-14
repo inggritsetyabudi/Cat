@@ -59,8 +59,8 @@ void LlvmEmitter::emitIterNext(
         const std::string atEnd = state.temp("range.scan.at_end");
         const std::string finalInclusiveItem = state.temp("range.scan.final_inclusive");
         const std::string itemLlvmType = llvmType(value.itemType);
-        const std::string boundPredicate = value.itemType == "UInt8" ? "ult" : "slt";
-        const std::string inclusivePredicate = value.itemType == "UInt8" ? "ule" : "sle";
+        const std::string boundPredicate = isUnsignedIntegerType(value.itemType) ? "ult" : "slt";
+        const std::string inclusivePredicate = isUnsignedIntegerType(value.itemType) ? "ule" : "sle";
         const std::string prepareLabel = state.inlineLabel("range.scan.prepare");
         const std::string finalLabel = state.inlineLabel("range.scan.final");
         const std::string advanceLabel = state.inlineLabel("range.scan.advance");

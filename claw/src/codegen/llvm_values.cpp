@@ -202,9 +202,7 @@ void LlvmEmitter::materializeIterBinding(
     const PendingIterBinding& binding,
     FunctionState& state,
     std::vector<std::string>& lines) {
-    const bool isRange = binding.iterable.type == "Range[Int8]" || binding.iterable.type == "Range[Int16]" ||
-        binding.iterable.type == "Range[Int32]" || binding.iterable.type == "Range[UInt8]" ||
-        binding.iterable.type == "Range[Char]";
+    const bool isRange = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(binding.iterable.type))) == "Range";
     const std::string iterableBase = parseTypeName(binding.iterable.type).base;
     const std::string itemKey = binding.itemBindingKey.empty() ? binding.itemName : binding.itemBindingKey;
     const std::string indexKey = binding.indexBindingKey.empty() ? binding.indexName : binding.indexBindingKey;

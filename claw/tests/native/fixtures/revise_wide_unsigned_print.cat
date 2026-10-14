@@ -1,0 +1,22 @@
+fn main() -> Int32 {
+    print(32768_UInt16)
+    print("|")
+    println(65535_UInt16)
+
+    print(2147483648_UInt32)
+    print("|")
+    println(4294967295_UInt32)
+
+    print(9223372036854775808_UInt64)
+    print("|")
+    println(18446744073709551615_UInt64)
+
+    print(9223372036854775808_USize)
+    print("|")
+    println(18446744073709551615_USize)
+
+    print(-9223372036854775807_Int64)
+    print("|")
+    println(9223372036854775807_Int64)
+    return 0
+}

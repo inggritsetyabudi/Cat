@@ -3803,7 +3803,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Range bounds currently support only Int8, Int16, Int32, UInt8, or Char with matching types, got " +
+                        "Range bounds currently support only Int8, Int16, Int32, Int64, Int128, UInt8, UInt16, UInt32, UInt64, UInt128, USize, or Char with matching types, got " +
                             leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();
@@ -3824,7 +3824,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Operator `in` requires a matching Int8/Range[Int8], Int16/Range[Int16], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair, got " +
+                        "Operator `in` requires a matching Int8/Range[Int8], Int16/Range[Int16], Int32/Range[Int32], Int64/Range[Int64], Int128/Range[Int128], UInt8/Range[UInt8], UInt16/Range[UInt16], UInt32/Range[UInt32], UInt64/Range[UInt64], UInt128/Range[UInt128], USize/Range[USize], or Char/Range[Char] pair, got " +
                             leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();

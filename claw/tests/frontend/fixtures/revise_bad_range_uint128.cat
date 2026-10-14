@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val unsupported: Range[UInt128] = 0_UInt128..=1_UInt128
+    return 0
+}
