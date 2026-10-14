@@ -186,6 +186,11 @@ struct TargetSpec {
     unsigned ptrdiffWidthBits = 64;
 };
 
+std::optional<size_t> fixedArrayByteSize(
+    size_t elementCount,
+    size_t elementSizeBytes,
+    const TargetSpec& target);
+
 struct ImportedBinding {
     std::string name;
     SymbolKind kind = SymbolKind::Module;
@@ -235,7 +240,8 @@ public:
     ResolvedType resolveType(
         const TypeNode* node,
         const std::unordered_set<std::string>& localTypeParams,
-        std::vector<Diagnostic>* diagnostics) const;
+        std::vector<Diagnostic>* diagnostics,
+        const TargetSpec& target = TargetSpec{}) const;
 
 private:
     std::unordered_set<std::string> builtinPlainTypes;

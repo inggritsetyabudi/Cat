@@ -278,3 +278,62 @@ run_llvm "test_native/revise_arena.cat" "$SCRIPT_DIR/../native/fixtures/revise_a
 op_ll="$ARTIFACT_DIR/revise_operator_overload.ll"
 rm -f "$op_ll"
 run_llvm "test_native/revise_operator_overload.cat" "$SCRIPT_DIR/../native/fixtures/revise_operator_overload.cat" "$op_ll"
+
+fixed_array_ll="$ARTIFACT_DIR/revise_fixed_array.ll"
+rm -f "$fixed_array_ll"
+run_llvm "test_native/revise_fixed_array.cat" "$SCRIPT_DIR/../native/fixtures/revise_fixed_array.cat" "$fixed_array_ll"
+fixed_array_output="$(tr -d '\r' < "$fixed_array_ll")"
+fixed_array_main="$(sed -n '/define internal i32 @"revise_fixed_array::main"/,/^}/p' "$fixed_array_ll")"
+array_index_guard_line="$(printf '%s\n' "$fixed_array_main" | grep -m1 -nE 'array\.index\.in_bounds.* = icmp ult i64' | cut -d: -f1 || true)"
+array_index_gep_line="$(printf '%s\n' "$fixed_array_main" | grep -m1 -nE 'array\.index\.element_ptr.* = getelementptr inbounds \[3 x i32\]' | cut -d: -f1 || true)"
+array_scan_guard_line="$(printf '%s\n' "$fixed_array_main" | grep -m1 -nE 'array\.scan\.has_item.* = icmp ult i64' | cut -d: -f1 || true)"
+array_scan_gep_line="$(printf '%s\n' "$fixed_array_main" | grep -m1 -nE 'array\.iter\.item\.ptr.* = getelementptr inbounds \[3 x i32\]' | cut -d: -f1 || true)"
+array_scan_header_line="$(printf '%s\n' "$fixed_array_main" | grep -m1 -n '^scan_header_6:' | cut -d: -f1 || true)"
+array_factory_call_count="$(printf '%s\n' "$fixed_array_main" | grep -c 'call \[3 x i32\] @"revise_fixed_array::make_array"()' || true)"
+array_last_factory_call_line="$(printf '%s\n' "$fixed_array_main" | grep -n 'call \[3 x i32\] @"revise_fixed_array::make_array"()' | tail -1 | cut -d: -f1 || true)"
+if [[ "$fixed_array_output" != *'define internal [3 x i32] @"revise_fixed_array::make_array"()'* ]] ||
+   [[ "$fixed_array_output" != *'define internal i32 @"revise_fixed_array::select"([3 x i32] %arg.array, i64 %arg.index)'* ]] ||
+   [[ "$fixed_array_output" != *'call void @llvm.trap()'* ]] ||
+   [[ -z "$array_index_guard_line" || -z "$array_index_gep_line" || "$array_index_guard_line" -ge "$array_index_gep_line" ]] ||
+   [[ -z "$array_scan_guard_line" || -z "$array_scan_gep_line" || "$array_scan_guard_line" -ge "$array_scan_gep_line" ]] ||
+   [[ "$array_factory_call_count" != "2" || -z "$array_scan_header_line" || "$array_last_factory_call_line" -ge "$array_scan_header_line" ]]; then
+  echo "fixed-array LLVM output did not preserve [N x i32] ABI, evaluate scan rvalue before the loop, or check bounds before GEP/read" >&2
+  exit 1
+fi
+
+fixed_array_formats_ll="$ARTIFACT_DIR/revise_fixed_array_length_formats.ll"
+rm -f "$fixed_array_formats_ll"
+run_llvm "test_frontend/revise_fixed_array_length_formats.cat" \
+  "$FRONTEND_FIXTURE_DIR/revise_fixed_array_length_formats.cat" "$fixed_array_formats_ll"
+fixed_array_formats_output="$(tr -d '\r' < "$fixed_array_formats_ll")"
+if [[ "$fixed_array_formats_output" != *'getelementptr inbounds [3 x i32]'* ]] ||
+   [[ "$fixed_array_formats_output" != *'define internal void @"revise_fixed_array_length_formats::accepts_decimal_separator"(ptr %arg.values.addr)'* ]] ||
+   [[ "$fixed_array_formats_output" != *'define internal void @"revise_fixed_array_length_formats::accepts_hex"(ptr %arg.values.addr)'* ]] ||
+   [[ "$fixed_array_formats_output" != *'define internal void @"revise_fixed_array_length_formats::accepts_binary"(ptr %arg.values.addr)'* ]] ||
+   [[ "$fixed_array_formats_output" != *'define internal void @"revise_fixed_array_length_formats::accepts_octal"(ptr %arg.values.addr)'* ]]; then
+  echo "fixed-array radix/separator lengths did not produce their expected LLVM aggregate layouts" >&2
+  exit 1
+fi
+
+fixed_array_overflow_output=""
+if fixed_array_overflow_output="$("$CLAW_EXE" llvm "$FRONTEND_FIXTURE_DIR/revise_bad_fixed_array_size_overflow.cat" 2>&1)"; then
+  echo "LLVM lowering unexpectedly accepted a fixed array whose byte size overflows the target limit" >&2
+  exit 1
+fi
+if [[ "$fixed_array_overflow_output" != *"Fixed Array byte size overflows the target size limit"* ]] ||
+   [[ "$fixed_array_overflow_output" == *'[4611686018427387904 x i32]'* ]]; then
+  echo "overflowing fixed array did not fail before emitting its LLVM aggregate" >&2
+  echo "$fixed_array_overflow_output" >&2
+  exit 1
+fi
+
+fixed_array_large_ll="$ARTIFACT_DIR/revise_fixed_array_large.ll"
+rm -f "$fixed_array_large_ll"
+run_llvm "test_native/revise_fixed_array_large.cat" "$SCRIPT_DIR/../native/fixtures/revise_fixed_array_large.cat" "$fixed_array_large_ll"
+fixed_array_large_output="$(tr -d '\r' < "$fixed_array_large_ll")"
+if [[ "$fixed_array_large_output" != *'define internal void @"revise_fixed_array_large::make_large"(ptr %ret.slot)'* ]] ||
+   [[ "$fixed_array_large_output" != *'define internal i32 @"revise_fixed_array_large::last_value"(ptr %arg.values.addr)'* ]] ||
+   [[ "$fixed_array_large_output" != *'getelementptr inbounds [5 x i32]'* ]]; then
+  echo "Array[Int32,5] LLVM output did not use the fixed layout and indirect aggregate ABI" >&2
+  exit 1
+fi

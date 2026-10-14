@@ -560,7 +560,23 @@ std::unique_ptr<TypeNode> Parser::parseType() {
     type->name = previous().text;
 
     if (check(TokenKind::LBracket)) {
-        type->params = parseBracketTypeArguments();
+        if (type->name == "Array") {
+            consume(TokenKind::LBracket, "Expected '[' after Array");
+            type->params.push_back(parseType());
+            consume(TokenKind::Comma, "Array type requires an element type and a fixed length literal.");
+            if (!match(TokenKind::IntLiteral)) {
+                failAtCurrent("Array length must be a positive integer literal.");
+            }
+            auto length = std::make_unique<TypeNode>();
+            length->span = spanFromToken(previous());
+            length->name = previous().text;
+            length->isIntegerConst = true;
+            length->integerConstValue = previous().text;
+            type->params.push_back(std::move(length));
+            consume(TokenKind::RBracket, "Expected ']' after Array length.");
+        } else {
+            type->params = parseBracketTypeArguments();
+        }
     }
 
     return type;
@@ -1174,6 +1190,18 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         expr->span = spanFromToken(previous());
         expr->value = static_cast<uint32_t>(std::stoul(previous().text));
         return expr;
+    }
+    if (match(TokenKind::LBracket)) {
+        const Token openToken = previous();
+        auto array = std::make_unique<ArrayExpr>();
+        array->span = spanFromToken(openToken);
+        if (!check(TokenKind::RBracket)) {
+            do {
+                array->elements.push_back(parseExpression());
+            } while (match(TokenKind::Comma) && !check(TokenKind::RBracket));
+        }
+        consume(TokenKind::RBracket, "Expected ']' after array literal.");
+        return array;
     }
     if (match(TokenKind::LParen)) {
         const Token openToken = previous();

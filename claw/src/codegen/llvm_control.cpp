@@ -134,13 +134,38 @@ void LlvmEmitter::emitIterNext(
         return;
     }
 
+    if (iterableBase == "Array") {
+        const auto length = fixedArrayLengthFromType(value.iterable.type);
+        if (!length.has_value()) {
+            throw std::runtime_error("LLVM lowering does not yet support iter_next over '" + value.iterable.type + "'.");
+        }
+        const std::string stateKey = std::string(currentBlockLabel) + "::" + value.itemName;
+        ensureIteratorState(stateKey, value.itemName, value.indexName, value.itemType, state);
+        const std::string indexValue = state.temp("array.scan.index");
+        const std::string hasItem = state.temp("array.scan.has_item");
+        lines.push_back("  " + indexValue + " = load i64, ptr " + state.iteratorStates.at(stateKey).indexSlot + ", align 8");
+        lines.push_back("  " + hasItem + " = icmp ult i64 " + indexValue + ", " + std::to_string(*length));
+        state.pendingIterBindings[value.bodyLabel].push_back(
+            PendingIterBinding{
+                value.iterable,
+                value.itemName,
+                value.indexName,
+                value.itemType,
+                stateKey,
+                value.itemBindingKey,
+                value.indexBindingKey});
+        lines.push_back(
+            "  br i1 " + hasItem + ", label %" + blockLabel(value.bodyLabel) + ", label %" + blockLabel(value.exitLabel));
+        return;
+    }
+
     if (iterableBase != "Span" && iterableBase != "Str") {
         throw std::runtime_error(
             "LLVM lowering does not yet support iter_next over iterable type '" + value.iterable.type + "'.");
     }
 
     const std::string stateKey = std::string(currentBlockLabel) + "::" + value.itemName;
-    IteratorState& iterState = ensureIteratorState(stateKey, value.itemName, value.itemType, state);
+    IteratorState& iterState = ensureIteratorState(stateKey, value.itemName, value.indexName, value.itemType, state);
     const std::string iterableValue = ensureValue(value.iterable, state, lines);
     const std::string lengthValue = extractLength(iterableValue, value.iterable.type, state, lines);
     const std::string indexValue = state.temp("iter.index");

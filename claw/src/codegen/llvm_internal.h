@@ -1,10 +1,12 @@
 #pragma once
-
+#include "analysis/numeric_literals.h"
 #include "codegen/llvm.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cctype>
 #include <iomanip>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -272,6 +274,29 @@ inline ParsedTypeName parseTypeName(std::string_view typeText) {
         splitTypeArgs(trim(stripped.substr(ofPos + 4)))};
 }
 
+inline std::optional<size_t> fixedArrayLengthFromType(std::string_view typeText) {
+    const ParsedTypeName parsed = parseTypeName(typeText);
+    if (parsed.base != "Array" || parsed.args.size() != 2 || parsed.args.front() != "Int32") {
+        return std::nullopt;
+    }
+    const auto literal = numeric_literals::parseIntegerLiteralText(parsed.args[1]);
+    if (!literal.valid || !literal.suffix.empty()) {
+        return std::nullopt;
+    }
+    unsigned long long value = 0;
+    const auto converted = std::from_chars(
+        literal.magnitude.data(), literal.magnitude.data() + literal.magnitude.size(), value);
+    if (converted.ec != std::errc{} || converted.ptr != literal.magnitude.data() + literal.magnitude.size() || value == 0 ||
+        value > std::numeric_limits<size_t>::max()) {
+        return std::nullopt;
+    }
+    const size_t length = static_cast<size_t>(value);
+    if (!fixedArrayByteSize(length, 4, defaultTargetSpec()).has_value()) {
+        return std::nullopt;
+    }
+    return length;
+}
+
 inline std::string joinTypeArgs(const std::vector<std::string>& args) {
     std::string joined;
     for (size_t i = 0; i < args.size(); ++i) {
@@ -469,6 +494,7 @@ private:
     IteratorState& ensureIteratorState(
         std::string_view stateKey,
         std::string_view itemName,
+        std::string_view indexName,
         std::string_view itemType,
         FunctionState& state);
     IteratorState& ensureRangeIteratorState(

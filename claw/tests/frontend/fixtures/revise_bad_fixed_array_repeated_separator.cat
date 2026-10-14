@@ -1,0 +1,3 @@
+fn invalid(values: Array[Int32, 1__2]) {}
+
+fn main() {}
