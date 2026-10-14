@@ -1,0 +1,7 @@
+fn accept(value: Array[Int32, 4611686018427387904]) -> Int32 {
+    return 0
+}
+
+fn main() -> Int32 {
+    return 0
+}

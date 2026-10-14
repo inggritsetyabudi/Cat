@@ -18,6 +18,8 @@ struct AstNode {
 
 struct TypeNode : public AstNode {
     std::string name;
+    bool isIntegerConst = false;
+    std::string integerConstValue;
     bool isTuple = false;
     std::string viewKind;
     std::string scopeName;
@@ -53,6 +55,10 @@ struct CharExpr : public Expr {
 };
 
 struct TupleExpr : public Expr {
+    std::vector<std::unique_ptr<Expr>> elements;
+};
+
+struct ArrayExpr : public Expr {
     std::vector<std::unique_ptr<Expr>> elements;
 };
 
@@ -125,14 +131,27 @@ struct AssignStmt : public Stmt {
     std::unique_ptr<Expr> value;
 };
 
+enum class PickPatternKind {
+    Wildcard,
+    Binding,
+    Tuple,
+};
+
+struct PickPattern {
+    SourceSpan span;
+    PickPatternKind kind = PickPatternKind::Wildcard;
+    std::string name;
+    std::vector<std::unique_ptr<PickPattern>> elements;
+    std::string backendBindingKey;
+};
+
 struct BindingStmt : public Stmt {
     bool isMutable = false;
     std::string name;
-    std::vector<std::string> tuplePatternNames;
+    std::unique_ptr<PickPattern> tuplePattern;
     std::unique_ptr<TypeNode> type;
     std::unique_ptr<Expr> value;
     std::string backendBindingKey;
-    std::vector<std::string> tuplePatternBindingKeys;
 };
 
 struct TryStmt : public Stmt {
@@ -180,20 +199,6 @@ struct ScopeStmt : public Stmt {
 
 struct StopStmt : public Stmt {};
 struct SkipStmt : public Stmt {};
-
-enum class PickPatternKind {
-    Wildcard,
-    Binding,
-    Tuple,
-};
-
-struct PickPattern {
-    SourceSpan span;
-    PickPatternKind kind = PickPatternKind::Wildcard;
-    std::string name;
-    std::vector<std::unique_ptr<PickPattern>> elements;
-    std::string backendBindingKey;
-};
 
 struct PickBranch {
     SourceSpan span;

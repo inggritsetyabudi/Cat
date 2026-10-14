@@ -122,7 +122,7 @@ run_check_pass "try result shadowing preserves binding identity" "$SCRIPT_DIR/..
 run_check_pass "choice payload shadowing preserves binding identity" "$SCRIPT_DIR/../native/fixtures/revise_pick_payload_shadowing.cat"
 run_check_pass "Anchor choice payload shadowing preserves cleanup identity" "$SCRIPT_DIR/../native/fixtures/revise_pick_anchor_payload_shadowing.cat"
 run_check_fail "same-scope duplicate local names remain rejected" "$FIXTURE_DIR/revise_bad_same_scope_duplicate_binding.cat" "Duplicate variable declaration: repeated"
-run_check_fail "indexed scans reject Str" "$FIXTURE_DIR/revise_bad_indexed_scan_str.cat" "An indexed scan is currently supported only over Range[Int8], Range[Int16], Range[Int32], Range[Int64], Range[UInt8], Range[UInt16], Range[UInt32], Range[UInt64], Range[USize], or Range[Char]."
+run_check_fail "indexed scans reject Str" "$FIXTURE_DIR/revise_bad_indexed_scan_str.cat" "An indexed scan is supported only over supported Range values or fixed Array[Int32, N]."
 range_scan_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_int32_range_scan.cat")"
 if [[ "$range_scan_air_output" != *"scan item: Int32 over (1 .. 4) : Range[Int32]"* ]] ||
    [[ "$range_scan_air_output" != *"scan item: Int32, index: USize over (3 ..= 5) : Range[Int32]"* ]]; then
@@ -165,7 +165,10 @@ run_check_fail "tuple projection index out of range" "$FIXTURE_DIR/revise_bad_tu
 run_check_fail "tuple fields without a safe destructor remain rejected" "$FIXTURE_DIR/revise_bad_tuple_owned_field.cat" "Tuple fields must be concrete plain values or Anchor[T] with concrete plain T"
 run_check_fail "tuple literal does not match expected arity" "$FIXTURE_DIR/revise_bad_tuple_arity.cat" "Tuple literal has 1 element(s), but the expected tuple type has 2."
 run_check_pass "plain tuple destructuring with wildcard and singleton patterns" "$SCRIPT_DIR/../native/fixtures/revise_tuple_destructuring.cat"
-run_check_fail "nested tuple destructuring remains unsupported" "$FIXTURE_DIR/revise_bad_tuple_destructuring.cat" "Nested tuple patterns in bindings are not yet supported."
+run_check_pass "nested plain tuple destructuring with wildcard and singleton patterns" "$SCRIPT_DIR/../native/fixtures/revise_tuple_nested_destructuring.cat"
+run_check_fail "nested tuple patterns require tuple-typed fields" "$FIXTURE_DIR/revise_bad_tuple_destructuring.cat" "Nested tuple destructuring pattern at element 0 requires a tuple value, got Int32."
+run_check_fail "nested tuple destructuring pattern arity mismatch" "$FIXTURE_DIR/revise_bad_nested_tuple_destructuring_arity.cat" "Tuple destructuring pattern at element 0 expects 2 binding(s), but the tuple has 1 field(s)."
+run_check_fail "nested tuple destructuring rejects owned tuple values" "$FIXTURE_DIR/revise_bad_nested_tuple_destructuring_owned.cat" "Nested tuple destructuring currently supports only plain, concrete, non-view tuple values"
 run_check_fail "tuple destructuring pattern arity mismatch" "$FIXTURE_DIR/revise_bad_tuple_destructuring_arity.cat" "Tuple destructuring expects 2 binding(s), but the tuple has 3 field(s)."
 run_check_fail "tuple destructuring requires a tuple value" "$FIXTURE_DIR/revise_bad_tuple_destructuring_non_tuple.cat" "Tuple destructuring requires a tuple value"
 run_check_fail "tuple destructuring consumes the source tuple" "$FIXTURE_DIR/revise_bad_tuple_destructuring_reuse.cat" "Use of moved value -> pair"
@@ -242,6 +245,16 @@ if [[ "$tuple_destructuring_air_output" != *"val (left, right) = pair : Tuple[In
    [[ "$tuple_destructuring_air_output" != *"val (_, kept) ="* ]]; then
   echo "tuple destructuring AIR did not preserve named and wildcard pattern bindings" >&2
   echo "$tuple_destructuring_air_output" >&2
+  exit 1
+fi
+
+echo "[air/pass] nested tuple destructuring patterns"
+nested_tuple_destructuring_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_tuple_nested_destructuring.cat")"
+if [[ "$nested_tuple_destructuring_air_output" != *"val ((left, middle), right) = input"* ]] ||
+   [[ "$nested_tuple_destructuring_air_output" != *"val ((_, kept), _) ="* ]] ||
+   [[ "$nested_tuple_destructuring_air_output" != *"val ((only,), _) ="* ]]; then
+  echo "nested tuple destructuring AIR did not preserve recursive, wildcard, and singleton patterns" >&2
+  echo "$nested_tuple_destructuring_air_output" >&2
   exit 1
 fi
 
@@ -714,3 +727,39 @@ run_check_fail "legacy public Str.slice(start,length) is removed" \
 run_check_fail "Maybe[ref Str] from Str.get cannot escape a local receiver" \
   "$FIXTURE_DIR/revise_bad_str_range_local_return.cat" \
   "Borrowed-returning functions must return a view derived from one of their borrowed parameters."
+run_check_pass "fixed Array[Int32,N] inference, annotations, indexing, and scans" \
+  "$SCRIPT_DIR/../native/fixtures/revise_fixed_array.cat"
+run_check_pass "fixed-array radix length and valid digit separators" \
+  "$FIXTURE_DIR/revise_fixed_array_length_formats.cat"
+run_check_fail "repeated separators in fixed-array length" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_repeated_separator.cat" \
+  "Fixed Array length must be a positive integer literal"
+run_check_fail "suffix in fixed-array length remains unsupported" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_suffix.cat" \
+  "Fixed Array length must be a positive integer literal"
+run_check_fail "fixed-array byte-size overflow is rejected during type resolution" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_size_overflow.cat" \
+  "Fixed Array byte size overflows the target size limit"
+run_check_fail "heterogeneous fixed-array elements" "$FIXTURE_DIR/revise_bad_fixed_array_heterogeneous.cat" \
+  "Fixed Array literal elements must have type Int32"
+run_check_fail "fixed-array annotation length mismatch" "$FIXTURE_DIR/revise_bad_fixed_array_length_mismatch.cat" \
+  "Array literal has 3 element(s), but the expected type is Array[Int32, 2]."
+run_check_fail "fixed-array element type outside Int32" "$FIXTURE_DIR/revise_bad_fixed_array_element_type.cat" \
+  "Only fixed Array[Int32, N] is supported"
+run_check_fail "zero-size and empty fixed arrays" "$FIXTURE_DIR/revise_bad_fixed_array_zero_length.cat" \
+  "Fixed Array length must be a positive integer literal"
+run_check_fail "empty inferred fixed-array literal" "$FIXTURE_DIR/revise_bad_fixed_array_empty_literal.cat" \
+  "Array literal must contain at least one element"
+run_check_fail "signed fixed-array index" "$FIXTURE_DIR/revise_bad_fixed_array_signed_index.cat" \
+  "Index expression must have type USize, got Int32"
+run_check_fail "negative fixed-array index literal" "$FIXTURE_DIR/revise_bad_fixed_array_negative_index.cat" \
+  "Fixed Array index cannot be a negative integer literal."
+run_check_fail "nested fixed arrays remain out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_nested.cat" \
+  "Only fixed Array[Int32, N] is supported"
+run_check_fail "global fixed arrays remain out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_global.cat" \
+  "Global fixed Array values are out of scope"
+run_check_fail "fixed-array element assignment remains out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_element_assignment.cat" \
+  "Fixed Array element assignment is out of scope"
+
+run_check_pass "fixed Array[Int32,5] aggregate return and parameter" \
+  "$SCRIPT_DIR/../native/fixtures/revise_fixed_array_large.cat"

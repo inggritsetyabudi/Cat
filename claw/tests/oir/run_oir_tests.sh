@@ -73,12 +73,17 @@ run_oir_golden "if-pick-values" "$FIXTURE_DIR/native/fixtures/revise_if_pick_val
 run_oir_golden "tuples" "$FIXTURE_DIR/native/fixtures/revise_tuples.cat"
 run_oir_golden "int32-range" "$FIXTURE_DIR/native/fixtures/revise_int32_range.cat"
 run_oir_golden "int32-range-scan" "$FIXTURE_DIR/native/fixtures/revise_int32_range_scan.cat"
+run_oir_golden "fixed-array" "$OIR_FIXTURE_DIR/fixed-array.cat"
+run_oir_fail "fixed-array byte-size overflow is rejected before OIR emission" \
+  "$FIXTURE_DIR/frontend/fixtures/revise_bad_fixed_array_size_overflow.cat" \
+  "Fixed Array byte size overflows the target size limit"
 run_oir_golden "char-range-scan" "$OIR_FIXTURE_DIR/char-range-scan.cat"
 run_oir_golden "uint8-range-scan" "$OIR_FIXTURE_DIR/uint8-range-scan.cat"
 run_oir_golden "int8-range-scan" "$OIR_FIXTURE_DIR/int8-range-scan.cat"
 run_oir_golden "int16-range-scan" "$FIXTURE_DIR/native/fixtures/revise_int16_range.cat"
 run_oir_golden "wide-integer-ranges" "$FIXTURE_DIR/native/fixtures/revise_wide_integer_ranges.cat"
 run_oir_golden "tuple-destructuring" "$FIXTURE_DIR/native/fixtures/revise_tuple_destructuring.cat"
+run_oir_golden "tuple-nested-destructuring" "$FIXTURE_DIR/native/fixtures/revise_tuple_nested_destructuring.cat"
 run_oir_golden "tuple-owned-destructuring" "$FIXTURE_DIR/native/fixtures/revise_tuple_owned_destructuring.cat"
 run_oir_golden "tuple-pick" "$FIXTURE_DIR/native/fixtures/revise_tuple_pick.cat"
 run_oir_golden "implicit-return" "$FIXTURE_DIR/native/fixtures/revise_implicit_return.cat"
@@ -89,7 +94,7 @@ run_oir_fail "mixed Char and Int32 range endpoints are rejected" "$FIXTURE_DIR/f
 run_oir_fail "Int16 and Int8 range bounds cannot be mixed" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int16_range_mixed_bounds.cat" "Range bounds currently support only Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, USize, or Char with matching types"
 run_oir_fail "Int8 membership rejects Range[Int16]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int8_in_int16_range.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int16/Range[Int16], Int32/Range[Int32], Int64/Range[Int64], UInt8/Range[UInt8], UInt16/Range[UInt16], UInt32/Range[UInt32], UInt64/Range[UInt64], USize/Range[USize], or Char/Range[Char] pair'
 run_oir_fail "Int16 membership rejects Range[Int8]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int16_in_int8_range.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int16/Range[Int16], Int32/Range[Int32], Int64/Range[Int64], UInt8/Range[UInt8], UInt16/Range[UInt16], UInt32/Range[UInt32], UInt64/Range[UInt64], USize/Range[USize], or Char/Range[Char] pair'
-run_oir_fail "indexed scans reject Str" "$FIXTURE_DIR/frontend/fixtures/revise_bad_indexed_scan_str.cat" "An indexed scan is currently supported only over Range[Int8], Range[Int16], Range[Int32], Range[Int64], Range[UInt8], Range[UInt16], Range[UInt32], Range[UInt64], Range[USize], or Range[Char]."
+run_oir_fail "indexed scans reject Str" "$FIXTURE_DIR/frontend/fixtures/revise_bad_indexed_scan_str.cat" "An indexed scan is supported only over supported Range values or fixed Array[Int32, N]."
 run_oir_fail "Str slicing remains restricted to Range[Int32]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_char_range_index.cat" "Index expression must have type USize, got Range[Char]"
 run_oir_fail "Str slicing remains restricted to Range[Int32] for Int16" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_int16_range_index.cat" "Index expression must have type USize, got Range[Int16]"
 run_oir_fail "Str slicing remains restricted to Range[Int32] for Int64" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_int64_range_index.cat" "Index expression must have type USize, got Range[Int64]"
@@ -117,7 +122,9 @@ run_oir_fail "tuple projection index out of range" "$FIXTURE_DIR/frontend/fixtur
 run_oir_fail "nested tuple projection assignment remains unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_nested_tuple_assignment.cat" "Member assignment requires mutable storage or a ref mut view."
 run_oir_fail "tuple field without a safe destructor remains rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_owned_field.cat" "Tuple fields must be concrete plain values or Anchor[T] with concrete plain T"
 run_oir_fail "tuple literal expected arity mismatch" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_arity.cat" "Tuple literal has 1 element(s), but the expected tuple type has 2."
-run_oir_fail "nested tuple destructuring remains unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_destructuring.cat" "Nested tuple patterns in bindings are not yet supported."
+run_oir_fail "nested tuple patterns require tuple-typed fields" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_destructuring.cat" "Nested tuple destructuring pattern at element 0 requires a tuple value, got Int32."
+run_oir_fail "nested tuple destructuring pattern arity mismatch" "$FIXTURE_DIR/frontend/fixtures/revise_bad_nested_tuple_destructuring_arity.cat" "Tuple destructuring pattern at element 0 expects 2 binding(s), but the tuple has 1 field(s)."
+run_oir_fail "nested tuple destructuring rejects owned tuple values" "$FIXTURE_DIR/frontend/fixtures/revise_bad_nested_tuple_destructuring_owned.cat" "Nested tuple destructuring currently supports only plain, concrete, non-view tuple values"
 run_oir_fail "tuple destructuring pattern arity mismatch" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_destructuring_arity.cat" "Tuple destructuring expects 2 binding(s), but the tuple has 3 field(s)."
 run_oir_fail "tuple destructuring requires a tuple value" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_destructuring_non_tuple.cat" "Tuple destructuring requires a tuple value"
 run_oir_fail "tuple destructuring consumes the source tuple" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_destructuring_reuse.cat" "Use of moved value -> pair"

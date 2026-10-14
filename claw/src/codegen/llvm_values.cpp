@@ -111,6 +111,7 @@ void LlvmEmitter::materializeChoiceBinding(
 IteratorState& LlvmEmitter::ensureIteratorState(
     std::string_view stateKey,
     std::string_view itemName,
+    std::string_view indexName,
     std::string_view itemType,
     FunctionState& state) {
     const std::string key(stateKey);
@@ -127,10 +128,17 @@ IteratorState& LlvmEmitter::ensureIteratorState(
     IteratorState iterState;
     iterState.indexSlot = state.temp(std::string(itemName) + ".iter.index.addr");
     iterState.itemSlot = state.temp(std::string(itemName) + ".iter.item.addr");
+    if (!indexName.empty()) {
+        iterState.visibleIndexSlot = state.temp(std::string(indexName) + ".iter.visible_index.addr");
+    }
     iterState.itemAlign = layout->align;
 
     state.entryAllocas.push_back("  " + iterState.indexSlot + " = alloca i64, align 8");
     state.entryAllocas.push_back("  store i64 0, ptr " + iterState.indexSlot + ", align 8");
+    if (!iterState.visibleIndexSlot.empty()) {
+        state.entryAllocas.push_back("  " + iterState.visibleIndexSlot + " = alloca i64, align 8");
+        state.entryAllocas.push_back("  store i64 0, ptr " + iterState.visibleIndexSlot + ", align 8");
+    }
     state.entryAllocas.push_back(
         "  " + iterState.itemSlot + " = alloca " + llvmType(std::string(itemType)) + ", align " + std::to_string(iterState.itemAlign));
 
@@ -195,11 +203,12 @@ void LlvmEmitter::materializeIterBinding(
     FunctionState& state,
     std::vector<std::string>& lines) {
     const bool isRange = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(binding.iterable.type))) == "Range";
+    const std::string iterableBase = parseTypeName(binding.iterable.type).base;
     const std::string itemKey = binding.itemBindingKey.empty() ? binding.itemName : binding.itemBindingKey;
     const std::string indexKey = binding.indexBindingKey.empty() ? binding.indexName : binding.indexBindingKey;
     IteratorState& iterState = isRange
         ? ensureRangeIteratorState(binding.stateKey, binding.itemName, binding.indexName, binding.itemType, state)
-        : ensureIteratorState(binding.stateKey, binding.itemName, binding.itemType, state);
+        : ensureIteratorState(binding.stateKey, binding.itemName, binding.indexName, binding.itemType, state);
     if (isRange) {
         state.namedAddresses[itemKey] = iterState.itemSlot;
         state.namedValues.erase(itemKey);
@@ -222,9 +231,46 @@ void LlvmEmitter::materializeIterBinding(
         throw std::runtime_error("LLVM lowering does not yet support iterator item type '" + binding.itemType + "'.");
     }
 
-    const std::string iterableValue = ensureValue(binding.iterable, state, lines);
     const std::string indexValue = state.temp("iter.index");
     lines.push_back("  " + indexValue + " = load i64, ptr " + iterState.indexSlot + ", align 8");
+
+    if (iterableBase == "Array") {
+        if (!fixedArrayLengthFromType(binding.iterable.type).has_value()) {
+            throw std::runtime_error("LLVM lowering does not yet support scan over '" + binding.iterable.type + "'.");
+        }
+        const std::string arrayAddress = ensureAddress(binding.iterable, state, lines);
+        if (!binding.indexName.empty()) {
+            if (iterState.visibleIndexSlot.empty()) {
+                throw std::runtime_error("LLVM lowering could not allocate the indexed array scan binding.");
+            }
+            lines.push_back("  store i64 " + indexValue + ", ptr " + iterState.visibleIndexSlot + ", align 8");
+        }
+        const std::string elementPtr = state.temp("array.iter.item.ptr");
+        lines.push_back(
+            "  " + elementPtr + " = getelementptr inbounds " + llvmType(binding.iterable.type) +
+            ", ptr " + arrayAddress + ", i64 0, i64 " + indexValue);
+        const std::string loadedItem = state.temp("array.iter.item");
+        lines.push_back("  " + loadedItem + " = load i32, ptr " + elementPtr + ", align 4");
+        lines.push_back("  store i32 " + loadedItem + ", ptr " + iterState.itemSlot + ", align 4");
+        const std::string nextIndex = state.temp("array.iter.next.index");
+        lines.push_back("  " + nextIndex + " = add i64 " + indexValue + ", 1");
+        lines.push_back("  store i64 " + nextIndex + ", ptr " + iterState.indexSlot + ", align 8");
+
+        state.namedAddresses[itemKey] = iterState.itemSlot;
+        state.namedValues.erase(itemKey);
+        state.params.erase(itemKey);
+        state.valueTypes[itemKey] = binding.itemType;
+        if (!binding.indexName.empty()) {
+            const std::string indexTypeKey = binding.indexBindingKey.empty() ? binding.indexName : binding.indexBindingKey;
+            state.namedAddresses[indexTypeKey] = iterState.visibleIndexSlot;
+            state.namedValues.erase(indexTypeKey);
+            state.params.erase(indexTypeKey);
+            state.valueTypes[indexTypeKey] = "USize";
+        }
+        return;
+    }
+
+    const std::string iterableValue = ensureValue(binding.iterable, state, lines);
 
     const std::string pointerValue = extractPointer(iterableValue, binding.iterable.type, state, lines);
     const std::string elementPtr = state.temp("iter.item.ptr");
@@ -387,7 +433,8 @@ std::string LlvmEmitter::ensureAddress(
     const std::string valueType = llvmType(value.type);
     const auto layout = abiLayoutForType(value.type);
     const size_t align = layout.has_value() ? layout->align : 1;
-    lines.push_back("  " + tempAddr + " = alloca " + valueType + ", align " + std::to_string(align));
+    const std::string allocation = "  " + tempAddr + " = alloca " + valueType + ", align " + std::to_string(align);
+    lines.push_back(allocation);
     const std::string operand = ensureValue(value, state, lines);
     lines.push_back("  store " + valueType + " " + operand + ", ptr " + tempAddr + ", align " + std::to_string(align));
 
@@ -415,6 +462,16 @@ const LayoutFieldInfo* LlvmEmitter::findShapeFieldLayout(std::string_view typeTe
 
 size_t LlvmEmitter::findShapeFieldIndex(std::string_view typeText, std::string_view field) const {
     const std::string baseType = parseTypeName(typeText).base;
+    if (baseType == "Array") {
+        const auto length = fixedArrayLengthFromType(typeText);
+        size_t index = 0;
+        const auto parsedIndex = std::from_chars(field.data(), field.data() + field.size(), index);
+        if (!length.has_value() || field.empty() || parsedIndex.ec != std::errc{} ||
+            parsedIndex.ptr != field.data() + field.size() || index >= *length) {
+            throw std::runtime_error("LLVM lowering found invalid fixed-array element index '" + std::string(field) + "'.");
+        }
+        return index;
+    }
     if (baseType == "Tuple") {
         const ParsedTypeName parsedType = parseTypeName(typeText);
         size_t index = 0;
@@ -471,16 +528,22 @@ std::string LlvmEmitter::emitFieldAddress(
     std::vector<std::string>& lines) {
     const std::string baseType = parseTypeName(object.type).base;
     const auto* layoutField = baseType == "Tuple" ? nullptr : findShapeFieldLayout(object.type, field);
-    if (baseType != "Tuple" && layoutField == nullptr) {
+    if (baseType != "Tuple" && baseType != "Array" && layoutField == nullptr) {
         throw std::runtime_error("LLVM lowering only supports field access on concrete shapes, got '" + object.type + "'.");
     }
 
     const size_t fieldIndex = findShapeFieldIndex(object.type, field);
     const std::string objectAddress = ensureAddress(object, state, lines);
     const std::string fieldPtr = state.temp("field.ptr");
-    lines.push_back(
-        "  " + fieldPtr + " = getelementptr inbounds " + llvmType(object.type) + ", ptr " + objectAddress +
-        ", i32 0, i32 " + std::to_string(fieldIndex));
+    if (baseType == "Array") {
+        lines.push_back(
+            "  " + fieldPtr + " = getelementptr inbounds " + llvmType(object.type) + ", ptr " + objectAddress +
+            ", i64 0, i64 " + std::to_string(fieldIndex));
+    } else {
+        lines.push_back(
+            "  " + fieldPtr + " = getelementptr inbounds " + llvmType(object.type) + ", ptr " + objectAddress +
+            ", i32 0, i32 " + std::to_string(fieldIndex));
+    }
     return fieldPtr;
 }
 
@@ -529,6 +592,29 @@ std::string LlvmEmitter::emitIndexAddress(
     FunctionState& state,
     std::vector<std::string>& lines) {
     const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(object.type)));
+    if (baseType == "Array") {
+        const auto length = fixedArrayLengthFromType(object.type);
+        if (!length.has_value() || elementType != "Int32") {
+            throw std::runtime_error("LLVM lowering supports only read indexing on Array[Int32, N].");
+        }
+        const std::string objectAddress = ensureAddress(object, state, lines);
+        const std::string indexValue = ensureValue(index, state, lines);
+        const std::string inBounds = state.temp("array.index.in_bounds");
+        const std::string failLabel = state.inlineLabel("array.index.bounds_fail");
+        const std::string continueLabel = state.inlineLabel("array.index.bounds_ok");
+        lines.push_back("  " + inBounds + " = icmp ult i64 " + indexValue + ", " + std::to_string(*length));
+        lines.push_back("  br i1 " + inBounds + ", label %" + continueLabel + ", label %" + failLabel);
+        lines.push_back(failLabel + ":");
+        lines.push_back("  call void @llvm.trap()");
+        lines.push_back("  unreachable");
+        lines.push_back(continueLabel + ":");
+        const std::string elementPointer = state.temp("array.index.element_ptr");
+        lines.push_back(
+            "  " + elementPointer + " = getelementptr inbounds " + llvmType(object.type) + ", ptr " +
+            objectAddress + ", i64 0, i64 " + indexValue);
+        needsTrap = true;
+        return elementPointer;
+    }
     if (baseType != "Str" && baseType != "Span" && baseType != "Vec") {
         throw std::runtime_error("LLVM lowering does not yet support index access on type '" + object.type + "'.");
     }

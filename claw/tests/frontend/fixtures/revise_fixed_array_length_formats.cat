@@ -1,0 +1,14 @@
+fn first(values: Array[Int32, 0x3]) -> Int32 {
+    return values[0]
+}
+
+fn accepts_decimal(values: Array[Int32, 12]) {}
+fn accepts_decimal_separator(values: Array[Int32, 1_2]) {}
+fn accepts_hex(values: Array[Int32, 0xC]) {}
+fn accepts_binary(values: Array[Int32, 0b1100]) {}
+fn accepts_octal(values: Array[Int32, 0o14]) {}
+
+fn main() -> Int32 {
+    val values: Array[Int32, 0x3] = [10, 20, 30]
+    return values[2]
+}

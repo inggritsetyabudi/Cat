@@ -1,0 +1,5 @@
+static values: Array[Int32, 3] = [1, 2, 3]
+
+fn main() {
+    println(values[0])
+}

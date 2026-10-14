@@ -560,7 +560,23 @@ std::unique_ptr<TypeNode> Parser::parseType() {
     type->name = previous().text;
 
     if (check(TokenKind::LBracket)) {
-        type->params = parseBracketTypeArguments();
+        if (type->name == "Array") {
+            consume(TokenKind::LBracket, "Expected '[' after Array");
+            type->params.push_back(parseType());
+            consume(TokenKind::Comma, "Array type requires an element type and a fixed length literal.");
+            if (!match(TokenKind::IntLiteral)) {
+                failAtCurrent("Array length must be a positive integer literal.");
+            }
+            auto length = std::make_unique<TypeNode>();
+            length->span = spanFromToken(previous());
+            length->name = previous().text;
+            length->isIntegerConst = true;
+            length->integerConstValue = previous().text;
+            type->params.push_back(std::move(length));
+            consume(TokenKind::RBracket, "Expected ']' after Array length.");
+        } else {
+            type->params = parseBracketTypeArguments();
+        }
     }
 
     return type;
@@ -649,30 +665,7 @@ std::unique_ptr<Stmt> Parser::parseBinding(bool isMutable) {
             failAtCurrent("Tuple destructuring is currently supported only for `val` bindings.");
         }
 
-        consume(TokenKind::LParen, "Expected `(` to begin tuple destructuring pattern.");
-        std::vector<std::string> patternNames;
-        bool sawComma = false;
-        if (check(TokenKind::RParen)) {
-            failAtCurrent("Tuple destructuring pattern must contain at least one binding.");
-        }
-        while (true) {
-            if (check(TokenKind::LParen)) {
-                failAtCurrent("Nested tuple patterns in bindings are not yet supported.");
-            }
-            consumeNameToken("Expected a variable name or `_` in tuple destructuring pattern.");
-            patternNames.push_back(previous().text);
-            if (!match(TokenKind::Comma)) {
-                break;
-            }
-            sawComma = true;
-            if (check(TokenKind::RParen)) {
-                break;
-            }
-        }
-        consume(TokenKind::RParen, "Expected `)` after tuple destructuring pattern.");
-        if (patternNames.size() == 1 && !sawComma) {
-            failAtCurrent("Tuple destructuring pattern must use a comma; write `(name,)` for a one-element tuple.");
-        }
+        auto tuplePattern = parsePickPattern();
         if (check(TokenKind::Colon)) {
             failAtCurrent("Tuple destructuring type annotations are not supported; annotate the source tuple instead.");
         }
@@ -685,7 +678,7 @@ std::unique_ptr<Stmt> Parser::parseBinding(bool isMutable) {
 
         auto binding = std::make_unique<BindingStmt>();
         binding->span = bindingSpan;
-        binding->tuplePatternNames = std::move(patternNames);
+        binding->tuplePattern = std::move(tuplePattern);
         binding->value = parseExpression();
         return binding;
     }
@@ -825,7 +818,7 @@ std::unique_ptr<PickPattern> Parser::parsePickPattern() {
         pattern->span = spanFromToken(open);
         pattern->kind = PickPatternKind::Tuple;
         if (check(TokenKind::RParen)) {
-            failAtCurrent("A tuple pick pattern must contain at least one element.");
+            failAtCurrent("A tuple pattern must contain at least one element.");
         }
 
         bool sawComma = false;
@@ -837,9 +830,9 @@ std::unique_ptr<PickPattern> Parser::parsePickPattern() {
             sawComma = true;
         } while (!check(TokenKind::RParen) && !isAtEnd());
 
-        consume(TokenKind::RParen, "Expected ')' after tuple pick pattern");
+        consume(TokenKind::RParen, "Expected ')' after tuple pattern");
         if (pattern->elements.size() == 1 && !sawComma) {
-            failAt(open, "A one-element tuple pick pattern must use a trailing comma, for example `(value,)`.");
+            failAt(open, "A one-element tuple pattern must use a trailing comma, for example `(value,)`.");
         }
         return pattern;
     }
@@ -1174,6 +1167,18 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         expr->span = spanFromToken(previous());
         expr->value = static_cast<uint32_t>(std::stoul(previous().text));
         return expr;
+    }
+    if (match(TokenKind::LBracket)) {
+        const Token openToken = previous();
+        auto array = std::make_unique<ArrayExpr>();
+        array->span = spanFromToken(openToken);
+        if (!check(TokenKind::RBracket)) {
+            do {
+                array->elements.push_back(parseExpression());
+            } while (match(TokenKind::Comma) && !check(TokenKind::RBracket));
+        }
+        consume(TokenKind::RBracket, "Expected ']' after array literal.");
+        return array;
     }
     if (match(TokenKind::LParen)) {
         const Token openToken = previous();

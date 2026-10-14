@@ -1,0 +1,13 @@
+fn make_large() -> Array[Int32, 5] {
+    return [11, 12, 13, 14, 15]
+}
+
+fn last_value(values: Array[Int32, 5]) -> Int32 {
+    return values[4]
+}
+
+fn main() -> Int32 {
+    val values = make_large()
+    println(last_value(values))
+    return 0
+}

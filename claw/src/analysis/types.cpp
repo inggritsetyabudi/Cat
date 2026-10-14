@@ -1,8 +1,11 @@
 #include "analysis/types.h"
+#include "analysis/numeric_literals.h"
 
 #include "ast/ast.h"
 
 #include <algorithm>
+#include <charconv>
+#include <limits>
 #include <sstream>
 #include <string_view>
 
@@ -38,6 +41,21 @@ namespace {
 
 bool contains(const std::unordered_set<std::string>& set, const std::string& value) {
     return set.find(value) != set.end();
+}
+
+std::optional<size_t> parseFixedArrayLength(std::string_view text) {
+    const auto literal = numeric_literals::parseIntegerLiteralText(std::string(text));
+    if (!literal.valid || !literal.suffix.empty()) {
+        return std::nullopt;
+    }
+    unsigned long long value = 0;
+    const auto parsed = std::from_chars(
+        literal.magnitude.data(), literal.magnitude.data() + literal.magnitude.size(), value);
+    if (parsed.ec != std::errc{} || parsed.ptr != literal.magnitude.data() + literal.magnitude.size() ||
+        value > std::numeric_limits<size_t>::max()) {
+        return std::nullopt;
+    }
+    return static_cast<size_t>(value);
 }
 
 std::string surfaceTypeName(std::string_view name) {
@@ -205,6 +223,10 @@ public:
             return computeTuple(type);
         }
 
+        if (type.name == "Array") {
+            return computeFixedArray(type);
+        }
+
         if (auto layout = computeBuiltin(type)) {
             return layout;
         }
@@ -281,6 +303,36 @@ private:
             builder.layout.passKind = AbiPassKind::Indirect;
         }
         return builder.layout;
+    }
+
+    std::optional<TypeLayoutInfo> computeFixedArray(const ResolvedType& type) {
+        if (type.params.size() != 2 || type.params.front().name != "Int32" ||
+            !type.params.front().isPlain() || !type.params.front().params.empty()) {
+            return std::nullopt;
+        }
+        const auto length = parseFixedArrayLength(type.params[1].name);
+        if (!length.has_value() || *length == 0) {
+            return std::nullopt;
+        }
+        const auto elementLayout = compute(type.params.front());
+        if (!elementLayout.has_value()) {
+            return std::nullopt;
+        }
+        const auto byteSize = fixedArrayByteSize(*length, elementLayout->sizeBytes, target);
+        if (!byteSize.has_value()) {
+            return std::nullopt;
+        }
+
+        TypeLayoutInfo layout;
+        layout.typeName = type.describe();
+        layout.repr = "claw-internal";
+        layout.abi = "claw";
+        layout.kind = TypeLayoutKind::Aggregate;
+        layout.ffiStable = false;
+        layout.sizeBytes = *byteSize;
+        layout.alignBytes = elementLayout->alignBytes;
+        layout.passKind = classifyAggregatePass(layout);
+        return layout;
     }
 
     std::optional<TypeLayoutInfo> computeBuiltin(const ResolvedType& type) {
@@ -603,6 +655,25 @@ TargetSpec defaultTargetSpec() {
     return TargetSpec{};
 }
 
+std::optional<size_t> fixedArrayByteSize(
+    size_t elementCount,
+    size_t elementSizeBytes,
+    const TargetSpec& target) {
+    if (elementCount == 0 || elementSizeBytes == 0) {
+        return std::nullopt;
+    }
+
+    const unsigned pointerWidthBits = target.pointerWidthBits == 0 ? 64u : target.pointerWidthBits;
+    size_t maxObjectSizeBytes = std::numeric_limits<size_t>::max();
+    if (pointerWidthBits < std::numeric_limits<size_t>::digits) {
+        maxObjectSizeBytes = (size_t{1} << pointerWidthBits) - 1;
+    }
+    if (elementCount > maxObjectSizeBytes / elementSizeBytes) {
+        return std::nullopt;
+    }
+    return elementCount * elementSizeBytes;
+}
+
 bool sameType(const ResolvedType& left, const ResolvedType& right) {
     const bool sameNominalType = !left.nominalIdentity.empty() && !right.nominalIdentity.empty()
         ? left.nominalIdentity == right.nominalIdentity
@@ -796,9 +867,9 @@ TypeCatalog::TypeCatalog()
     : builtinPlainTypes{
           "Bool", "Char", "Int8", "Int16", "Int32", "Int64", "Int128",
           "UInt8", "UInt16", "UInt32", "UInt64", "UInt128",
-          "Float32", "Float64", "Float128", "USize", "Unit", "Tuple", "Range"},
+          "Float32", "Float64", "Float128", "USize", "Unit", "Tuple", "Range", "Array"},
       builtinOwnedTypes{
-          "Str", "Span", "CStr", "OwnedCStr", "Vec", "Map", "Array", "Queue",
+          "Str", "Span", "CStr", "OwnedCStr", "Vec", "Map", "Queue",
           "Set", "Arena", "Anchor", "Addr",
           "RawPtr", "RawMut", "Fn", "Maybe", "Result"} {
     for (const auto& name : builtinPlainTypes) {
@@ -809,7 +880,7 @@ TypeCatalog::TypeCatalog()
     }
 
     registerKnownTypeArity("Span", 1);
-    registerKnownTypeArity("Array", 1);
+    registerKnownTypeArity("Array", 2);
     registerKnownTypeArity("Vec", 1);
     registerKnownTypeArity("Queue", 1);
     registerKnownTypeArity("Set", 1);
@@ -865,7 +936,8 @@ bool TypeCatalog::hasNamedType(const std::string& name) const {
 ResolvedType TypeCatalog::resolveType(
     const TypeNode* node,
     const std::unordered_set<std::string>& localTypeParams,
-    std::vector<Diagnostic>* diagnostics) const {
+    std::vector<Diagnostic>* diagnostics,
+    const TargetSpec& target) const {
     if (!node) {
         return makeUnknownType();
     }
@@ -878,7 +950,7 @@ ResolvedType TypeCatalog::resolveType(
         tuple.category = node->viewKind.empty() ? TypeCategory::Plain : TypeCategory::View;
         bool hasOwnedElement = false;
         for (size_t i = 0; i < node->params.size(); ++i) {
-            ResolvedType elementType = resolveType(node->params[i].get(), localTypeParams, diagnostics);
+            ResolvedType elementType = resolveType(node->params[i].get(), localTypeParams, diagnostics, target);
             const bool fieldSupported = node->viewKind.empty()
                 ? isSupportedTupleField(elementType)
                 : isPlainConcreteTupleField(elementType);
@@ -955,9 +1027,57 @@ ResolvedType TypeCatalog::resolveType(
             node->span});
     }
 
-    if (!isViewShape) {
+    if (!isViewShape && type.name == "Array") {
+        for (const auto& paramNode : node->params) {
+            if (paramNode && paramNode->isIntegerConst) {
+                ResolvedType length;
+                length.name = paramNode->integerConstValue;
+                length.category = TypeCategory::Plain;
+                type.params.push_back(std::move(length));
+            } else {
+                type.params.push_back(resolveType(paramNode.get(), localTypeParams, diagnostics, target));
+            }
+        }
+
+        if (node->params.size() == 2) {
+            const TypeNode* lengthNode = node->params[1].get();
+            const auto length = lengthNode && lengthNode->isIntegerConst
+                ? parseFixedArrayLength(lengthNode->integerConstValue)
+                : std::nullopt;
+            if (!length.has_value() || *length == 0) {
+                if (diagnostics) {
+                    diagnostics->push_back(Diagnostic{
+                        "semantic",
+                        "Fixed Array length must be a positive integer literal; zero-length arrays are not supported.",
+                        lengthNode ? lengthNode->span : node->span});
+                }
+                type.category = TypeCategory::Unknown;
+            } else {
+                type.params[1].name = std::to_string(*length);
+            }
+            const ResolvedType& elementType = type.params.front();
+            if (elementType.name != "Int32" || !elementType.isPlain() || !elementType.params.empty()) {
+                if (diagnostics) {
+                    diagnostics->push_back(Diagnostic{
+                        "semantic",
+                        "Only fixed Array[Int32, N] is supported; array element type '" + elementType.describe() + "' is out of scope.",
+                        node->params[0] ? node->params[0]->span : node->span});
+                }
+                type.category = TypeCategory::Unknown;
+            } else if (length.has_value() && *length > 0 &&
+                       !fixedArrayByteSize(*length, 4, target).has_value()) {
+                if (diagnostics) {
+                    diagnostics->push_back(Diagnostic{
+                        "semantic",
+                        "Fixed Array byte size overflows the target size limit.",
+                        lengthNode ? lengthNode->span : node->span});
+                }
+                type.category = TypeCategory::Unknown;
+            }
+        }
+    } else if (!isViewShape) {
         for (size_t i = 0; i < node->params.size(); ++i) {
-            ResolvedType paramType = resolveType(node->params[i].get(), localTypeParams, diagnostics);
+            ResolvedType paramType = resolveType(node->params[i].get(), localTypeParams, diagnostics, target);
             if (containsOwnedTupleValue(paramType) && diagnostics) {
                 diagnostics->push_back(Diagnostic{
                     "semantic",

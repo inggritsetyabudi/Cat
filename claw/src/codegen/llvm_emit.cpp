@@ -129,6 +129,12 @@ void LlvmEmitter::emitStoreField(const LirStoreFieldInst& value, FunctionState& 
             throw std::runtime_error("LLVM lowering could not resolve tuple element layout for '" + value.object.type + "'.");
         }
         fieldAlign = elementLayout->align;
+    } else if (objectType.base == "Array") {
+        const auto elementLayout = abiLayoutForType("Int32");
+        if (!elementLayout.has_value()) {
+            throw std::runtime_error("LLVM lowering could not resolve fixed-array element layout.");
+        }
+        fieldAlign = elementLayout->align;
     } else {
         const auto* layoutField = findShapeFieldLayout(value.object.type, value.field);
         if (layoutField == nullptr) {
@@ -164,7 +170,12 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                         iter->itemType,
                         state);
                 } else {
-                    ensureIteratorState(block.label + "::" + iter->itemName, iter->itemName, iter->itemType, state);
+                    ensureIteratorState(
+                        block.label + "::" + iter->itemName,
+                        iter->itemName,
+                        iter->indexName,
+                        iter->itemType,
+                        state);
                 }
             }
         }
@@ -473,7 +484,7 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                 },
                 [&](const LirFieldInst& value) {
                     size_t fieldAlign = 1;
-                    if (parseTypeName(value.object.type).base == "Tuple") {
+                    if (parseTypeName(value.object.type).base == "Tuple" || parseTypeName(value.object.type).base == "Array") {
                         const auto elementLayout = abiLayoutForType(value.type);
                         if (!elementLayout.has_value()) {
                             throw std::runtime_error("LLVM lowering could not resolve tuple element layout for '" + value.type + "'.");

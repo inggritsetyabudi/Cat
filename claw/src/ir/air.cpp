@@ -199,15 +199,9 @@ std::string AirEmitter::emitStmt(const Stmt* stmt, int indent) const {
     const std::string pad = indentText(indent);
 
     if (auto* bind = dynamic_cast<const BindingStmt*>(stmt)) {
-        if (!bind->tuplePatternNames.empty()) {
-            out << pad << "val (";
-            for (size_t i = 0; i < bind->tuplePatternNames.size(); ++i) {
-                if (i > 0) {
-                    out << ", ";
-                }
-                out << bind->tuplePatternNames[i];
-            }
-            out << ") = " << emitExpr(bind->value.get()) << "\n";
+        if (bind->tuplePattern) {
+            out << pad << "val " << formatPickPattern(bind->tuplePattern.get())
+                << " = " << emitExpr(bind->value.get()) << "\n";
             return out.str();
         }
 
@@ -405,6 +399,15 @@ std::string AirEmitter::emitExprValue(const Expr* expr) const {
             out << ",";
         }
         out << ")";
+    } else if (auto* array = dynamic_cast<const ArrayExpr*>(expr)) {
+        out << "[";
+        for (size_t i = 0; i < array->elements.size(); ++i) {
+            if (i > 0) {
+                out << ", ";
+            }
+            out << emitExprValue(array->elements[i].get());
+        }
+        out << "]";
     } else if (auto* value = dynamic_cast<const BoolExpr*>(expr)) {
         out << (value->value ? "true" : "false");
     } else if (auto* ifExpr = dynamic_cast<const IfExpr*>(expr)) {

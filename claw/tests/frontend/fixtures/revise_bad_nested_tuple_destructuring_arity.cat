@@ -1,0 +1,3 @@
+fn main() {
+    val ((first, second), _) = ((1,), 3)
+}

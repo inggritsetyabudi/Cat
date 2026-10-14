@@ -315,6 +315,81 @@ void lowerTuplePickPattern(
     }
 }
 
+void lowerTupleBindingPattern(
+    const PickPattern* pattern,
+    const OirValue& tupleValue,
+    const ResolvedType& tupleType,
+    FunctionLoweringContext& context,
+    size_t blockIndex) {
+    if (!pattern || pattern->kind != PickPatternKind::Tuple || tupleType.name != "Tuple") {
+        return;
+    }
+
+    for (size_t i = 0; i < pattern->elements.size() && i < tupleType.params.size(); ++i) {
+        const PickPattern* element = pattern->elements[i].get();
+        const ResolvedType& fieldType = tupleType.params[i];
+        const std::string type = fieldType.describe();
+        if (!element) {
+            continue;
+        }
+
+        if (element->kind == PickPatternKind::Wildcard) {
+            if (hasOwnedTupleField(fieldType)) {
+                const std::string fieldValueName = context.tempName();
+                appendInst(
+                    context,
+                    blockIndex,
+                    OirFieldInst{fieldValueName, tupleValue, std::to_string(i), type});
+                appendDropForValue(context, blockIndex, fieldValueName, fieldType);
+            }
+            continue;
+        }
+
+        if (element->kind == PickPatternKind::Tuple) {
+            const std::string fieldValueName = context.tempName();
+            appendInst(
+                context,
+                blockIndex,
+                OirFieldInst{fieldValueName, tupleValue, std::to_string(i), type});
+            lowerTupleBindingPattern(
+                element,
+                OirValue{fieldValueName, type, false},
+                fieldType,
+                context,
+                blockIndex);
+            continue;
+        }
+
+        if (fieldType.name == "Unit") {
+            appendInst(
+                context,
+                blockIndex,
+                OirBindingInst{
+                    false,
+                    element->name,
+                    type,
+                    OirValue{"unit", "Unit", true},
+                    element->backendBindingKey});
+            continue;
+        }
+
+        const std::string fieldValueName = context.tempName();
+        appendInst(
+            context,
+            blockIndex,
+            OirFieldInst{fieldValueName, tupleValue, std::to_string(i), type});
+        appendInst(
+            context,
+            blockIndex,
+            OirBindingInst{
+                false,
+                element->name,
+                type,
+                OirValue{fieldValueName, type, false},
+                element->backendBindingKey});
+    }
+}
+
 void appendDropInsts(
     FunctionLoweringContext& context,
     size_t blockIndex,
@@ -462,6 +537,20 @@ OirValue lowerExpr(
             }
             if (element.isUnit || element.type == "Unit") {
                 continue;
+            }
+            appendInst(context, blockIndex, OirStoreFieldInst{object, std::to_string(i), element});
+        }
+        return object;
+    }
+    if (auto* array = dynamic_cast<const ArrayExpr*>(expr)) {
+        const std::string type = exprType(sema, expr);
+        const std::string result = context.tempName();
+        appendInst(context, blockIndex, OirBindingInst{false, result, type, std::nullopt});
+        const OirValue object{result, type, false};
+        for (size_t i = 0; i < array->elements.size(); ++i) {
+            const OirValue element = lowerExpr(sema, array->elements[i].get(), context, blockIndex);
+            if (element.terminates) {
+                return element;
             }
             appendInst(context, blockIndex, OirStoreFieldInst{object, std::to_string(i), element});
         }
@@ -797,7 +886,7 @@ std::optional<size_t> lowerStmt(
     size_t currentBlockIndex,
     const OirEmitter& emitter) {
     if (auto* bind = dynamic_cast<const BindingStmt*>(stmt)) {
-        if (!bind->tuplePatternNames.empty()) {
+        if (bind->tuplePattern) {
             if (!bind->value) {
                 return currentBlockIndex;
             }
@@ -806,49 +895,8 @@ std::optional<size_t> lowerStmt(
             if (tupleValue.terminates) {
                 return std::nullopt;
             }
-            for (size_t i = 0; i < bind->tuplePatternNames.size(); ++i) {
-                const std::string& name = bind->tuplePatternNames[i];
-                const ResolvedType fieldType = tupleType && i < tupleType->params.size()
-                    ? tupleType->params[i]
-                    : makeUnknownType();
-                if (name == "_") {
-                    if (hasOwnedTupleField(fieldType)) {
-                        const std::string fieldValueName = context.tempName();
-                        appendInst(
-                            context,
-                            currentBlockIndex,
-                            OirFieldInst{fieldValueName, tupleValue, std::to_string(i), fieldType.describe()});
-                        appendDropForValue(context, currentBlockIndex, fieldValueName, fieldType);
-                    }
-                    continue;
-                }
-                const std::string type = fieldType.describe();
-                if (fieldType.name == "Unit") {
-                appendInst(
-                    context,
-                    currentBlockIndex,
-                    OirBindingInst{
-                        false,
-                        name,
-                        type,
-                        OirValue{"unit", "Unit", true},
-                        i < bind->tuplePatternBindingKeys.size() ? bind->tuplePatternBindingKeys[i] : std::string{}});
-                    continue;
-                }
-                const std::string fieldValueName = context.tempName();
-                appendInst(
-                    context,
-                    currentBlockIndex,
-                    OirFieldInst{fieldValueName, tupleValue, std::to_string(i), type});
-                appendInst(
-                    context,
-                    currentBlockIndex,
-                    OirBindingInst{
-                        false,
-                        name,
-                        type,
-                        OirValue{fieldValueName, type, false},
-                        i < bind->tuplePatternBindingKeys.size() ? bind->tuplePatternBindingKeys[i] : std::string{}});
+            if (tupleType) {
+                lowerTupleBindingPattern(bind->tuplePattern.get(), tupleValue, *tupleType, context, currentBlockIndex);
             }
             return currentBlockIndex;
         }
