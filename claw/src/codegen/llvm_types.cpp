@@ -359,6 +359,7 @@ std::string LlvmEmitter::llvmRuntimeParamType(const std::string& argType) const 
     if (argType == "Int8") return "i8 signext";
     if (argType == "UInt8") return "i8 zeroext";
     if (argType == "Int16") return "i16 signext";
+    if (argType == "UInt16") return "i16 zeroext";
     return usesRuntimePointerAbi(argType) ? std::string("ptr") : llvmType(argType);
 }
 std::string LlvmEmitter::runtimeSymbol(std::string_view callee, const std::string& argType) {
@@ -366,6 +367,14 @@ std::string LlvmEmitter::runtimeSymbol(std::string_view callee, const std::strin
     std::string suffix;
     if ((callee == "print" || callee == "println") && argType == "UInt8") {
         suffix = "u8";
+    } else if ((callee == "print" || callee == "println") && argType == "UInt16") {
+        suffix = "u16";
+    } else if ((callee == "print" || callee == "println") && argType == "UInt32") {
+        suffix = "u32";
+    } else if ((callee == "print" || callee == "println") && argType == "UInt64") {
+        suffix = "u64";
+    } else if ((callee == "print" || callee == "println") && argType == "USize") {
+        suffix = "usize";
     } else if (llvmArgType == "%claw.slice") {
         suffix = "slice";
     } else if (llvmArgType == "%claw.buffer") {
@@ -477,15 +486,26 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
     }
 
     if (base == "Range") {
-        if (parsed.args.size() != 1 ||
-            (parsed.args.front() != "Int8" && parsed.args.front() != "Int16" && parsed.args.front() != "Int32" &&
-             parsed.args.front() != "UInt8" &&
-             parsed.args.front() != "Char")) {
+        if (parsed.args.size() != 1) {
             return std::nullopt;
         }
-        if (parsed.args.front() == "Int8" || parsed.args.front() == "UInt8") return AbiLayout{3, 1};
-        if (parsed.args.front() == "Int16") return AbiLayout{6, 2};
-        return AbiLayout{12, 4};
+        const std::string& elementType = parsed.args.front();
+        if (elementType != "Int8" && elementType != "Int16" && elementType != "Int32" &&
+            elementType != "Int64" && elementType != "UInt8" && elementType != "UInt16" &&
+            elementType != "UInt32" && elementType != "UInt64" && elementType != "USize" &&
+            elementType != "Char") {
+            return std::nullopt;
+        }
+        const auto elementLayout = abiLayoutForType(elementType);
+        if (!elementLayout.has_value()) {
+            return std::nullopt;
+        }
+        const size_t align = std::max<size_t>(1, elementLayout->align);
+        size_t size = 0;
+        size = roundUpTo(size, elementLayout->align) + elementLayout->size;
+        size = roundUpTo(size, elementLayout->align) + elementLayout->size;
+        size += 1; // The trailing inclusive flag is an i1 with byte alignment.
+        return AbiLayout{roundUpTo(size, align), align};
     }
 
     if (shapesByName.contains(base)) {

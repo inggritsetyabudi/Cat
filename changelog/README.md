@@ -41,3 +41,5 @@ Folder ini menyimpan log perubahan compiler dan dokumentasi, termasuk rincian hi
 - [`2026-10-13-cli-build-status-tempfile-hardening.md`](./2026-10-13-cli-build-status-tempfile-hardening.md) mencatat pemakaian descriptor `mkstemp` langsung untuk stderr clang, cleanup spawn actions, dan hasil validasi akhir.
 - [`2026-10-13-cli-build-status-diagnostics-fd-read.md`](./2026-10-13-cli-build-status-diagnostics-fd-read.md) mencatat replay diagnostik clang berbatas melalui descriptor terbuka, regresi pathname pengganti, dan validasi CLI terfokus.
 - [`2026-10-13-uint8-runtime-print-abi.md`](./2026-10-13-uint8-runtime-print-abi.md) mencatat penyelarasan atribut `zeroext` UInt8 pada deklarasi dan callsite runtime serta regresi output `print(UInt8)` tanpa newline.
+- [`2026-10-14-wide-range-llvm-alignment.md`](./2026-10-14-wide-range-llvm-alignment.md) mencatat layout ukuran/alignment alami `Range` tersimpan, nested tuple/GEP assertions, serta sanitizers.
+- [`2026-10-14-wide-unsigned-runtime-print.md`](./2026-10-14-wide-unsigned-runtime-print.md) mencatat handler runtime unsigned UInt16/32/64/USize, keselarasan ABI, dan regresi exact boundary.

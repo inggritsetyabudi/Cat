@@ -245,6 +245,52 @@ if [[ "$wide_range_output" != *"{ i16, i16, i1 }"* ]] ||
   echo "wide integer Range LLVM IR omitted an expected aggregate width, signedness predicate, or narrow iterator increment" >&2
   exit 1
 fi
+for width in 16 32 64; do
+  for field_index in 0 1 2; do
+    if ! grep -Eq "extractvalue \\{ i${width}, i${width}, i1 \\} [^,]+, ${field_index}$" "$wide_range_ll"; then
+      echo "wide integer Range LLVM IR omitted field ${field_index} for its i${width} aggregate" >&2
+      exit 1
+    fi
+  done
+done
+
+wide_range_tuple_ll="$ARTIFACT_DIR/revise_wide_range_tuple_layout.ll"
+rm -f "$wide_range_tuple_ll"
+run_llvm "test_native/revise_wide_range_tuple_layout.cat" "$SCRIPT_DIR/../native/fixtures/revise_wide_range_tuple_layout.cat" "$wide_range_tuple_ll"
+wide_range_tuple_output="$(tr -d '\r' < "$wide_range_tuple_ll")"
+if [[ "$wide_range_tuple_output" != *'alloca { { i16, i16, i1 }, i32 }, align 4'* ]] ||
+   [[ "$wide_range_tuple_output" != *'alloca { { i64, i64, i1 }, i16 }, align 8'* ]]; then
+  echo "nested Range tuple alloca did not preserve the LLVM aggregate shape or natural alignment" >&2
+  exit 1
+fi
+if ! grep -Fq 'getelementptr inbounds { { i16, i16, i1 }, i32 }, ptr %nested_u16.addr, i32 0, i32 1' "$wide_range_tuple_ll" ||
+   ! grep -Fq 'getelementptr inbounds { { i64, i64, i1 }, i16 }, ptr %nested_u64.addr, i32 0, i32 1' "$wide_range_tuple_ll"; then
+  echo "nested Range tuple LLVM IR omitted the typed field-1 GEP from a stored aggregate" >&2
+  exit 1
+fi
+
+wide_unsigned_print_ll="$ARTIFACT_DIR/revise_wide_unsigned_print.ll"
+rm -f "$wide_unsigned_print_ll"
+run_llvm "test_native/revise_wide_unsigned_print.cat" "$SCRIPT_DIR/../native/fixtures/revise_wide_unsigned_print.cat" "$wide_unsigned_print_ll"
+wide_unsigned_print_output="$(tr -d '\r' < "$wide_unsigned_print_ll")"
+for spec in 'u16|i16 zeroext' 'u32|i32' 'u64|i64' 'usize|i64'; do
+  suffix="${spec%%|*}"
+  llvm_param="${spec#*|}"
+  for callee in print println; do
+    if [[ "$wide_unsigned_print_output" != *"declare void @\"claw.runtime.${callee}.${suffix}\"(${llvm_param})"* ]] ||
+       [[ "$wide_unsigned_print_output" != *"call void @\"claw.runtime.${callee}.${suffix}\"(${llvm_param} "* ]]; then
+      echo "${callee}(${suffix}) declaration/call ABI did not match ${llvm_param}" >&2
+      exit 1
+    fi
+  done
+done
+if [[ "$wide_unsigned_print_output" != *'declare void @"claw.runtime.print.i64"(i64)'* ]] ||
+   [[ "$wide_unsigned_print_output" != *'call void @"claw.runtime.print.i64"(i64 '* ]] ||
+   [[ "$wide_unsigned_print_output" != *'declare void @"claw.runtime.println.i64"(i64)'* ]] ||
+   [[ "$wide_unsigned_print_output" != *'call void @"claw.runtime.println.i64"(i64 '* ]]; then
+  echo "signed Int64 runtime print path was not preserved" >&2
+  exit 1
+fi
 int8_print_ll="$ARTIFACT_DIR/revise_int8_print.ll"
 rm -f "$int8_print_ll"
 run_llvm "test_native/revise_int8_print.cat" "$SCRIPT_DIR/../native/fixtures/revise_int8_print.cat" "$int8_print_ll"

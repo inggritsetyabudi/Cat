@@ -64,6 +64,8 @@ uint8_range_output="$ARTIFACT_DIR/revise_uint8_range.exe"
 int8_range_output="$ARTIFACT_DIR/revise_int8_range.exe"
 int16_range_output="$ARTIFACT_DIR/revise_int16_range.exe"
 wide_range_output="$ARTIFACT_DIR/revise_wide_integer_ranges.exe"
+wide_range_tuple_output="$ARTIFACT_DIR/revise_wide_range_tuple_layout.exe"
+wide_unsigned_print_output="$ARTIFACT_DIR/revise_wide_unsigned_print.exe"
 int8_print_output="$ARTIFACT_DIR/revise_int8_print.exe"
 int16_print_output="$ARTIFACT_DIR/revise_int16_print.exe"
 uint8_print_output="$ARTIFACT_DIR/revise_uint8_print.exe"
@@ -107,6 +109,8 @@ rm -f "$single_output" "${single_output%.exe}.ll" \
       "$char_range_output" "${char_range_output%.exe}.ll" \
       "$uint8_range_output" "${uint8_range_output%.exe}.ll" \
       "$int8_range_output" "${int8_range_output%.exe}.ll" \
+      "$wide_range_tuple_output" "${wide_range_tuple_output%.exe}.ll" \
+      "$wide_unsigned_print_output" "${wide_unsigned_print_output%.exe}.ll" \
       "$int8_print_output" "${int8_print_output%.exe}.ll" \
       "$uint8_print_output" "${uint8_print_output%.exe}.ll" \
       "$range_scan_output" "${range_scan_output%.exe}.ll" \
@@ -316,6 +320,61 @@ expected_wide_range_stdout=$'1\n1\n0\n1\n0\n1\n0\n1\n0\n1\n0\n1\n2\n1\n1\n2\n1\n
 if [[ "$wide_range_stdout" != "$expected_wide_range_stdout" ]]; then
   echo "wide integer Range native output was unexpected:" >&2
   printf '%s\n' "$wide_range_stdout" >&2
+  exit 1
+fi
+
+assert_stored_range_layout() {
+  local binding="$1"
+  local width="$2"
+  local alignment="$3"
+  local aggregate="{ i${width}, i${width}, i1 }"
+  if ! grep -Fq "%${binding}.addr = alloca ${aggregate}, align ${alignment}" "$wide_range_ll" ||
+     ! grep -Eq "store \\{ i${width}, i${width}, i1 \\} %t[0-9]+, ptr %${binding}\\.addr, align ${alignment}" "$wide_range_ll"; then
+    echo "stored Range[${binding}] did not use aggregate fields {T, T, i1} with natural align ${alignment}" >&2
+    exit 1
+  fi
+}
+assert_stored_range_layout signed 64 8
+assert_stored_range_layout unsigned16 16 2
+assert_stored_range_layout unsigned32 32 4
+assert_stored_range_layout unsigned64 64 8
+assert_stored_range_layout usize 64 8
+wide_range_tuple_ll="${wide_range_tuple_output%.exe}.ll"
+echo "[build/pass] test_native/revise_wide_range_tuple_layout.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_wide_range_tuple_layout.cat" "$wide_range_tuple_output" >/dev/null
+expect_generated_ll "$wide_range_tuple_output"
+assert_stored_nested_range_layout() {
+  local binding="$1"
+  local aggregate="$2"
+  local alignment="$3"
+  if ! grep -Fq "%${binding}.addr = alloca ${aggregate}, align ${alignment}" "$wide_range_tuple_ll" ||
+     ! grep -F "store ${aggregate} " "$wide_range_tuple_ll" | grep -Fq "ptr %${binding}.addr, align ${alignment}"; then
+    echo "stored nested Range tuple ${binding} did not preserve the aggregate fields, computed size/padding, and natural align ${alignment}" >&2
+    exit 1
+  fi
+}
+assert_stored_nested_range_layout nested_u16 '{ { i16, i16, i1 }, i32 }' 4
+assert_stored_nested_range_layout nested_u64 '{ { i64, i64, i1 }, i16 }' 8
+wide_range_tuple_stdout="$CWD_TEST_DIR/revise_wide_range_tuple_layout.stdout"
+wide_range_tuple_expected="$CWD_TEST_DIR/revise_wide_range_tuple_layout.expected"
+printf '5\n7\n' > "$wide_range_tuple_expected"
+"$wide_range_tuple_output" > "$wide_range_tuple_stdout"
+if ! cmp -s "$wide_range_tuple_expected" "$wide_range_tuple_stdout"; then
+  echo "nested Range tuple field extraction did not match its exact expected output" >&2
+  od -An -tx1c "$wide_range_tuple_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_wide_unsigned_print.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_wide_unsigned_print.cat" "$wide_unsigned_print_output" >/dev/null
+expect_generated_ll "$wide_unsigned_print_output"
+wide_unsigned_print_stdout="$CWD_TEST_DIR/revise_wide_unsigned_print.stdout"
+wide_unsigned_print_expected="$CWD_TEST_DIR/revise_wide_unsigned_print.expected"
+printf '32768|65535\n2147483648|4294967295\n9223372036854775808|18446744073709551615\n9223372036854775808|18446744073709551615\n-9223372036854775807|9223372036854775807\n' > "$wide_unsigned_print_expected"
+"$wide_unsigned_print_output" > "$wide_unsigned_print_stdout"
+if ! cmp -s "$wide_unsigned_print_expected" "$wide_unsigned_print_stdout"; then
+  echo "wide unsigned and signed Int64 print output did not match the exact boundary bytes" >&2
+  od -An -tx1c "$wide_unsigned_print_stdout" >&2
   exit 1
 fi
 
@@ -1005,6 +1064,42 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
   fi
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for Anchor pick-payload cleanup test"
+fi
+
+wide_range_sanitized="$CWD_TEST_DIR/revise_wide_integer_ranges_sanitized"
+if [[ -x "$CWD_TEST_DIR/asan_ubsan_lsan_probe" ]]; then
+  echo "[asan/ubsan/lsan/pass] stored wide integer Range layouts, membership, and scans"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+    "$wide_range_ll" \
+    "$CLAW_DIR/runtime/native_runtime.c" \
+    -o "$wide_range_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$wide_range_sanitized" > "$CWD_TEST_DIR/revise_wide_integer_ranges_sanitized.out"
+  wide_range_sanitized_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_wide_integer_ranges_sanitized.out")"
+  if [[ "$wide_range_sanitized_stdout" != "$expected_wide_range_stdout" ]]; then
+    echo "wide integer Range sanitizer output differed from the native regression" >&2
+    printf '%s\n' "$wide_range_sanitized_stdout" >&2
+    exit 1
+  fi
+  nested_range_tuple_sanitized="$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized"
+  echo "[asan/ubsan/lsan/pass] nested Range tuple layout, padding, and field access"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+    "$wide_range_tuple_ll" \
+    "$CLAW_DIR/runtime/native_runtime.c" \
+    -o "$nested_range_tuple_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$nested_range_tuple_sanitized" > "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out"
+  if ! cmp -s "$wide_range_tuple_expected" "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out"; then
+    echo "nested Range tuple sanitizer output differed from the native regression" >&2
+    od -An -tx1c "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out" >&2
+    exit 1
+  fi
+else
+  echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for wide integer Range test"
 fi
 
 char_output="$ARTIFACT_DIR/revise_char_literals.exe"
