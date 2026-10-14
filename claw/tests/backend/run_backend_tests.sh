@@ -425,3 +425,32 @@ if [[ "$fixed_array_large_output" != *'define internal void @"revise_fixed_array
   echo "Array[Int32,5] LLVM output did not use the fixed layout and indirect aggregate ABI" >&2
   exit 1
 fi
+
+uint8_fixed_array_ll="$ARTIFACT_DIR/revise_fixed_array_uint8.ll"
+rm -f "$uint8_fixed_array_ll"
+run_llvm "test_native/revise_fixed_array_uint8.cat" \
+  "$SCRIPT_DIR/../native/fixtures/revise_fixed_array_uint8.cat" "$uint8_fixed_array_ll"
+uint8_fixed_array_output="$(tr -d '\r' < "$uint8_fixed_array_ll")"
+uint8_fixed_array_select="$(sed -n '/define internal i8 @"revise_fixed_array_uint8::select"/,/^}/p' "$uint8_fixed_array_ll")"
+uint8_index_guard_line="$(printf '%s\n' "$uint8_fixed_array_select" | grep -m1 -nE 'array\.index\.in_bounds.* = icmp ult i64' | cut -d: -f1 || true)"
+uint8_index_gep_line="$(printf '%s\n' "$uint8_fixed_array_select" | grep -m1 -nE 'array\.index\.element_ptr.* = getelementptr inbounds \[3 x i8\]' | cut -d: -f1 || true)"
+uint8_fixed_array_main="$(sed -n '/define internal i32 @"revise_fixed_array_uint8::main"/,/^}/p' "$uint8_fixed_array_ll")"
+uint8_scan_guard_line="$(printf '%s\n' "$uint8_fixed_array_main" | grep -m1 -nE 'array\.scan\.has_item.* = icmp ult i64' | cut -d: -f1 || true)"
+uint8_scan_gep_line="$(printf '%s\n' "$uint8_fixed_array_main" | grep -m1 -nE 'array\.iter\.item\.ptr.* = getelementptr inbounds \[3 x i8\]' | cut -d: -f1 || true)"
+uint8_scan_load_line="$(printf '%s\n' "$uint8_fixed_array_main" | grep -m1 -nE 'array\.iter\.item.* = load i8' | cut -d: -f1 || true)"
+uint8_last_factory_call_line="$(printf '%s\n' "$uint8_fixed_array_main" | grep -n 'call \[3 x i8\] @"revise_fixed_array_uint8::make_array"()' | tail -1 | cut -d: -f1 || true)"
+uint8_scan_header_line="$(printf '%s\n' "$uint8_fixed_array_main" | grep -nE '^scan_header_[0-9]+:' | awk -F: -v call_line="$uint8_last_factory_call_line" '$1 > call_line { print $1; exit }' || true)"
+uint8_factory_call_count="$(printf '%s\n' "$uint8_fixed_array_main" | grep -c 'call \[3 x i8\] @"revise_fixed_array_uint8::make_array"()' || true)"
+if [[ "$uint8_fixed_array_output" != *'define internal i8 @"revise_fixed_array_uint8::select"([3 x i8] %arg.values, i64 %arg.index)'* ]] ||
+   [[ "$uint8_fixed_array_output" != *'define internal [3 x i8] @"revise_fixed_array_uint8::make_array"()'* ]] ||
+   [[ "$uint8_fixed_array_output" != *'define internal void @"revise_fixed_array_uint8::make_large"(ptr %ret.slot)'* ]] ||
+   [[ "$uint8_fixed_array_output" != *'define internal i8 @"revise_fixed_array_uint8::last_large"(ptr %arg.values.addr)'* ]] ||
+   [[ "$uint8_fixed_array_output" != *'getelementptr inbounds [17 x i8]'* ]] ||
+   [[ "$uint8_fixed_array_output" != *'declare void @"claw.runtime.println.u8"(i8 zeroext)'* ]] ||
+   [[ "$uint8_fixed_array_output" != *'call void @"claw.runtime.println.u8"(i8 zeroext'* ]] ||
+   [[ -z "$uint8_index_guard_line" || -z "$uint8_index_gep_line" || "$uint8_index_guard_line" -ge "$uint8_index_gep_line" ]] ||
+   [[ -z "$uint8_scan_guard_line" || -z "$uint8_scan_gep_line" || -z "$uint8_scan_load_line" || "$uint8_scan_guard_line" -ge "$uint8_scan_gep_line" || "$uint8_scan_gep_line" -ge "$uint8_scan_load_line" ]] ||
+   [[ "$uint8_factory_call_count" != "2" || -z "$uint8_scan_header_line" || "$uint8_last_factory_call_line" -ge "$uint8_scan_header_line" ]]; then
+  echo "UInt8 fixed-array LLVM output did not preserve [N x i8] layout/ABI, zeroext printing, one-time rvalue evaluation, or guard-before-GEP/load" >&2
+  exit 1
+fi

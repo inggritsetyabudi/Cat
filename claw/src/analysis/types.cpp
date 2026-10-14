@@ -306,7 +306,8 @@ private:
     }
 
     std::optional<TypeLayoutInfo> computeFixedArray(const ResolvedType& type) {
-        if (type.params.size() != 2 || type.params.front().name != "Int32" ||
+        if (type.params.size() != 2 ||
+            (type.params.front().name != "Int32" && type.params.front().name != "UInt8") ||
             !type.params.front().isPlain() || !type.params.front().params.empty()) {
             return std::nullopt;
         }
@@ -1056,16 +1057,18 @@ ResolvedType TypeCatalog::resolveType(
                 type.params[1].name = std::to_string(*length);
             }
             const ResolvedType& elementType = type.params.front();
-            if (elementType.name != "Int32" || !elementType.isPlain() || !elementType.params.empty()) {
+            if ((elementType.name != "Int32" && elementType.name != "UInt8") ||
+                !elementType.isPlain() || !elementType.params.empty()) {
                 if (diagnostics) {
                     diagnostics->push_back(Diagnostic{
                         "semantic",
-                        "Only fixed Array[Int32, N] is supported; array element type '" + elementType.describe() + "' is out of scope.",
+                        "Only fixed Array[Int32, N] and Array[UInt8, N] are supported; array element type '" +
+                            elementType.describe() + "' is out of scope.",
                         node->params[0] ? node->params[0]->span : node->span});
                 }
                 type.category = TypeCategory::Unknown;
             } else if (length.has_value() && *length > 0 &&
-                       !fixedArrayByteSize(*length, 4, target).has_value()) {
+                       !fixedArrayByteSize(*length, elementType.name == "UInt8" ? 1 : 4, target).has_value()) {
                 if (diagnostics) {
                     diagnostics->push_back(Diagnostic{
                         "semantic",

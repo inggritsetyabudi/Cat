@@ -1,0 +1,10 @@
+fn main() -> Int32 {
+    val inferred = [0_UInt8, 128_UInt8, 255_UInt8]
+    val annotated: Array[UInt8, 3] = [0, 128, 255]
+    println(inferred[1_USize])
+    scan item, index over annotated {
+        println(index)
+        println(item)
+    }
+    return 0
+}

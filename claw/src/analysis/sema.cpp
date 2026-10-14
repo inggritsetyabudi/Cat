@@ -40,7 +40,12 @@ bool isInt32RangeType(const ResolvedType& type) {
         type.params.front().name == "Int32" && type.params.front().isPlain() &&
         type.params.front().params.empty();
 }
-
+bool isSupportedFixedArrayType(const ResolvedType& type) {
+    return type.name == "Array" && type.isPlain() && type.params.size() == 2 &&
+        (type.params.front().name == "Int32" || type.params.front().name == "UInt8") &&
+        type.params.front().isPlain() && type.params.front().params.empty() &&
+        type.params[1].isPlain();
+}
 bool isBorrowedStrMaybeType(const ResolvedType& type) {
     return type.name == "Maybe" && type.params.size() == 1 &&
         type.params.front().name == "Str" && type.params.front().isView() &&
@@ -2878,9 +2883,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
         if (iterableType.isOpaqueExternal()) {
             reportError(scan->iterable.get(), opaqueExternalValueUseMessage(iterableType, "scan iterable"));
         }
-        const bool supportedFixedArray = iterableType.name == "Array" && iterableType.isPlain() &&
-            iterableType.params.size() == 2 && iterableType.params.front().name == "Int32" &&
-            iterableType.params.front().isPlain() && iterableType.params[1].isPlain();
+        const bool supportedFixedArray = isSupportedFixedArrayType(iterableType);
         ResolvedType itemType = makeUnknownType();
         if (iterableType.name == "Str") {
             itemType = makePlainType("UInt8");
@@ -2903,7 +2906,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             scan->indexBindingKey = "$scan.binding." + std::to_string(nextScanBindingIdentity++);
             analysisResult.scanIndexTypes[scan] = indexType;
             if (!isSupportedRangeType(iterableType) && !supportedFixedArray) {
-                reportError(scan, "An indexed scan is supported only over supported Range values or fixed Array[Int32, N].");
+                reportError(scan, "An indexed scan is supported only over supported Range values or fixed Array[Int32, N] and Array[UInt8, N].");
             }
             defineVariable(
                 scan->indexName,
@@ -3233,20 +3236,45 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
 
             const bool expectedArray = expectedType && expectedType->name == "Array" &&
                 expectedType->params.size() == 2 && expectedType->isPlain();
-            const ResolvedType expectedElement = expectedArray
-                ? expectedType->params.front()
-                : makePlainType("Int32");
+            std::vector<ResolvedType> elementTypes;
+            elementTypes.reserve(arrayExpr->elements.size());
             for (const auto& element : arrayExpr->elements) {
-                ResolvedType elementType = analyzeExpr(element.get(), expectedArray ? &expectedElement : nullptr);
-                if (isIntegerLiteralType(elementType)) {
-                    validateInferredIntegerLiteral(element.get(), "Int32");
-                    elementType = makePlainType("Int32");
-                    analysisResult.exprTypes[element.get()] = elementType;
+                elementTypes.push_back(analyzeExpr(element.get(), expectedArray ? &expectedType->params.front() : nullptr));
+            }
+
+            ResolvedType elementType = expectedArray ? expectedType->params.front() : makeUnknownType();
+            if (!expectedArray) {
+                for (const auto& candidate : elementTypes) {
+                    if (isIntegerLiteralType(candidate) || candidate.isUnknown()) {
+                        continue;
+                    }
+                    if (elementType.isUnknown()) {
+                        elementType = candidate;
+                    } else if (candidate.describe() != elementType.describe()) {
+                        reportError(
+                            arrayExpr,
+                            "Fixed Array literal elements must have one matching element type; expected " +
+                                elementType.describe() + ", got " + candidate.describe() + ".");
+                    }
                 }
-                if (!elementType.isUnknown() && !canAssignType(elementType, makePlainType("Int32"))) {
+                if (elementType.isUnknown() || (elementType.name != "UInt8" && elementType.name != "Int32")) {
+                    elementType = makePlainType("Int32");
+                }
+            }
+
+            for (size_t i = 0; i < arrayExpr->elements.size(); ++i) {
+                auto& element = arrayExpr->elements[i];
+                ResolvedType& actualType = elementTypes[i];
+                if (isIntegerLiteralType(actualType)) {
+                    validateInferredIntegerLiteral(element.get(), elementType.name);
+                    actualType = elementType;
+                    analysisResult.exprTypes[element.get()] = actualType;
+                }
+                if (!actualType.isUnknown() && !canAssignType(actualType, elementType)) {
                     reportError(
                         element.get(),
-                        "Fixed Array literal elements must have type Int32; got " + elementType.describe() + ".");
+                        "Fixed Array literal elements must have type " + elementType.describe() +
+                            "; got " + actualType.describe() + ".");
                 }
             }
 
@@ -3262,7 +3290,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
             } else {
                 type.name = "Array";
                 type.category = TypeCategory::Plain;
-                type.params.push_back(makePlainType("Int32"));
+                type.params.push_back(elementType);
                 ResolvedType length;
                 length.name = std::to_string(std::max<size_t>(1, arrayExpr->elements.size()));
                 length.category = TypeCategory::Plain;
@@ -3686,8 +3714,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 }
             } else if ((objectType.name == "Span" || objectType.name == "Vec") && !objectType.params.empty()) {
                 type = objectType.params.front();
-            } else if (objectType.name == "Array" && objectType.isPlain() && objectType.params.size() == 2 &&
-                       objectType.params.front().name == "Int32") {
+            } else if (isSupportedFixedArrayType(objectType)) {
                 type = objectType.params.front();
             } else {
                 reportError(index, "Type '" + objectType.describe() + "' does not support index access.");

@@ -279,9 +279,27 @@ inline ParsedTypeName parseTypeName(std::string_view typeText) {
         splitTypeArgs(trim(stripped.substr(ofPos + 4)))};
 }
 
+inline std::optional<std::string> fixedArrayElementTypeFromType(std::string_view typeText) {
+    const ParsedTypeName parsed = parseTypeName(typeText);
+    if (parsed.base != "Array" || parsed.args.size() != 2 ||
+        (parsed.args.front() != "Int32" && parsed.args.front() != "UInt8")) {
+        return std::nullopt;
+    }
+    return parsed.args.front();
+}
+
+inline size_t fixedArrayElementSizeFromType(std::string_view typeText) {
+    const auto elementType = fixedArrayElementTypeFromType(typeText);
+    if (!elementType.has_value()) {
+        return 0;
+    }
+    return *elementType == "UInt8" ? 1 : 4;
+}
+
 inline std::optional<size_t> fixedArrayLengthFromType(std::string_view typeText) {
     const ParsedTypeName parsed = parseTypeName(typeText);
-    if (parsed.base != "Array" || parsed.args.size() != 2 || parsed.args.front() != "Int32") {
+    const size_t elementSize = fixedArrayElementSizeFromType(typeText);
+    if (!elementSize) {
         return std::nullopt;
     }
     const auto literal = numeric_literals::parseIntegerLiteralText(parsed.args[1]);
@@ -296,7 +314,7 @@ inline std::optional<size_t> fixedArrayLengthFromType(std::string_view typeText)
         return std::nullopt;
     }
     const size_t length = static_cast<size_t>(value);
-    if (!fixedArrayByteSize(length, 4, defaultTargetSpec()).has_value()) {
+    if (!fixedArrayByteSize(length, elementSize, defaultTargetSpec()).has_value()) {
         return std::nullopt;
     }
     return length;

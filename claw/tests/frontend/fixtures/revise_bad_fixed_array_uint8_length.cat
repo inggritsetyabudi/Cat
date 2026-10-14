@@ -1,0 +1,3 @@
+fn main() {
+    val values: Array[UInt8, 2] = [0_UInt8, 128_UInt8, 255_UInt8]
+}

@@ -582,7 +582,7 @@ if indexed_scan_reject_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/re
   echo "indexed scan over Str unexpectedly built a native executable" >&2
   exit 1
 fi
-if [[ "$indexed_scan_reject_diagnostic" != *"An indexed scan is supported only over supported Range values or fixed Array[Int32, N]."* ]]; then
+if [[ "$indexed_scan_reject_diagnostic" != *"An indexed scan is supported only over supported Range values or fixed Array[Int32, N] and Array[UInt8, N]."* ]]; then
   echo "unsupported indexed scan build failed without the expected sema diagnostic" >&2
   echo "$indexed_scan_reject_diagnostic" >&2
   exit 1
@@ -1340,4 +1340,46 @@ fixed_array_large_stdout="$(normalize_stdout "$fixed_array_large_output")"
 if [[ "$fixed_array_large_stdout" != "15" ]]; then
   echo "large fixed-array native output was unexpected: $fixed_array_large_stdout" >&2
   exit 1
+fi
+
+uint8_fixed_array_output="$ARTIFACT_DIR/revise_fixed_array_uint8.exe"
+uint8_fixed_array_ll="${uint8_fixed_array_output%.exe}.ll"
+rm -f "$uint8_fixed_array_output" "$uint8_fixed_array_ll"
+echo "[build/pass] fixed Array[UInt8,N] literals, indexing, parameters, returns, and scans"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_fixed_array_uint8.cat" "$uint8_fixed_array_output" >/dev/null
+expect_generated_ll "$uint8_fixed_array_output"
+uint8_fixed_array_stdout="$(normalize_stdout "$uint8_fixed_array_output")"
+expected_uint8_fixed_array_stdout=$'0\n128\n255\n255\narray-once\nindex-once\n255\n0\n128\n255\n0\n0\n1\n128\n2\n255\narray-once\n0\n7\n1\n128\n2\n255\n255'
+if [[ "$uint8_fixed_array_stdout" != "$expected_uint8_fixed_array_stdout" ]]; then
+  echo "UInt8 fixed-array native output was unexpected:" >&2
+  printf '%s\n' "$uint8_fixed_array_stdout" >&2
+  exit 1
+fi
+
+uint8_fixed_array_oob_output="$ARTIFACT_DIR/revise_fixed_array_uint8_oob.exe"
+rm -f "$uint8_fixed_array_oob_output" "${uint8_fixed_array_oob_output%.exe}.ll"
+echo "[defect/pass] UInt8 fixed Array indexing traps when index equals length"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_fixed_array_uint8_oob.cat" "$uint8_fixed_array_oob_output" >/dev/null
+expect_generated_ll "$uint8_fixed_array_oob_output"
+if "$uint8_fixed_array_oob_output" >/dev/null 2>&1; then
+  echo "expected UInt8 fixed-array index==len defect, but execution succeeded" >&2
+  exit 1
+fi
+
+uint8_fixed_array_sanitized="$CWD_TEST_DIR/revise_fixed_array_uint8_sanitized"
+if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,leak -x c - -o "$CWD_TEST_DIR/uint8_fixed_array_sanitizer_probe" >/dev/null 2>&1; then
+  echo "[asan/ubsan/lsan/pass] UInt8 fixed-array literal, indexing, ABI, and scan native behavior"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+    "$uint8_fixed_array_ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$uint8_fixed_array_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$uint8_fixed_array_sanitized" > "$CWD_TEST_DIR/revise_fixed_array_uint8_sanitized.out"
+  uint8_fixed_array_sanitized_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_fixed_array_uint8_sanitized.out")"
+  if [[ "$uint8_fixed_array_sanitized_stdout" != "$expected_uint8_fixed_array_stdout" ]]; then
+    echo "sanitized UInt8 fixed-array output was unexpected" >&2
+    exit 1
+  fi
+else
+  echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for UInt8 fixed arrays"
 fi
