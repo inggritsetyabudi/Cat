@@ -467,6 +467,20 @@ OirValue lowerExpr(
         }
         return object;
     }
+    if (auto* array = dynamic_cast<const ArrayExpr*>(expr)) {
+        const std::string type = exprType(sema, expr);
+        const std::string result = context.tempName();
+        appendInst(context, blockIndex, OirBindingInst{false, result, type, std::nullopt});
+        const OirValue object{result, type, false};
+        for (size_t i = 0; i < array->elements.size(); ++i) {
+            const OirValue element = lowerExpr(sema, array->elements[i].get(), context, blockIndex);
+            if (element.terminates) {
+                return element;
+            }
+            appendInst(context, blockIndex, OirStoreFieldInst{object, std::to_string(i), element});
+        }
+        return object;
+    }
     if (auto* ifExpr = dynamic_cast<const IfExpr*>(expr)) {
         const OirValue condition = lowerExpr(sema, ifExpr->condition.get(), context, blockIndex);
         if (condition.terminates) {

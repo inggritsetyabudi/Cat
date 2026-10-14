@@ -405,6 +405,15 @@ std::string AirEmitter::emitExprValue(const Expr* expr) const {
             out << ",";
         }
         out << ")";
+    } else if (auto* array = dynamic_cast<const ArrayExpr*>(expr)) {
+        out << "[";
+        for (size_t i = 0; i < array->elements.size(); ++i) {
+            if (i > 0) {
+                out << ", ";
+            }
+            out << emitExprValue(array->elements[i].get());
+        }
+        out << "]";
     } else if (auto* value = dynamic_cast<const BoolExpr*>(expr)) {
         out << (value->value ? "true" : "false");
     } else if (auto* ifExpr = dynamic_cast<const IfExpr*>(expr)) {

@@ -18,6 +18,8 @@ struct AstNode {
 
 struct TypeNode : public AstNode {
     std::string name;
+    bool isIntegerConst = false;
+    std::string integerConstValue;
     bool isTuple = false;
     std::string viewKind;
     std::string scopeName;
@@ -53,6 +55,10 @@ struct CharExpr : public Expr {
 };
 
 struct TupleExpr : public Expr {
+    std::vector<std::unique_ptr<Expr>> elements;
+};
+
+struct ArrayExpr : public Expr {
     std::vector<std::unique_ptr<Expr>> elements;
 };
 

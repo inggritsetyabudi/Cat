@@ -1,0 +1,3 @@
+fn main() {
+    val values: Array[Int64, 2] = [1, 2]
+}

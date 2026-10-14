@@ -920,6 +920,14 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
         return;
     }
 
+    if (auto* array = dynamic_cast<ArrayExpr*>(expr)) {
+        for (auto& element : array->elements) {
+            const ResolvedType elementType = typeOfExpr(element.get());
+            checkExpr(element.get(), elementType.isOwned());
+        }
+        return;
+    }
+
     if (auto* ident = dynamic_cast<IdentExpr*>(expr)) {
         const auto it = varStates.find(ident->name);
         if (it == varStates.end()) {

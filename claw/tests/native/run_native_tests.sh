@@ -456,13 +456,31 @@ if indexed_scan_reject_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/re
   echo "indexed scan over Str unexpectedly built a native executable" >&2
   exit 1
 fi
-if [[ "$indexed_scan_reject_diagnostic" != *"An indexed scan is currently supported only over Range[Int8], Range[Int16], Range[Int32], Range[UInt8], or Range[Char]."* ]]; then
+if [[ "$indexed_scan_reject_diagnostic" != *"An indexed scan is supported only over supported Range values or fixed Array[Int32, N]."* ]]; then
   echo "unsupported indexed scan build failed without the expected sema diagnostic" >&2
   echo "$indexed_scan_reject_diagnostic" >&2
   exit 1
 fi
 if [[ -e "$indexed_scan_reject_output" ]]; then
   echo "unsupported indexed scan left a native binary behind" >&2
+  exit 1
+fi
+
+echo "[build/fail] fixed-array byte-size overflow is rejected before native or LLVM output"
+fixed_array_overflow_output="$CWD_TEST_DIR/revise_bad_fixed_array_size_overflow.exe"
+fixed_array_overflow_log="$CWD_TEST_DIR/revise_bad_fixed_array_size_overflow.log"
+if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_fixed_array_size_overflow.cat" \
+  "$fixed_array_overflow_output" >"$fixed_array_overflow_log" 2>&1; then
+  echo "overflowing fixed array unexpectedly built a native executable" >&2
+  exit 1
+fi
+if ! grep -Fq 'Fixed Array byte size overflows the target size limit' "$fixed_array_overflow_log"; then
+  echo "overflowing fixed-array build failed without the expected size diagnostic:" >&2
+  cat "$fixed_array_overflow_log" >&2
+  exit 1
+fi
+if [[ -e "$fixed_array_overflow_output" || -e "${fixed_array_overflow_output%.exe}.ll" ]]; then
+  echo "overflowing fixed-array rejection left native or LLVM output behind" >&2
   exit 1
 fi
 
@@ -1076,4 +1094,57 @@ if [[ -x "$CWD_TEST_DIR/asan_probe" ]]; then
   fi
 else
   echo "[sanitizer/skip] clang ASan/UBSan runtimes are unavailable for Str range-view test"
+fi
+
+fixed_array_output="$ARTIFACT_DIR/revise_fixed_array.exe"
+fixed_array_ll="${fixed_array_output%.exe}.ll"
+rm -f "$fixed_array_output" "$fixed_array_ll"
+echo "[build/pass] fixed Array[Int32,N] inference, annotation, indexing, and scans"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_fixed_array.cat" "$fixed_array_output" >/dev/null
+expect_generated_ll "$fixed_array_output"
+fixed_array_stdout="$(normalize_stdout "$fixed_array_output")"
+expected_fixed_array_stdout=$'1\n2\n3\n10\n20\n30\n10\narray-once\nindex-once\n8\n10\n20\n30\n0\n10\n1\n20\n2\n30\narray-once\n7\n8\n9'
+if [[ "$fixed_array_stdout" != "$expected_fixed_array_stdout" ]]; then
+  echo "fixed-array native output was unexpected:" >&2
+  printf '%s\n' "$fixed_array_stdout" >&2
+  exit 1
+fi
+
+fixed_array_oob_output="$ARTIFACT_DIR/revise_fixed_array_oob.exe"
+rm -f "$fixed_array_oob_output" "${fixed_array_oob_output%.exe}.ll"
+echo "[defect/pass] fixed Array indexing traps when index equals length"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_fixed_array_oob.cat" "$fixed_array_oob_output" >/dev/null
+expect_generated_ll "$fixed_array_oob_output"
+if "$fixed_array_oob_output" >/dev/null 2>&1; then
+  echo "expected fixed-array index==len defect, but execution succeeded" >&2
+  exit 1
+fi
+
+fixed_array_sanitized="$CWD_TEST_DIR/revise_fixed_array_sanitized"
+if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,leak -x c - -o "$CWD_TEST_DIR/fixed_array_sanitizer_probe" >/dev/null 2>&1; then
+  echo "[asan/ubsan/lsan/pass] fixed-array literal, indexing, and scan native behavior"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+    "$fixed_array_ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$fixed_array_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$fixed_array_sanitized" > "$CWD_TEST_DIR/revise_fixed_array_sanitized.out"
+  fixed_array_sanitized_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_fixed_array_sanitized.out")"
+  if [[ "$fixed_array_sanitized_stdout" != "$expected_fixed_array_stdout" ]]; then
+    echo "sanitized fixed-array output was unexpected" >&2
+    exit 1
+  fi
+else
+  echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for fixed arrays"
+fi
+
+fixed_array_large_output="$ARTIFACT_DIR/revise_fixed_array_large.exe"
+rm -f "$fixed_array_large_output" "${fixed_array_large_output%.exe}.ll"
+echo "[build/pass] fixed Array[Int32,5] indirect return and parameter ABI"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_fixed_array_large.cat" "$fixed_array_large_output" >/dev/null
+expect_generated_ll "$fixed_array_large_output"
+fixed_array_large_stdout="$(normalize_stdout "$fixed_array_large_output")"
+if [[ "$fixed_array_large_stdout" != "15" ]]; then
+  echo "large fixed-array native output was unexpected: $fixed_array_large_stdout" >&2
+  exit 1
 fi

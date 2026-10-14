@@ -121,7 +121,7 @@ run_check_pass "try result shadowing preserves binding identity" "$SCRIPT_DIR/..
 run_check_pass "choice payload shadowing preserves binding identity" "$SCRIPT_DIR/../native/fixtures/revise_pick_payload_shadowing.cat"
 run_check_pass "Anchor choice payload shadowing preserves cleanup identity" "$SCRIPT_DIR/../native/fixtures/revise_pick_anchor_payload_shadowing.cat"
 run_check_fail "same-scope duplicate local names remain rejected" "$FIXTURE_DIR/revise_bad_same_scope_duplicate_binding.cat" "Duplicate variable declaration: repeated"
-run_check_fail "indexed scans reject Str" "$FIXTURE_DIR/revise_bad_indexed_scan_str.cat" "An indexed scan is currently supported only over Range[Int8], Range[Int16], Range[Int32], Range[UInt8], or Range[Char]."
+run_check_fail "indexed scans reject Str" "$FIXTURE_DIR/revise_bad_indexed_scan_str.cat" "An indexed scan is supported only over supported Range values or fixed Array[Int32, N]."
 range_scan_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_int32_range_scan.cat")"
 if [[ "$range_scan_air_output" != *"scan item: Int32 over (1 .. 4) : Range[Int32]"* ]] ||
    [[ "$range_scan_air_output" != *"scan item: Int32, index: USize over (3 ..= 5) : Range[Int32]"* ]]; then
@@ -708,3 +708,39 @@ run_check_fail "legacy public Str.slice(start,length) is removed" \
 run_check_fail "Maybe[ref Str] from Str.get cannot escape a local receiver" \
   "$FIXTURE_DIR/revise_bad_str_range_local_return.cat" \
   "Borrowed-returning functions must return a view derived from one of their borrowed parameters."
+run_check_pass "fixed Array[Int32,N] inference, annotations, indexing, and scans" \
+  "$SCRIPT_DIR/../native/fixtures/revise_fixed_array.cat"
+run_check_pass "fixed-array radix length and valid digit separators" \
+  "$FIXTURE_DIR/revise_fixed_array_length_formats.cat"
+run_check_fail "repeated separators in fixed-array length" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_repeated_separator.cat" \
+  "Fixed Array length must be a positive integer literal"
+run_check_fail "suffix in fixed-array length remains unsupported" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_suffix.cat" \
+  "Fixed Array length must be a positive integer literal"
+run_check_fail "fixed-array byte-size overflow is rejected during type resolution" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_size_overflow.cat" \
+  "Fixed Array byte size overflows the target size limit"
+run_check_fail "heterogeneous fixed-array elements" "$FIXTURE_DIR/revise_bad_fixed_array_heterogeneous.cat" \
+  "Fixed Array literal elements must have type Int32"
+run_check_fail "fixed-array annotation length mismatch" "$FIXTURE_DIR/revise_bad_fixed_array_length_mismatch.cat" \
+  "Array literal has 3 element(s), but the expected type is Array[Int32, 2]."
+run_check_fail "fixed-array element type outside Int32" "$FIXTURE_DIR/revise_bad_fixed_array_element_type.cat" \
+  "Only fixed Array[Int32, N] is supported"
+run_check_fail "zero-size and empty fixed arrays" "$FIXTURE_DIR/revise_bad_fixed_array_zero_length.cat" \
+  "Fixed Array length must be a positive integer literal"
+run_check_fail "empty inferred fixed-array literal" "$FIXTURE_DIR/revise_bad_fixed_array_empty_literal.cat" \
+  "Array literal must contain at least one element"
+run_check_fail "signed fixed-array index" "$FIXTURE_DIR/revise_bad_fixed_array_signed_index.cat" \
+  "Index expression must have type USize, got Int32"
+run_check_fail "negative fixed-array index literal" "$FIXTURE_DIR/revise_bad_fixed_array_negative_index.cat" \
+  "Fixed Array index cannot be a negative integer literal."
+run_check_fail "nested fixed arrays remain out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_nested.cat" \
+  "Only fixed Array[Int32, N] is supported"
+run_check_fail "global fixed arrays remain out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_global.cat" \
+  "Global fixed Array values are out of scope"
+run_check_fail "fixed-array element assignment remains out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_element_assignment.cat" \
+  "Fixed Array element assignment is out of scope"
+
+run_check_pass "fixed Array[Int32,5] aggregate return and parameter" \
+  "$SCRIPT_DIR/../native/fixtures/revise_fixed_array_large.cat"

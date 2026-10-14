@@ -1,0 +1,39 @@
+fn element(value: Int32) -> Int32 {
+    println(value)
+    return value * 10
+}
+
+fn select(array: Array[Int32, 3], index: USize) -> Int32 {
+    return array[index]
+}
+
+fn make_array() -> Array[Int32, 3] {
+    println("array-once")
+    return [7, 8, 9]
+}
+
+fn index_once() -> USize {
+    println("index-once")
+    return 1
+}
+
+fn main() -> Int32 {
+    val inferred = [element(1), element(2), element(3)]
+    val annotated: Array[Int32, 3] = [10, 20, 30]
+    println(inferred[0])
+    println(annotated[1])
+    println(annotated[2])
+    println(select(annotated, 0))
+    println(make_array()[index_once()])
+    scan item over inferred {
+        println(item)
+    }
+    scan item, i over annotated {
+        println(i)
+        println(item)
+    }
+    scan item over make_array() {
+        println(item)
+    }
+    return 0
+}
