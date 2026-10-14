@@ -665,30 +665,7 @@ std::unique_ptr<Stmt> Parser::parseBinding(bool isMutable) {
             failAtCurrent("Tuple destructuring is currently supported only for `val` bindings.");
         }
 
-        consume(TokenKind::LParen, "Expected `(` to begin tuple destructuring pattern.");
-        std::vector<std::string> patternNames;
-        bool sawComma = false;
-        if (check(TokenKind::RParen)) {
-            failAtCurrent("Tuple destructuring pattern must contain at least one binding.");
-        }
-        while (true) {
-            if (check(TokenKind::LParen)) {
-                failAtCurrent("Nested tuple patterns in bindings are not yet supported.");
-            }
-            consumeNameToken("Expected a variable name or `_` in tuple destructuring pattern.");
-            patternNames.push_back(previous().text);
-            if (!match(TokenKind::Comma)) {
-                break;
-            }
-            sawComma = true;
-            if (check(TokenKind::RParen)) {
-                break;
-            }
-        }
-        consume(TokenKind::RParen, "Expected `)` after tuple destructuring pattern.");
-        if (patternNames.size() == 1 && !sawComma) {
-            failAtCurrent("Tuple destructuring pattern must use a comma; write `(name,)` for a one-element tuple.");
-        }
+        auto tuplePattern = parsePickPattern();
         if (check(TokenKind::Colon)) {
             failAtCurrent("Tuple destructuring type annotations are not supported; annotate the source tuple instead.");
         }
@@ -701,7 +678,7 @@ std::unique_ptr<Stmt> Parser::parseBinding(bool isMutable) {
 
         auto binding = std::make_unique<BindingStmt>();
         binding->span = bindingSpan;
-        binding->tuplePatternNames = std::move(patternNames);
+        binding->tuplePattern = std::move(tuplePattern);
         binding->value = parseExpression();
         return binding;
     }
@@ -841,7 +818,7 @@ std::unique_ptr<PickPattern> Parser::parsePickPattern() {
         pattern->span = spanFromToken(open);
         pattern->kind = PickPatternKind::Tuple;
         if (check(TokenKind::RParen)) {
-            failAtCurrent("A tuple pick pattern must contain at least one element.");
+            failAtCurrent("A tuple pattern must contain at least one element.");
         }
 
         bool sawComma = false;
@@ -853,9 +830,9 @@ std::unique_ptr<PickPattern> Parser::parsePickPattern() {
             sawComma = true;
         } while (!check(TokenKind::RParen) && !isAtEnd());
 
-        consume(TokenKind::RParen, "Expected ')' after tuple pick pattern");
+        consume(TokenKind::RParen, "Expected ')' after tuple pattern");
         if (pattern->elements.size() == 1 && !sawComma) {
-            failAt(open, "A one-element tuple pick pattern must use a trailing comma, for example `(value,)`.");
+            failAt(open, "A one-element tuple pattern must use a trailing comma, for example `(value,)`.");
         }
         return pattern;
     }

@@ -1,0 +1,85 @@
+oir.module revise_tuple_nested_destructuring
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_tuple_nested_destructuring::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_tuple_nested_destructuring::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn once(value: Int32 [scalar]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_tuple_nested_destructuring::once ffi=false]
+  block entry:
+    call println(value) : Unit
+    return value : Int32
+oir.fn make_nested() -> Tuple[Tuple[Int32, Int32], Int32] [direct] [abi=claw link=internal symbol=revise_tuple_nested_destructuring::make_nested ffi=false]
+  block entry:
+    call println("nested-factory") : Unit
+    val ready: Bool = true
+    val %t0: Tuple[Tuple[Int32, Int32], Int32]
+    val %t1: Tuple[Int32, Int32]
+    %t2 = call once(1) : Int32
+    store_field %t1.0 <- %t2 : Int32
+    %t3 = call once(2) : Int32
+    store_field %t1.1 <- %t3 : Int32
+    store_field %t0.0 <- %t1 : Tuple[Int32, Int32]
+    %t4 = call once(3) : Int32
+    store_field %t0.1 <- %t4 : Int32
+    return %t0 : Tuple[Tuple[Int32, Int32], Int32]
+oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_tuple_nested_destructuring::main ffi=false]
+  block entry:
+    %t0 = call make_nested() : Tuple[Tuple[Int32, Int32], Int32]
+    val input: Tuple[Tuple[Int32, Int32], Int32] = %t0
+    %t1 = field input.0 : Tuple[Int32, Int32]
+    %t2 = field %t1.0 : Int32
+    val left: Int32 = %t2
+    %t3 = field %t1.1 : Int32
+    val middle: Int32 = %t3
+    %t4 = field input.1 : Int32
+    val right: Int32 = %t4
+    %t5 = add left, middle : Int32
+    %t6 = add %t5, right : Int32
+    call println(%t6) : Unit
+    val %t7: Tuple[Tuple[Int32, Int32], Int32]
+    val %t8: Tuple[Int32, Int32]
+    %t9 = call once(5) : Int32
+    store_field %t8.0 <- %t9 : Int32
+    %t10 = call once(6) : Int32
+    store_field %t8.1 <- %t10 : Int32
+    store_field %t7.0 <- %t8 : Tuple[Int32, Int32]
+    %t11 = call once(7) : Int32
+    store_field %t7.1 <- %t11 : Int32
+    %t12 = field %t7.0 : Tuple[Int32, Int32]
+    %t13 = field %t12.1 : Int32
+    val kept: Int32 = %t13
+    call println(kept) : Unit
+    val %t14: Tuple[Tuple[Int32], Int32]
+    val %t15: Tuple[Int32]
+    %t16 = call once(8) : Int32
+    store_field %t15.0 <- %t16 : Int32
+    store_field %t14.0 <- %t15 : Tuple[Int32]
+    %t17 = call once(9) : Int32
+    store_field %t14.1 <- %t17 : Int32
+    %t18 = field %t14.0 : Tuple[Int32]
+    %t19 = field %t18.0 : Int32
+    val only: Int32 = %t19
+    call println(only) : Unit
+    val value: Int32 = 1
+    branch true -> if_then_0, if_join_1
+  block if_then_0:
+    val %t20: Tuple[Tuple[Int32, Int32], Int32]
+    val %t21: Tuple[Int32, Int32]
+    %t22 = call once(2) : Int32
+    store_field %t21.0 <- %t22 : Int32
+    %t23 = call once(3) : Int32
+    store_field %t21.1 <- %t23 : Int32
+    store_field %t20.0 <- %t21 : Tuple[Int32, Int32]
+    %t24 = call once(4) : Int32
+    store_field %t20.1 <- %t24 : Int32
+    %t25 = field %t20.0 : Tuple[Int32, Int32]
+    %t26 = field %t25.0 : Int32
+    val value: Int32 = %t26
+    call println(value) : Unit
+    goto if_join_1
+  block if_join_1:
+    call println(value) : Unit
+    return unit : Unit

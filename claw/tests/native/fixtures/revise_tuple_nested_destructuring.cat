@@ -1,0 +1,29 @@
+fn once(value: Int32) -> Int32 {
+    println(value)
+    value
+}
+
+fn make_nested() -> ((Int32, Int32), Int32) {
+    println("nested-factory")
+    val ready = true
+    return ((once(1), once(2)), once(3))
+}
+
+fn main() {
+    val input = make_nested()
+    val ((left, middle), right) = input
+    println(left + middle + right)
+
+    val ((_, kept), _) = ((once(5), once(6)), once(7))
+    println(kept)
+
+    val ((only,), _) = ((once(8),), once(9))
+    println(only)
+
+    val value = 1
+    if true {
+        val ((value, _), _) = ((once(2), once(3)), once(4))
+        println(value)
+    }
+    println(value)
+}

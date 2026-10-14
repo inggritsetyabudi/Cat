@@ -199,15 +199,9 @@ std::string AirEmitter::emitStmt(const Stmt* stmt, int indent) const {
     const std::string pad = indentText(indent);
 
     if (auto* bind = dynamic_cast<const BindingStmt*>(stmt)) {
-        if (!bind->tuplePatternNames.empty()) {
-            out << pad << "val (";
-            for (size_t i = 0; i < bind->tuplePatternNames.size(); ++i) {
-                if (i > 0) {
-                    out << ", ";
-                }
-                out << bind->tuplePatternNames[i];
-            }
-            out << ") = " << emitExpr(bind->value.get()) << "\n";
+        if (bind->tuplePattern) {
+            out << pad << "val " << formatPickPattern(bind->tuplePattern.get())
+                << " = " << emitExpr(bind->value.get()) << "\n";
             return out.str();
         }
 
