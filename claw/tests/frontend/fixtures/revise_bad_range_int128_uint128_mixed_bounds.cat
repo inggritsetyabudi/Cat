@@ -1,0 +1,4 @@
+fn main() -> Int32 {
+    val invalid = 0_Int128..=1_UInt128
+    return 0
+}

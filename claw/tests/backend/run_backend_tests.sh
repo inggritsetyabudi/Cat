@@ -55,8 +55,9 @@ try_contract_ll="$ARTIFACT_DIR/revise_try_contract.ll"
 int8_range_ll="$ARTIFACT_DIR/revise_int8_range.ll"
 int16_range_ll="$ARTIFACT_DIR/revise_int16_range.ll"
 wide_range_ll="$ARTIFACT_DIR/revise_wide_integer_ranges.ll"
+int128_range_ll="$ARTIFACT_DIR/revise_int128_uint128_ranges.ll"
 rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll" "$if_pick_values_ll"
-rm -f "$try_contract_ll" "$int8_range_ll" "$int16_range_ll"
+rm -f "$try_contract_ll" "$int8_range_ll" "$int16_range_ll" "$int128_range_ll"
 
 run_llvm "test_backend/revise_result_llvm.cat" "$BACKEND_FIXTURE_DIR/revise_result_llvm.cat" "$result_ll"
 llvm_output="$(tr -d '\r' < "$result_ll")"
@@ -253,6 +254,23 @@ for width in 16 32 64; do
     fi
   done
 done
+
+run_llvm "test_native/revise_int128_uint128_ranges.cat" "$SCRIPT_DIR/../native/fixtures/revise_int128_uint128_ranges.cat" "$int128_range_ll"
+int128_range_output="$(tr -d '\r' < "$int128_range_ll")"
+if [[ "$int128_range_output" != *"{ i128, i128, i1 }"* ]] ||
+   [[ "$int128_range_output" != *"icmp sge i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp slt i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp sle i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp uge i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp ult i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp ule i128"* ]] ||
+   [[ "$int128_range_output" != *"icmp eq i128"* ]] ||
+   [[ "$int128_range_output" != *"add i128"* ]] ||
+   [[ "$int128_range_output" != *"alloca { i128, i128, i1 }, align 16"* ]] ||
+   [[ "$int128_range_output" != *"alloca { { i128, i128, i1 }, i32 }, align 16"* ]]; then
+  echo "128-bit Range LLVM output omitted aggregate layout, signed/unsigned comparisons, guarded increments, or natural alignment" >&2
+  exit 1
+fi
 
 wide_range_tuple_ll="$ARTIFACT_DIR/revise_wide_range_tuple_layout.ll"
 rm -f "$wide_range_tuple_ll"

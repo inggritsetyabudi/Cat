@@ -107,8 +107,8 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
         }
         const std::string& elementType = parsedType.args.front();
         if (elementType != "Int8" && elementType != "Int16" && elementType != "Int32" &&
-            elementType != "Int64" && elementType != "UInt8" && elementType != "UInt16" &&
-            elementType != "UInt32" && elementType != "UInt64" && elementType != "USize" &&
+            elementType != "Int64" && elementType != "Int128" && elementType != "UInt8" && elementType != "UInt16" &&
+            elementType != "UInt32" && elementType != "UInt64" && elementType != "UInt128" && elementType != "USize" &&
             elementType != "Char") {
             throw std::runtime_error("LLVM lowering does not support Range[" + elementType + "].");
         }
@@ -510,8 +510,8 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
         }
         const std::string& elementType = parsed.args.front();
         if (elementType != "Int8" && elementType != "Int16" && elementType != "Int32" &&
-            elementType != "Int64" && elementType != "UInt8" && elementType != "UInt16" &&
-            elementType != "UInt32" && elementType != "UInt64" && elementType != "USize" &&
+            elementType != "Int64" && elementType != "Int128" && elementType != "UInt8" && elementType != "UInt16" &&
+            elementType != "UInt32" && elementType != "UInt64" && elementType != "UInt128" && elementType != "USize" &&
             elementType != "Char") {
             return std::nullopt;
         }

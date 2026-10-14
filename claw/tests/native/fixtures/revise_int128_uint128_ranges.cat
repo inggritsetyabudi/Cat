@@ -1,0 +1,114 @@
+fn contains_i128(value: Int128, bounds: Range[Int128]) -> Int32 {
+    if value in bounds { return 1 }
+    return 0
+}
+
+fn contains_u128(value: UInt128, bounds: Range[UInt128]) -> Int32 {
+    if value in bounds { return 1 }
+    return 0
+}
+
+fn main() -> Int32 {
+    val signed_min: Int128 = -170141183460469231731687303715884105728_Int128
+    val signed_min_plus1: Int128 = -170141183460469231731687303715884105727_Int128
+    val signed_min_plus2: Int128 = -170141183460469231731687303715884105726_Int128
+    val signed_max_minus2: Int128 = 170141183460469231731687303715884105725_Int128
+    val signed_max_minus1: Int128 = 170141183460469231731687303715884105726_Int128
+    val signed_max: Int128 = 170141183460469231731687303715884105727_Int128
+
+    val unsigned_zero: UInt128 = 0_UInt128
+    val unsigned_one: UInt128 = 1_UInt128
+    val unsigned_two: UInt128 = 2_UInt128
+    val unsigned_max_minus2: UInt128 = 340282366920938463463374607431768211453_UInt128
+    val unsigned_max_minus1: UInt128 = 340282366920938463463374607431768211454_UInt128
+    val unsigned_max: UInt128 = 340282366920938463463374607431768211455_UInt128
+    val unsigned_high_bit: UInt128 = 170141183460469231731687303715884105728_UInt128
+    val unsigned_high_bit_plus1: UInt128 = 170141183460469231731687303715884105729_UInt128
+
+    val signed_low: Range[Int128] = signed_min..=signed_min_plus1
+    val signed_high: Range[Int128] = signed_max_minus1..=signed_max
+    val signed_singleton: Range[Int128] = signed_max..=signed_max
+    val signed_exclusive: Range[Int128] = signed_max_minus1..signed_max
+    val unsigned_low: Range[UInt128] = unsigned_zero..=unsigned_one
+    val unsigned_high: Range[UInt128] = unsigned_max_minus1..=unsigned_max
+    val unsigned_singleton: Range[UInt128] = unsigned_max..=unsigned_max
+    val unsigned_exclusive: Range[UInt128] = unsigned_max_minus1..unsigned_max
+    val unsigned_high_bit_range: Range[UInt128] = unsigned_high_bit..=unsigned_high_bit_plus1
+
+    println(contains_i128(signed_min, signed_low))
+    println(contains_i128(signed_min_plus1, signed_low))
+    println(contains_i128(signed_min_plus2, signed_low))
+    println(contains_i128(signed_max_minus2, signed_high))
+    println(contains_i128(signed_max_minus1, signed_high))
+    println(contains_i128(signed_max, signed_high))
+    println(contains_i128(signed_max, signed_singleton))
+    println(contains_i128(signed_max_minus1, signed_singleton))
+    println(contains_i128(signed_max_minus1, signed_exclusive))
+    println(contains_i128(signed_max, signed_exclusive))
+
+    println(contains_u128(unsigned_zero, unsigned_low))
+    println(contains_u128(unsigned_one, unsigned_low))
+    println(contains_u128(unsigned_two, unsigned_low))
+    println(contains_u128(unsigned_max_minus2, unsigned_high))
+    println(contains_u128(unsigned_max_minus1, unsigned_high))
+    println(contains_u128(unsigned_max, unsigned_high))
+    println(contains_u128(unsigned_max, unsigned_singleton))
+    println(contains_u128(unsigned_max_minus1, unsigned_singleton))
+    println(contains_u128(unsigned_max_minus1, unsigned_exclusive))
+    println(contains_u128(unsigned_max, unsigned_exclusive))
+    println(contains_u128(unsigned_high_bit, unsigned_high_bit_range))
+    println(contains_u128(unsigned_high_bit_plus1, unsigned_high_bit_range))
+    println(contains_u128(unsigned_max, unsigned_high_bit_range))
+
+    val nested_signed = (signed_high, 41_Int32)
+    val nested_unsigned = (unsigned_high, 42_Int32)
+    println(contains_i128(signed_max, nested_signed.0))
+    println(nested_signed.1)
+    println(contains_u128(unsigned_max, nested_unsigned.0))
+    println(nested_unsigned.1)
+
+    var signed_low_count: Int32 = 0
+    scan item over signed_low {
+        signed_low_count = signed_low_count + 1
+    }
+    println(signed_low_count)
+
+    var signed_high_count: Int32 = 0
+    scan item, index over signed_high {
+        if item == signed_max { println(index) }
+        signed_high_count = signed_high_count + 1
+    }
+    println(signed_high_count)
+
+    var signed_singleton_count: Int32 = 0
+    scan item over signed_singleton {
+        signed_singleton_count = signed_singleton_count + 1
+    }
+    println(signed_singleton_count)
+
+    var unsigned_low_count: Int32 = 0
+    scan item over unsigned_low {
+        unsigned_low_count = unsigned_low_count + 1
+    }
+    println(unsigned_low_count)
+
+    var unsigned_high_count: Int32 = 0
+    scan item, index over unsigned_high {
+        if item == unsigned_max { println(index) }
+        unsigned_high_count = unsigned_high_count + 1
+    }
+    println(unsigned_high_count)
+
+    var unsigned_singleton_count: Int32 = 0
+    scan item over unsigned_singleton {
+        unsigned_singleton_count = unsigned_singleton_count + 1
+    }
+    println(unsigned_singleton_count)
+
+    var unsigned_high_bit_count: Int32 = 0
+    scan item over unsigned_high_bit_range {
+        unsigned_high_bit_count = unsigned_high_bit_count + 1
+    }
+    println(unsigned_high_bit_count)
+    return 0
+}

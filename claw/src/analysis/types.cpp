@@ -27,8 +27,8 @@ std::string nominalTypeIdentity(std::string_view moduleName, std::string_view ty
 
 bool isSupportedRangeElementType(const ResolvedType& type) {
     return type.isPlain() && !type.isGeneric && type.params.empty() &&
-        (type.name == "Int8" || type.name == "Int16" || type.name == "Int32" || type.name == "Int64" ||
-         type.name == "UInt8" || type.name == "UInt16" || type.name == "UInt32" || type.name == "UInt64" ||
+        (type.name == "Int8" || type.name == "Int16" || type.name == "Int32" || type.name == "Int64" || type.name == "Int128" ||
+         type.name == "UInt8" || type.name == "UInt16" || type.name == "UInt32" || type.name == "UInt64" || type.name == "UInt128" ||
          type.name == "USize" || type.name == "Char");
 }
 
@@ -1094,7 +1094,7 @@ ResolvedType TypeCatalog::resolveType(
             if (diagnostics) {
                 diagnostics->push_back(Diagnostic{
                     "semantic",
-                    "Only Range[Int8], Range[Int16], Range[Int32], Range[Int64], Range[UInt8], Range[UInt16], Range[UInt32], Range[UInt64], Range[USize], and Range[Char] are supported; Range[Int128] and Range[UInt128] are not implemented yet.",
+                    "Only Range[Int8], Range[Int16], Range[Int32], Range[Int64], Range[Int128], Range[UInt8], Range[UInt16], Range[UInt32], Range[UInt64], Range[UInt128], Range[USize], and Range[Char] are supported.",
                     node->span});
             }
             type.category = TypeCategory::Unknown;
