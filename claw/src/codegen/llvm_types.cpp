@@ -95,10 +95,11 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
 
     if (base == "Array") {
         const auto length = fixedArrayLengthFromType(stripped);
-        if (!length.has_value()) {
-            throw std::runtime_error("LLVM lowering supports only non-empty Array[Int32, N] fixed arrays.");
+        const auto elementType = fixedArrayElementTypeFromType(stripped);
+        if (!length.has_value() || !elementType.has_value()) {
+            throw std::runtime_error("LLVM lowering supports only non-empty Array[Int32, N] and Array[UInt8, N] fixed arrays.");
         }
-        return "[" + std::to_string(*length) + " x i32]";
+        return "[" + std::to_string(*length) + " x " + llvmType(*elementType) + "]";
     }
 
     if (base == "Range") {
@@ -471,14 +472,15 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
     if (base == "Vec") return AbiLayout{24, 8};
     if (base == "Array") {
         const auto length = fixedArrayLengthFromType(stripped);
+        const size_t elementSize = fixedArrayElementSizeFromType(stripped);
         if (!length.has_value()) {
             return std::nullopt;
         }
-        const auto byteSize = fixedArrayByteSize(*length, 4, defaultTargetSpec());
+        const auto byteSize = fixedArrayByteSize(*length, elementSize, defaultTargetSpec());
         if (!byteSize.has_value()) {
             return std::nullopt;
         }
-        return AbiLayout{*byteSize, 4};
+        return AbiLayout{*byteSize, elementSize};
     }
     if (base == "Addr" || base == "RawPtr" || base == "RawMut" || base == "Fn" || base == "CStr" ||
         base == "OwnedCStr" || base == "Arena" || base == "Anchor" || base == "Map" ||

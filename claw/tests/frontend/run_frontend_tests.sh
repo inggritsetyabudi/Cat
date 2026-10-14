@@ -122,7 +122,7 @@ run_check_pass "try result shadowing preserves binding identity" "$SCRIPT_DIR/..
 run_check_pass "choice payload shadowing preserves binding identity" "$SCRIPT_DIR/../native/fixtures/revise_pick_payload_shadowing.cat"
 run_check_pass "Anchor choice payload shadowing preserves cleanup identity" "$SCRIPT_DIR/../native/fixtures/revise_pick_anchor_payload_shadowing.cat"
 run_check_fail "same-scope duplicate local names remain rejected" "$FIXTURE_DIR/revise_bad_same_scope_duplicate_binding.cat" "Duplicate variable declaration: repeated"
-run_check_fail "indexed scans reject Str" "$FIXTURE_DIR/revise_bad_indexed_scan_str.cat" "An indexed scan is supported only over supported Range values or fixed Array[Int32, N]."
+run_check_fail "indexed scans reject Str" "$FIXTURE_DIR/revise_bad_indexed_scan_str.cat" "An indexed scan is supported only over supported Range values or fixed Array[Int32, N] and Array[UInt8, N]."
 range_scan_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_int32_range_scan.cat")"
 if [[ "$range_scan_air_output" != *"scan item: Int32 over (1 .. 4) : Range[Int32]"* ]] ||
    [[ "$range_scan_air_output" != *"scan item: Int32, index: USize over (3 ..= 5) : Range[Int32]"* ]]; then
@@ -734,6 +734,8 @@ run_check_fail "Maybe[ref Str] from Str.get cannot escape a local receiver" \
   "Borrowed-returning functions must return a view derived from one of their borrowed parameters."
 run_check_pass "fixed Array[Int32,N] inference, annotations, indexing, and scans" \
   "$SCRIPT_DIR/../native/fixtures/revise_fixed_array.cat"
+run_check_pass "fixed Array[UInt8,N] inferred/typed literals, indexing, and scans" \
+  "$SCRIPT_DIR/../native/fixtures/revise_fixed_array_uint8.cat"
 run_check_pass "fixed-array radix length and valid digit separators" \
   "$FIXTURE_DIR/revise_fixed_array_length_formats.cat"
 run_check_fail "repeated separators in fixed-array length" \
@@ -750,7 +752,28 @@ run_check_fail "heterogeneous fixed-array elements" "$FIXTURE_DIR/revise_bad_fix
 run_check_fail "fixed-array annotation length mismatch" "$FIXTURE_DIR/revise_bad_fixed_array_length_mismatch.cat" \
   "Array literal has 3 element(s), but the expected type is Array[Int32, 2]."
 run_check_fail "fixed-array element type outside Int32" "$FIXTURE_DIR/revise_bad_fixed_array_element_type.cat" \
-  "Only fixed Array[Int32, N] is supported"
+  "Only fixed Array[Int32, N] and Array[UInt8, N] are supported"
+run_check_fail "other fixed-array element types remain unsupported" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_unsupported_element.cat" \
+  "Only fixed Array[Int32, N] and Array[UInt8, N] are supported"
+run_check_fail "typed UInt8 fixed-array literal rejects values above 255" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_uint8_overflow.cat" \
+  "Integer literal '256' does not fit target type UInt8"
+run_check_fail "inferred UInt8 fixed-array literal validates unsuffixed values" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_uint8_inferred_overflow.cat" \
+  "Integer literal '256' does not fit target type UInt8"
+run_check_fail "UInt8 fixed-array literal rejects mixed element types" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_uint8_mixed.cat" \
+  "Fixed Array literal elements must have type UInt8; got Int32"
+run_check_fail "UInt8 fixed-array annotation length mismatch" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_uint8_length.cat" \
+  "Array literal has 3 element(s), but the expected type is Array[UInt8, 2]."
+run_check_fail "UInt8 fixed-array type length integer overflow" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_uint8_length_overflow.cat" \
+  "Fixed Array length must be a positive integer literal"
+run_check_fail "zero-size and empty UInt8 fixed arrays remain unsupported" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_uint8_zero_length.cat" \
+  "Fixed Array length must be a positive integer literal"
 run_check_fail "zero-size and empty fixed arrays" "$FIXTURE_DIR/revise_bad_fixed_array_zero_length.cat" \
   "Fixed Array length must be a positive integer literal"
 run_check_fail "empty inferred fixed-array literal" "$FIXTURE_DIR/revise_bad_fixed_array_empty_literal.cat" \
@@ -760,10 +783,19 @@ run_check_fail "signed fixed-array index" "$FIXTURE_DIR/revise_bad_fixed_array_s
 run_check_fail "negative fixed-array index literal" "$FIXTURE_DIR/revise_bad_fixed_array_negative_index.cat" \
   "Fixed Array index cannot be a negative integer literal."
 run_check_fail "nested fixed arrays remain out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_nested.cat" \
-  "Only fixed Array[Int32, N] is supported"
+  "Only fixed Array[Int32, N] and Array[UInt8, N] are supported"
+run_check_fail "nested UInt8 fixed arrays remain out of scope" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_uint8_nested.cat" \
+  "Only fixed Array[Int32, N] and Array[UInt8, N] are supported"
 run_check_fail "global fixed arrays remain out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_global.cat" \
   "Global fixed Array values are out of scope"
+run_check_fail "global UInt8 fixed arrays remain out of scope" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_uint8_global.cat" \
+  "Global fixed Array values are out of scope"
 run_check_fail "fixed-array element assignment remains out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_element_assignment.cat" \
+  "Fixed Array element assignment is out of scope"
+run_check_fail "UInt8 fixed-array element assignment remains out of scope" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_uint8_element_assignment.cat" \
   "Fixed Array element assignment is out of scope"
 
 run_check_pass "fixed Array[Int32,5] aggregate return and parameter" \

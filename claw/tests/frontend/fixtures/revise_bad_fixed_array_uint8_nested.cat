@@ -1,0 +1,2 @@
+fn accept(values: Array[Array[UInt8, 2], 2]) {}
+fn main() {}

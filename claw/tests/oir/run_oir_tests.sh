@@ -74,6 +74,7 @@ run_oir_golden "tuples" "$FIXTURE_DIR/native/fixtures/revise_tuples.cat"
 run_oir_golden "int32-range" "$FIXTURE_DIR/native/fixtures/revise_int32_range.cat"
 run_oir_golden "int32-range-scan" "$FIXTURE_DIR/native/fixtures/revise_int32_range_scan.cat"
 run_oir_golden "fixed-array" "$OIR_FIXTURE_DIR/fixed-array.cat"
+run_oir_golden "fixed-array-uint8" "$OIR_FIXTURE_DIR/fixed-array-uint8.cat"
 run_oir_fail "fixed-array byte-size overflow is rejected before OIR emission" \
   "$FIXTURE_DIR/frontend/fixtures/revise_bad_fixed_array_size_overflow.cat" \
   "Fixed Array byte size overflows the target size limit"
@@ -95,7 +96,7 @@ run_oir_fail "mixed Char and Int32 range endpoints are rejected" "$FIXTURE_DIR/f
 run_oir_fail "Int16 and Int8 range bounds cannot be mixed" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int16_range_mixed_bounds.cat" "Range bounds currently support only Int8, Int16, Int32, Int64, Int128, UInt8, UInt16, UInt32, UInt64, UInt128, USize, or Char with matching types"
 run_oir_fail "Int8 membership rejects Range[Int16]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int8_in_int16_range.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int16/Range[Int16], Int32/Range[Int32], Int64/Range[Int64], Int128/Range[Int128], UInt8/Range[UInt8], UInt16/Range[UInt16], UInt32/Range[UInt32], UInt64/Range[UInt64], UInt128/Range[UInt128], USize/Range[USize], or Char/Range[Char] pair'
 run_oir_fail "Int16 membership rejects Range[Int8]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_int16_in_int8_range.cat" 'Operator `in` requires a matching Int8/Range[Int8], Int16/Range[Int16], Int32/Range[Int32], Int64/Range[Int64], Int128/Range[Int128], UInt8/Range[UInt8], UInt16/Range[UInt16], UInt32/Range[UInt32], UInt64/Range[UInt64], UInt128/Range[UInt128], USize/Range[USize], or Char/Range[Char] pair'
-run_oir_fail "indexed scans reject Str" "$FIXTURE_DIR/frontend/fixtures/revise_bad_indexed_scan_str.cat" "An indexed scan is supported only over supported Range values or fixed Array[Int32, N]."
+run_oir_fail "indexed scans reject Str" "$FIXTURE_DIR/frontend/fixtures/revise_bad_indexed_scan_str.cat" "An indexed scan is supported only over supported Range values or fixed Array[Int32, N] and Array[UInt8, N]."
 run_oir_fail "Str slicing remains restricted to Range[Int32]" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_char_range_index.cat" "Index expression must have type USize, got Range[Char]"
 run_oir_fail "Str slicing remains restricted to Range[Int32] for Int16" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_int16_range_index.cat" "Index expression must have type USize, got Range[Int16]"
 run_oir_fail "Str slicing remains restricted to Range[Int32] for Int64" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_int64_range_index.cat" "Index expression must have type USize, got Range[Int64]"

@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val values: Array[UInt8, 3] = [0, 128, 255]
+    println(values[3_USize])
+    return 0
+}

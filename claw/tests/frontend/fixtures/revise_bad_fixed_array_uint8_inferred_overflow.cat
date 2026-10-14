@@ -1,0 +1,3 @@
+fn main() {
+    val values = [0_UInt8, 256]
+}

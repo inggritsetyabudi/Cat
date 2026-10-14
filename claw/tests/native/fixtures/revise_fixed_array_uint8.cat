@@ -1,0 +1,44 @@
+fn select(values: Array[UInt8, 3], index: USize) -> UInt8 {
+    return values[index]
+}
+fn pass(values: Array[UInt8, 3]) -> Array[UInt8, 3] {
+    return values
+}
+fn make_array() -> Array[UInt8, 3] {
+    println("array-once")
+    return [7_UInt8, 128_UInt8, 255_UInt8]
+}
+fn index_once() -> USize {
+    println("index-once")
+    return 2
+}
+fn make_large() -> Array[UInt8, 17] {
+    return [0_UInt8, 1_UInt8, 2_UInt8, 3_UInt8, 4_UInt8, 5_UInt8, 6_UInt8, 7_UInt8,
+        8_UInt8, 9_UInt8, 10_UInt8, 11_UInt8, 12_UInt8, 13_UInt8, 14_UInt8, 15_UInt8, 255_UInt8]
+}
+fn last_large(values: Array[UInt8, 17]) -> UInt8 {
+    return values[16_USize]
+}
+fn main() -> Int32 {
+    val inferred = [0_UInt8, 128_UInt8, 255_UInt8]
+    val annotated: Array[UInt8, 3] = [0, 128, 255]
+    val copied = pass(annotated)
+    println(inferred[0_USize])
+    println(inferred[1_USize])
+    println(inferred[2_USize])
+    println(select(copied, 2_USize))
+    println(make_array()[index_once()])
+    scan item over inferred {
+        println(item)
+    }
+    scan item, i over annotated {
+        println(i)
+        println(item)
+    }
+    scan item, i over make_array() {
+        println(i)
+        println(item)
+    }
+    println(last_large(make_large()))
+    return 0
+}

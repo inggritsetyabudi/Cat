@@ -250,8 +250,12 @@ void LlvmEmitter::materializeIterBinding(
             "  " + elementPtr + " = getelementptr inbounds " + llvmType(binding.iterable.type) +
             ", ptr " + arrayAddress + ", i64 0, i64 " + indexValue);
         const std::string loadedItem = state.temp("array.iter.item");
-        lines.push_back("  " + loadedItem + " = load i32, ptr " + elementPtr + ", align 4");
-        lines.push_back("  store i32 " + loadedItem + ", ptr " + iterState.itemSlot + ", align 4");
+        lines.push_back(
+            "  " + loadedItem + " = load " + llvmType(binding.itemType) + ", ptr " + elementPtr +
+            ", align " + std::to_string(layout->align));
+        lines.push_back(
+            "  store " + llvmType(binding.itemType) + " " + loadedItem + ", ptr " + iterState.itemSlot +
+            ", align " + std::to_string(layout->align));
         const std::string nextIndex = state.temp("array.iter.next.index");
         lines.push_back("  " + nextIndex + " = add i64 " + indexValue + ", 1");
         lines.push_back("  store i64 " + nextIndex + ", ptr " + iterState.indexSlot + ", align 8");
@@ -594,8 +598,9 @@ std::string LlvmEmitter::emitIndexAddress(
     const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(object.type)));
     if (baseType == "Array") {
         const auto length = fixedArrayLengthFromType(object.type);
-        if (!length.has_value() || elementType != "Int32") {
-            throw std::runtime_error("LLVM lowering supports only read indexing on Array[Int32, N].");
+        const auto arrayElementType = fixedArrayElementTypeFromType(object.type);
+        if (!length.has_value() || !arrayElementType.has_value() || elementType != *arrayElementType) {
+            throw std::runtime_error("LLVM lowering supports only read indexing on Array[Int32, N] and Array[UInt8, N].");
         }
         const std::string objectAddress = ensureAddress(object, state, lines);
         const std::string indexValue = ensureValue(index, state, lines);

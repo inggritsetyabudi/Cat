@@ -130,7 +130,9 @@ void LlvmEmitter::emitStoreField(const LirStoreFieldInst& value, FunctionState& 
         }
         fieldAlign = elementLayout->align;
     } else if (objectType.base == "Array") {
-        const auto elementLayout = abiLayoutForType("Int32");
+        const auto elementLayout = objectType.args.empty()
+            ? std::optional<AbiLayout>{}
+            : abiLayoutForType(objectType.args.front());
         if (!elementLayout.has_value()) {
             throw std::runtime_error("LLVM lowering could not resolve fixed-array element layout.");
         }
