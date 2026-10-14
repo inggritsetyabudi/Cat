@@ -2835,7 +2835,7 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             scan->indexBindingKey = "$scan.binding." + std::to_string(nextScanBindingIdentity++);
             analysisResult.scanIndexTypes[scan] = indexType;
             if (!isSupportedRangeType(iterableType)) {
-                reportError(scan, "An indexed scan is currently supported only over Range[Int8], Range[Int16], Range[Int32], Range[UInt8], or Range[Char].");
+                reportError(scan, "An indexed scan is currently supported only over Range[Int8], Range[Int16], Range[Int32], Range[Int64], Range[UInt8], Range[UInt16], Range[UInt32], Range[UInt64], Range[USize], or Range[Char].");
             }
             defineVariable(
                 scan->indexName,
@@ -3685,7 +3685,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Range bounds currently support only Int8, Int16, Int32, UInt8, or Char with matching types, got " +
+                        "Range bounds currently support only Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, USize, or Char with matching types, got " +
                             leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();
@@ -3706,7 +3706,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 if (!leftType.isUnknown() && !rightType.isUnknown()) {
                     reportError(
                         binary,
-                        "Operator `in` requires a matching Int8/Range[Int8], Int16/Range[Int16], Int32/Range[Int32], UInt8/Range[UInt8], or Char/Range[Char] pair, got " +
+                        "Operator `in` requires a matching Int8/Range[Int8], Int16/Range[Int16], Int32/Range[Int32], Int64/Range[Int64], UInt8/Range[UInt8], UInt16/Range[UInt16], UInt32/Range[UInt32], UInt64/Range[UInt64], USize/Range[USize], or Char/Range[Char] pair, got " +
                             leftType.describe() + " and " + rightType.describe() + ".");
                 }
                 type = makeUnknownType();

@@ -54,6 +54,7 @@ if_pick_values_ll="$ARTIFACT_DIR/revise_if_pick_values.ll"
 try_contract_ll="$ARTIFACT_DIR/revise_try_contract.ll"
 int8_range_ll="$ARTIFACT_DIR/revise_int8_range.ll"
 int16_range_ll="$ARTIFACT_DIR/revise_int16_range.ll"
+wide_range_ll="$ARTIFACT_DIR/revise_wide_integer_ranges.ll"
 rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll" "$if_pick_values_ll"
 rm -f "$try_contract_ll" "$int8_range_ll" "$int16_range_ll"
 
@@ -219,6 +220,29 @@ if [[ "$int16_range_output" != *'define internal i32 @"revise_int16_range::conta
    [[ "$int16_range_output" != *'add i64'* ]] ||
    [[ "$int16_range_output" == *'icmp uge i16'* || "$int16_range_output" == *'icmp ult i16'* || "$int16_range_output" == *'icmp ule i16'* ]]; then
   echo "Int16 range LLVM output did not preserve its aggregate ABI, signed comparisons, terminal check, or USize scan indexes" >&2
+  exit 1
+fi
+run_llvm "test_native/revise_wide_integer_ranges.cat" "$SCRIPT_DIR/../native/fixtures/revise_wide_integer_ranges.cat" "$wide_range_ll"
+wide_range_output="$(tr -d '\r' < "$wide_range_ll")"
+if [[ "$wide_range_output" != *"{ i16, i16, i1 }"* ]] ||
+   [[ "$wide_range_output" != *"{ i32, i32, i1 }"* ]] ||
+   [[ "$wide_range_output" != *"{ i64, i64, i1 }"* ]] ||
+   [[ "$wide_range_output" != *"icmp sge i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp slt i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp sle i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp uge i16"* ]] ||
+   [[ "$wide_range_output" != *"icmp ult i16"* ]] ||
+   [[ "$wide_range_output" != *"icmp ule i16"* ]] ||
+   [[ "$wide_range_output" != *"icmp uge i32"* ]] ||
+   [[ "$wide_range_output" != *"icmp ult i32"* ]] ||
+   [[ "$wide_range_output" != *"icmp ule i32"* ]] ||
+   [[ "$wide_range_output" != *"icmp uge i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp ult i64"* ]] ||
+   [[ "$wide_range_output" != *"icmp ule i64"* ]] ||
+   [[ "$wide_range_output" != *"add i16"* ]] ||
+   [[ "$wide_range_output" != *"add i32"* ]] ||
+   [[ "$wide_range_output" != *"add i64"* ]]; then
+  echo "wide integer Range LLVM IR omitted an expected aggregate width, signedness predicate, or narrow iterator increment" >&2
   exit 1
 fi
 int8_print_ll="$ARTIFACT_DIR/revise_int8_print.ll"

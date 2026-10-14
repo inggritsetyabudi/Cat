@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val bounds: Range[USize] = 0_USize..=2_USize
+    val invalid = 1_UInt64 in bounds
+    return 0
+}

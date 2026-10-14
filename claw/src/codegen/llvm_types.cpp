@@ -94,15 +94,18 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
     }
 
     if (base == "Range") {
-        if (parsedType.args.size() != 1 ||
-            (parsedType.args.front() != "Int8" && parsedType.args.front() != "Int16" && parsedType.args.front() != "Int32" &&
-             parsedType.args.front() != "UInt8" &&
-             parsedType.args.front() != "Char")) {
-            throw std::runtime_error("LLVM lowering supports only Range[Int8], Range[Int16], Range[Int32], Range[UInt8], and Range[Char].");
+        if (parsedType.args.size() != 1) {
+            throw std::runtime_error("LLVM lowering requires one supported scalar type for Range.");
         }
-        if (parsedType.args.front() == "Int8" || parsedType.args.front() == "UInt8") return "{ i8, i8, i1 }";
-        if (parsedType.args.front() == "Int16") return "{ i16, i16, i1 }";
-        return "{ i32, i32, i1 }";
+        const std::string& elementType = parsedType.args.front();
+        if (elementType != "Int8" && elementType != "Int16" && elementType != "Int32" &&
+            elementType != "Int64" && elementType != "UInt8" && elementType != "UInt16" &&
+            elementType != "UInt32" && elementType != "UInt64" && elementType != "USize" &&
+            elementType != "Char") {
+            throw std::runtime_error("LLVM lowering does not support Range[" + elementType + "].");
+        }
+        const std::string scalarType = llvmType(elementType);
+        return "{ " + scalarType + ", " + scalarType + ", i1 }";
     }
 
     const auto shapeIt = shapesByName.find(base);

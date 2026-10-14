@@ -1,0 +1,271 @@
+oir.module revise_wide_integer_ranges
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_wide_integer_ranges::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_wide_integer_ranges::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn contains_i64(value: Int64 [scalar], bounds: Range[Int64] [indirect]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_wide_integer_ranges::contains_i64 ffi=false]
+  block entry:
+    %t0 = in value, bounds : Bool
+    var %t1: Int32
+    branch %t0 -> if_then_0, if_else_1
+  block if_then_0:
+    store %t1 <- 1 : Int32
+    goto if_join_2
+  block if_else_1:
+    store %t1 <- 0 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t1 : Int32
+oir.fn contains_u16(value: UInt16 [scalar], bounds: Range[UInt16] [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_wide_integer_ranges::contains_u16 ffi=false]
+  block entry:
+    %t0 = in value, bounds : Bool
+    var %t1: Int32
+    branch %t0 -> if_then_0, if_else_1
+  block if_then_0:
+    store %t1 <- 1 : Int32
+    goto if_join_2
+  block if_else_1:
+    store %t1 <- 0 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t1 : Int32
+oir.fn contains_u32(value: UInt32 [scalar], bounds: Range[UInt32] [direct]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_wide_integer_ranges::contains_u32 ffi=false]
+  block entry:
+    %t0 = in value, bounds : Bool
+    var %t1: Int32
+    branch %t0 -> if_then_0, if_else_1
+  block if_then_0:
+    store %t1 <- 1 : Int32
+    goto if_join_2
+  block if_else_1:
+    store %t1 <- 0 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t1 : Int32
+oir.fn contains_u64(value: UInt64 [scalar], bounds: Range[UInt64] [indirect]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_wide_integer_ranges::contains_u64 ffi=false]
+  block entry:
+    %t0 = in value, bounds : Bool
+    var %t1: Int32
+    branch %t0 -> if_then_0, if_else_1
+  block if_then_0:
+    store %t1 <- 1 : Int32
+    goto if_join_2
+  block if_else_1:
+    store %t1 <- 0 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t1 : Int32
+oir.fn contains_usize(value: USize [scalar], bounds: Range[USize] [indirect]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_wide_integer_ranges::contains_usize ffi=false]
+  block entry:
+    %t0 = in value, bounds : Bool
+    var %t1: Int32
+    branch %t0 -> if_then_0, if_else_1
+  block if_then_0:
+    store %t1 <- 1 : Int32
+    goto if_join_2
+  block if_else_1:
+    store %t1 <- 0 : Int32
+    goto if_join_2
+  block if_join_2:
+    return %t1 : Int32
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_wide_integer_ranges::main ffi=false]
+  block entry:
+    %t0 = range_inclusive 9223372036854775806_Int64, 9223372036854775807_Int64 : Range[Int64]
+    val signed: Range[Int64] = %t0
+    %t1 = neg 2_Int64 : Int64
+    %t2 = range_inclusive %t1, 0_Int64 : Range[Int64]
+    val signed_negative: Range[Int64] = %t2
+    %t3 = range_inclusive 1_UInt16, 65535_UInt16 : Range[UInt16]
+    val unsigned16: Range[UInt16] = %t3
+    %t4 = range_inclusive 65534_UInt16, 65535_UInt16 : Range[UInt16]
+    val unsigned16_narrow: Range[UInt16] = %t4
+    %t5 = range_inclusive 1_UInt32, 4294967295_UInt32 : Range[UInt32]
+    val unsigned32: Range[UInt32] = %t5
+    %t6 = range_inclusive 4294967294_UInt32, 4294967295_UInt32 : Range[UInt32]
+    val unsigned32_narrow: Range[UInt32] = %t6
+    %t7 = range_inclusive 1_UInt64, 18446744073709551615_UInt64 : Range[UInt64]
+    val unsigned64: Range[UInt64] = %t7
+    %t8 = range_inclusive 18446744073709551614_UInt64, 18446744073709551615_UInt64 : Range[UInt64]
+    val unsigned64_narrow: Range[UInt64] = %t8
+    %t9 = range_inclusive 1_USize, 18446744073709551615_USize : Range[USize]
+    val usize: Range[USize] = %t9
+    %t10 = range_inclusive 18446744073709551614_USize, 18446744073709551615_USize : Range[USize]
+    val usize_narrow: Range[USize] = %t10
+    %t11 = call contains_i64(9223372036854775807_Int64, signed) : Int32
+    call println(%t11) : Unit
+    %t12 = neg 2_Int64 : Int64
+    %t13 = call contains_i64(%t12, signed_negative) : Int32
+    call println(%t13) : Unit
+    %t14 = call contains_i64(1_Int64, signed_negative) : Int32
+    call println(%t14) : Unit
+    %t15 = call contains_u16(32768_UInt16, unsigned16) : Int32
+    call println(%t15) : Unit
+    %t16 = call contains_u16(0_UInt16, unsigned16) : Int32
+    call println(%t16) : Unit
+    %t17 = call contains_u32(2147483648_UInt32, unsigned32) : Int32
+    call println(%t17) : Unit
+    %t18 = call contains_u32(0_UInt32, unsigned32) : Int32
+    call println(%t18) : Unit
+    %t19 = call contains_u64(9223372036854775808_UInt64, unsigned64) : Int32
+    call println(%t19) : Unit
+    %t20 = call contains_u64(0_UInt64, unsigned64) : Int32
+    call println(%t20) : Unit
+    %t21 = call contains_usize(9223372036854775808_USize, usize) : Int32
+    call println(%t21) : Unit
+    %t22 = call contains_usize(0_USize, usize) : Int32
+    call println(%t22) : Unit
+    var signed_count: Int32 = 0
+    range_scan_init item: Int64 from signed : Range[Int64]
+    goto scan_header_0
+  block scan_header_0:
+    scan item: Int64 over signed -> scan_body_1, scan_exit_2
+  block scan_body_1:
+    %t23 = eq item, 9223372036854775807_Int64 : Bool
+    branch %t23 -> if_then_3, if_join_4
+  block if_then_3:
+    call println(1) : Unit
+    goto if_join_4
+  block if_join_4:
+    %t24 = add signed_count, 1 : Int32
+    store signed_count <- %t24 : Int32
+    goto scan_header_0
+  block scan_exit_2:
+    call println(signed_count) : Unit
+    range_scan_init item: Int64, index: USize from signed : Range[Int64]
+    goto scan_header_5
+  block scan_header_5:
+    scan item: Int64, index: USize over signed -> scan_body_6, scan_exit_7
+  block scan_body_6:
+    %t25 = eq item, 9223372036854775807_Int64 : Bool
+    branch %t25 -> if_then_8, if_join_9
+  block if_then_8:
+    call println(index) : Unit
+    goto if_join_9
+  block if_join_9:
+    goto scan_header_5
+  block scan_exit_7:
+    var u16_count: Int32 = 0
+    range_scan_init item: UInt16 from unsigned16_narrow : Range[UInt16]
+    goto scan_header_10
+  block scan_header_10:
+    scan item: UInt16 over unsigned16_narrow -> scan_body_11, scan_exit_12
+  block scan_body_11:
+    %t26 = eq item, 65535_UInt16 : Bool
+    branch %t26 -> if_then_13, if_join_14
+  block if_then_13:
+    call println(1) : Unit
+    goto if_join_14
+  block if_join_14:
+    %t27 = add u16_count, 1 : Int32
+    store u16_count <- %t27 : Int32
+    goto scan_header_10
+  block scan_exit_12:
+    call println(u16_count) : Unit
+    range_scan_init item: UInt16, index: USize from unsigned16_narrow : Range[UInt16]
+    goto scan_header_15
+  block scan_header_15:
+    scan item: UInt16, index: USize over unsigned16_narrow -> scan_body_16, scan_exit_17
+  block scan_body_16:
+    %t28 = eq item, 65535_UInt16 : Bool
+    branch %t28 -> if_then_18, if_join_19
+  block if_then_18:
+    call println(index) : Unit
+    goto if_join_19
+  block if_join_19:
+    goto scan_header_15
+  block scan_exit_17:
+    var u32_count: Int32 = 0
+    range_scan_init item: UInt32 from unsigned32_narrow : Range[UInt32]
+    goto scan_header_20
+  block scan_header_20:
+    scan item: UInt32 over unsigned32_narrow -> scan_body_21, scan_exit_22
+  block scan_body_21:
+    %t29 = eq item, 4294967295_UInt32 : Bool
+    branch %t29 -> if_then_23, if_join_24
+  block if_then_23:
+    call println(1) : Unit
+    goto if_join_24
+  block if_join_24:
+    %t30 = add u32_count, 1 : Int32
+    store u32_count <- %t30 : Int32
+    goto scan_header_20
+  block scan_exit_22:
+    call println(u32_count) : Unit
+    range_scan_init item: UInt32, index: USize from unsigned32_narrow : Range[UInt32]
+    goto scan_header_25
+  block scan_header_25:
+    scan item: UInt32, index: USize over unsigned32_narrow -> scan_body_26, scan_exit_27
+  block scan_body_26:
+    %t31 = eq item, 4294967295_UInt32 : Bool
+    branch %t31 -> if_then_28, if_join_29
+  block if_then_28:
+    call println(index) : Unit
+    goto if_join_29
+  block if_join_29:
+    goto scan_header_25
+  block scan_exit_27:
+    var u64_count: Int32 = 0
+    range_scan_init item: UInt64 from unsigned64_narrow : Range[UInt64]
+    goto scan_header_30
+  block scan_header_30:
+    scan item: UInt64 over unsigned64_narrow -> scan_body_31, scan_exit_32
+  block scan_body_31:
+    %t32 = eq item, 18446744073709551615_UInt64 : Bool
+    branch %t32 -> if_then_33, if_join_34
+  block if_then_33:
+    call println(1) : Unit
+    goto if_join_34
+  block if_join_34:
+    %t33 = add u64_count, 1 : Int32
+    store u64_count <- %t33 : Int32
+    goto scan_header_30
+  block scan_exit_32:
+    call println(u64_count) : Unit
+    range_scan_init item: UInt64, index: USize from unsigned64_narrow : Range[UInt64]
+    goto scan_header_35
+  block scan_header_35:
+    scan item: UInt64, index: USize over unsigned64_narrow -> scan_body_36, scan_exit_37
+  block scan_body_36:
+    %t34 = eq item, 18446744073709551615_UInt64 : Bool
+    branch %t34 -> if_then_38, if_join_39
+  block if_then_38:
+    call println(index) : Unit
+    goto if_join_39
+  block if_join_39:
+    goto scan_header_35
+  block scan_exit_37:
+    var usize_count: Int32 = 0
+    range_scan_init item: USize from usize_narrow : Range[USize]
+    goto scan_header_40
+  block scan_header_40:
+    scan item: USize over usize_narrow -> scan_body_41, scan_exit_42
+  block scan_body_41:
+    %t35 = eq item, 18446744073709551615_USize : Bool
+    branch %t35 -> if_then_43, if_join_44
+  block if_then_43:
+    call println(1) : Unit
+    goto if_join_44
+  block if_join_44:
+    %t36 = add usize_count, 1 : Int32
+    store usize_count <- %t36 : Int32
+    goto scan_header_40
+  block scan_exit_42:
+    call println(usize_count) : Unit
+    range_scan_init item: USize, index: USize from usize_narrow : Range[USize]
+    goto scan_header_45
+  block scan_header_45:
+    scan item: USize, index: USize over usize_narrow -> scan_body_46, scan_exit_47
+  block scan_body_46:
+    %t37 = eq item, 18446744073709551615_USize : Bool
+    branch %t37 -> if_then_48, if_join_49
+  block if_then_48:
+    call println(index) : Unit
+    goto if_join_49
+  block if_join_49:
+    goto scan_header_45
+  block scan_exit_47:
+    return 0 : Int32
