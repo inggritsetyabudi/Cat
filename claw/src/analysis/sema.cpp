@@ -83,6 +83,15 @@ bool isSupportedTupleDestructuringField(const ResolvedType& type) {
     return false;
 }
 
+bool hasNestedTuplePattern(const PickPattern* pattern) {
+    if (!pattern || pattern->kind != PickPatternKind::Tuple) {
+        return false;
+    }
+    return std::any_of(pattern->elements.begin(), pattern->elements.end(), [](const auto& element) {
+        return element && (element->kind == PickPatternKind::Tuple || hasNestedTuplePattern(element.get()));
+    });
+}
+
 bool containsOwnedTupleValue(const ResolvedType& type) {
     if (type.name == "Tuple" && type.isOwned()) {
         return true;
@@ -985,7 +994,20 @@ void SemanticAnalyzer::validateNameCasing(const RealmDecl* realm) {
     };
 
     std::function<void(const Expr*)> requireExpr;
+    std::function<void(const PickPattern*)> requireTuplePattern;
     std::function<void(const BlockStmt*)> requireBlock;
+    requireTuplePattern = [&](const PickPattern* pattern) {
+        if (!pattern) {
+            return;
+        }
+        if (pattern->kind == PickPatternKind::Binding) {
+            requireCase(pattern->name, pattern->span, false, "Variable name", true);
+            return;
+        }
+        for (const auto& element : pattern->elements) {
+            requireTuplePattern(element.get());
+        }
+    };
     requireBlock = [&](const BlockStmt* block) {
         if (!block) {
             return;
@@ -993,12 +1015,10 @@ void SemanticAnalyzer::validateNameCasing(const RealmDecl* realm) {
 
         for (const auto& stmt : block->statements) {
             if (const auto* binding = dynamic_cast<const BindingStmt*>(stmt.get())) {
-                if (binding->tuplePatternNames.empty()) {
+                if (!binding->tuplePattern) {
                     requireCase(binding->name, binding->span, false, "Variable name", true);
                 } else {
-                    for (const auto& name : binding->tuplePatternNames) {
-                        requireCase(name, binding->span, false, "Variable name", true);
-                    }
+                    requireTuplePattern(binding->tuplePattern.get());
                 }
                 requireExpr(binding->value.get());
             } else if (const auto* tryStmt = dynamic_cast<const TryStmt*>(stmt.get())) {
@@ -2290,7 +2310,7 @@ void SemanticAnalyzer::bindTuplePickPattern(PickPattern* pattern, const Resolved
 
 void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
     if (auto* bind = dynamic_cast<BindingStmt*>(stmt)) {
-        if (!bind->tuplePatternNames.empty()) {
+        if (bind->tuplePattern) {
             if (bind->isMutable) {
                 reportError(bind, "Tuple destructuring is currently supported only for immutable `val` bindings.");
             }
@@ -2312,34 +2332,74 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                 reportError(bind, "Tuple destructuring consumes the tuple value and cannot destructure a view tuple.");
                 return;
             }
-            if (valueType.params.size() != bind->tuplePatternNames.size()) {
+            if (bind->tuplePattern->kind != PickPatternKind::Tuple) {
+                reportError(bind, "Tuple destructuring requires a tuple pattern.");
+                return;
+            }
+            if (valueType.params.size() != bind->tuplePattern->elements.size()) {
                 reportError(
                     bind,
-                    "Tuple destructuring expects " + std::to_string(bind->tuplePatternNames.size()) +
+                    "Tuple destructuring expects " + std::to_string(bind->tuplePattern->elements.size()) +
                         " binding(s), but the tuple has " + std::to_string(valueType.params.size()) + " field(s).");
                 return;
             }
 
-            for (size_t i = 0; i < bind->tuplePatternNames.size(); ++i) {
-                const ResolvedType& fieldType = valueType.params[i];
-                if (!isSupportedTupleDestructuringField(fieldType)) {
-                    reportError(
-                        bind,
-                        "Tuple destructuring currently supports plain fields and Anchor[T] fields with plain T; element " +
-                            std::to_string(i) + " has type " + fieldType.describe() + ".");
-                }
-                const std::string& name = bind->tuplePatternNames[i];
-                if (name != "_") {
-                    defineVariable(
-                        name,
-                        fieldType,
-                        false,
-                        "Duplicate variable declaration: " + name,
-                        bind->span,
-                        std::nullopt,
-                        bind);
-                }
+            const bool nestedPattern = hasNestedTuplePattern(bind->tuplePattern.get());
+            if (nestedPattern && !isPlainTupleDestructuringField(valueType)) {
+                reportError(
+                    bind,
+                    "Nested tuple destructuring currently supports only plain, concrete, non-view tuple values; got " +
+                        valueType.describe() + ".");
+                return;
             }
+
+            std::function<void(PickPattern*, const ResolvedType&, const std::string&, bool)> bindPattern;
+            bindPattern = [&](PickPattern* pattern, const ResolvedType& patternType, const std::string& path, bool root) {
+                if (pattern->kind == PickPatternKind::Tuple) {
+                    if (!root && patternType.name != "Tuple") {
+                        reportError(
+                            pattern->span,
+                            "Nested tuple destructuring pattern at element " + path + " requires a tuple value, got " +
+                                patternType.describe() + ".");
+                        return;
+                    }
+                    if (pattern->elements.size() != patternType.params.size()) {
+                        reportError(
+                            pattern->span,
+                            "Tuple destructuring pattern at element " + path + " expects " +
+                                std::to_string(pattern->elements.size()) + " binding(s), but the tuple has " +
+                                std::to_string(patternType.params.size()) + " field(s).");
+                        return;
+                    }
+                    for (size_t i = 0; i < pattern->elements.size(); ++i) {
+                        const std::string childPath = root
+                            ? std::to_string(i)
+                            : path + "." + std::to_string(i);
+                        bindPattern(pattern->elements[i].get(), patternType.params[i], childPath, false);
+                    }
+                    return;
+                }
+
+                if (!isSupportedTupleDestructuringField(patternType)) {
+                    reportError(
+                        pattern->span,
+                        "Tuple destructuring currently supports plain fields and Anchor[T] fields with plain T; element " +
+                            path + " has type " + patternType.describe() + ".");
+                    return;
+                }
+                if (pattern->kind == PickPatternKind::Binding) {
+                    defineVariable(
+                        pattern->name,
+                        patternType,
+                        false,
+                        "Duplicate variable declaration: " + pattern->name,
+                        pattern->span,
+                        std::nullopt,
+                        bind,
+                        &pattern->backendBindingKey);
+                }
+            };
+            bindPattern(bind->tuplePattern.get(), valueType, "", true);
             return;
         }
 
@@ -4487,16 +4547,8 @@ void SemanticAnalyzer::defineVariable(
     if ((bindingDecl != nullptr || backendBindingKeyOut != nullptr) && scopes.lookup(name) != nullptr) {
         sym->backendBindingKey = "$local.binding." + std::to_string(nextLocalBindingIdentity++);
         if (bindingDecl != nullptr) {
-            if (bindingDecl->tuplePatternNames.empty()) {
+            if (!bindingDecl->tuplePattern) {
                 bindingDecl->backendBindingKey = sym->backendBindingKey;
-            } else {
-                bindingDecl->tuplePatternBindingKeys.resize(bindingDecl->tuplePatternNames.size());
-                for (size_t i = 0; i < bindingDecl->tuplePatternNames.size(); ++i) {
-                    if (bindingDecl->tuplePatternNames[i] == name) {
-                        bindingDecl->tuplePatternBindingKeys[i] = sym->backendBindingKey;
-                        break;
-                    }
-                }
             }
         }
     }

@@ -1,0 +1,3 @@
+fn reject_nested_owned(value: Anchor[Int32]) {
+    val ((inside,), tail) = ((value,), 1)
+}

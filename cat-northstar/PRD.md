@@ -357,7 +357,7 @@ if x in 10..20 { ... }
 
 - Tipe `(T, U)`, literal `(a, b)`, tuple satu elemen `(a,)`, `()` = `Unit`.
 - Akses `t.0`, `t.1`.
-- Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4.
+- Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4. Nested binding pattern seperti `val ((a, b), c) = t` untuk tuple plain, konkret, non-view/non-owned **[sudah]**. Nested destructuring atas field owned/view/generic, partial moves, dan assignment tetap belum didukung.
 - Destructuring **menghabiskan** tuple (milik penuh). Elemen `_` dibebaskan di statement itu juga.
 
 ```cat proposal

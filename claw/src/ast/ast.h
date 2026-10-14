@@ -125,14 +125,27 @@ struct AssignStmt : public Stmt {
     std::unique_ptr<Expr> value;
 };
 
+enum class PickPatternKind {
+    Wildcard,
+    Binding,
+    Tuple,
+};
+
+struct PickPattern {
+    SourceSpan span;
+    PickPatternKind kind = PickPatternKind::Wildcard;
+    std::string name;
+    std::vector<std::unique_ptr<PickPattern>> elements;
+    std::string backendBindingKey;
+};
+
 struct BindingStmt : public Stmt {
     bool isMutable = false;
     std::string name;
-    std::vector<std::string> tuplePatternNames;
+    std::unique_ptr<PickPattern> tuplePattern;
     std::unique_ptr<TypeNode> type;
     std::unique_ptr<Expr> value;
     std::string backendBindingKey;
-    std::vector<std::string> tuplePatternBindingKeys;
 };
 
 struct TryStmt : public Stmt {
@@ -180,20 +193,6 @@ struct ScopeStmt : public Stmt {
 
 struct StopStmt : public Stmt {};
 struct SkipStmt : public Stmt {};
-
-enum class PickPatternKind {
-    Wildcard,
-    Binding,
-    Tuple,
-};
-
-struct PickPattern {
-    SourceSpan span;
-    PickPatternKind kind = PickPatternKind::Wildcard;
-    std::string name;
-    std::vector<std::unique_ptr<PickPattern>> elements;
-    std::string backendBindingKey;
-};
 
 struct PickBranch {
     SourceSpan span;

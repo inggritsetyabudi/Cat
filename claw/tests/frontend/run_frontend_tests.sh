@@ -159,7 +159,10 @@ run_check_fail "tuple projection index out of range" "$FIXTURE_DIR/revise_bad_tu
 run_check_fail "tuple fields without a safe destructor remain rejected" "$FIXTURE_DIR/revise_bad_tuple_owned_field.cat" "Tuple fields must be concrete plain values or Anchor[T] with concrete plain T"
 run_check_fail "tuple literal does not match expected arity" "$FIXTURE_DIR/revise_bad_tuple_arity.cat" "Tuple literal has 1 element(s), but the expected tuple type has 2."
 run_check_pass "plain tuple destructuring with wildcard and singleton patterns" "$SCRIPT_DIR/../native/fixtures/revise_tuple_destructuring.cat"
-run_check_fail "nested tuple destructuring remains unsupported" "$FIXTURE_DIR/revise_bad_tuple_destructuring.cat" "Nested tuple patterns in bindings are not yet supported."
+run_check_pass "nested plain tuple destructuring with wildcard and singleton patterns" "$SCRIPT_DIR/../native/fixtures/revise_tuple_nested_destructuring.cat"
+run_check_fail "nested tuple patterns require tuple-typed fields" "$FIXTURE_DIR/revise_bad_tuple_destructuring.cat" "Nested tuple destructuring pattern at element 0 requires a tuple value, got Int32."
+run_check_fail "nested tuple destructuring pattern arity mismatch" "$FIXTURE_DIR/revise_bad_nested_tuple_destructuring_arity.cat" "Tuple destructuring pattern at element 0 expects 2 binding(s), but the tuple has 1 field(s)."
+run_check_fail "nested tuple destructuring rejects owned tuple values" "$FIXTURE_DIR/revise_bad_nested_tuple_destructuring_owned.cat" "Nested tuple destructuring currently supports only plain, concrete, non-view tuple values"
 run_check_fail "tuple destructuring pattern arity mismatch" "$FIXTURE_DIR/revise_bad_tuple_destructuring_arity.cat" "Tuple destructuring expects 2 binding(s), but the tuple has 3 field(s)."
 run_check_fail "tuple destructuring requires a tuple value" "$FIXTURE_DIR/revise_bad_tuple_destructuring_non_tuple.cat" "Tuple destructuring requires a tuple value"
 run_check_fail "tuple destructuring consumes the source tuple" "$FIXTURE_DIR/revise_bad_tuple_destructuring_reuse.cat" "Use of moved value -> pair"
@@ -236,6 +239,16 @@ if [[ "$tuple_destructuring_air_output" != *"val (left, right) = pair : Tuple[In
    [[ "$tuple_destructuring_air_output" != *"val (_, kept) ="* ]]; then
   echo "tuple destructuring AIR did not preserve named and wildcard pattern bindings" >&2
   echo "$tuple_destructuring_air_output" >&2
+  exit 1
+fi
+
+echo "[air/pass] nested tuple destructuring patterns"
+nested_tuple_destructuring_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_tuple_nested_destructuring.cat")"
+if [[ "$nested_tuple_destructuring_air_output" != *"val ((left, middle), right) = input"* ]] ||
+   [[ "$nested_tuple_destructuring_air_output" != *"val ((_, kept), _) ="* ]] ||
+   [[ "$nested_tuple_destructuring_air_output" != *"val ((only,), _) ="* ]]; then
+  echo "nested tuple destructuring AIR did not preserve recursive, wildcard, and singleton patterns" >&2
+  echo "$nested_tuple_destructuring_air_output" >&2
   exit 1
 fi
 

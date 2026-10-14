@@ -282,7 +282,7 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
     }
 
     if (auto* bind = dynamic_cast<BindingStmt*>(stmt)) {
-        if (!bind->tuplePatternNames.empty()) {
+        if (bind->tuplePattern) {
             const ResolvedType tupleType = bind->value ? typeOfExpr(bind->value.get()) : makeUnknownType();
             const auto* identifierSource = bind->value ? dynamic_cast<IdentExpr*>(bind->value.get()) : nullptr;
             const bool projectedSource = bind->value &&
@@ -320,19 +320,7 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
                 }
             }
 
-            for (size_t i = 0; i < bind->tuplePatternNames.size(); ++i) {
-                const std::string& name = bind->tuplePatternNames[i];
-                if (name == "_") {
-                    continue;
-                }
-                TrackedVar fieldState;
-                fieldState.type = i < tupleType.params.size() ? tupleType.params[i] : makeUnknownType();
-                fieldState.storageState = StorageState::Initialized;
-                if (i < bind->tuplePatternBindingKeys.size()) {
-                    fieldState.backendBindingKey = bind->tuplePatternBindingKeys[i];
-                }
-                defineTrackedVar(name, fieldState);
-            }
+            registerTuplePatternBindings(bind->tuplePattern.get(), tupleType);
             return;
         }
 

@@ -56,6 +56,7 @@ discarded_anchor_output="$ARTIFACT_DIR/revise_discarded_anchor_temporary.exe"
 discarded_binary_anchor_output="$ARTIFACT_DIR/revise_discarded_binary_anchor_temporary.exe"
 tuples_output="$ARTIFACT_DIR/revise_tuples.exe"
 tuple_destructuring_output="$ARTIFACT_DIR/revise_tuple_destructuring.exe"
+tuple_nested_destructuring_output="$ARTIFACT_DIR/revise_tuple_nested_destructuring.exe"
 tuple_owned_output="$ARTIFACT_DIR/revise_tuple_owned_destructuring.exe"
 tuple_pick_output="$ARTIFACT_DIR/revise_tuple_pick.exe"
 range_output="$ARTIFACT_DIR/revise_int32_range.exe"
@@ -193,6 +194,17 @@ expected_tuple_destructuring_stdout=$'1\n2\n3\n5\n6\n6\n7\n7'
 if [[ "$tuple_destructuring_stdout" != "$expected_tuple_destructuring_stdout" ]]; then
   echo "tuple destructuring native output was unexpected:" >&2
   printf '%s\n' "$tuple_destructuring_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_tuple_nested_destructuring.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_tuple_nested_destructuring.cat" "$tuple_nested_destructuring_output" >/dev/null
+expect_generated_ll "$tuple_nested_destructuring_output"
+tuple_nested_destructuring_stdout="$(normalize_stdout "$tuple_nested_destructuring_output")"
+expected_tuple_nested_destructuring_stdout=$'nested-factory\n1\n2\n3\n6\n5\n6\n7\n6\n8\n9\n8\n2\n3\n4\n2\n1'
+if [[ "$tuple_nested_destructuring_stdout" != "$expected_tuple_nested_destructuring_stdout" ]]; then
+  echo "nested tuple destructuring native output was unexpected:" >&2
+  printf '%s\n' "$tuple_nested_destructuring_stdout" >&2
   exit 1
 fi
 
@@ -921,6 +933,21 @@ if [[ -x "$CWD_TEST_DIR/asan_probe" ]]; then
   fi
 else
   echo "[asan/skip] clang AddressSanitizer is unavailable for owned tuple destructuring test"
+fi
+
+tuple_nested_destructuring_asan="$CWD_TEST_DIR/revise_tuple_nested_destructuring_asan"
+if [[ -x "$CWD_TEST_DIR/asan_probe" ]]; then
+  echo "[sanitizer/pass] nested plain tuple pattern projections under ASan and UBSan"
+  clang -fsanitize=address,undefined -O1 -g "${tuple_nested_destructuring_output%.exe}.ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$tuple_nested_destructuring_asan"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    "$tuple_nested_destructuring_asan" > "$CWD_TEST_DIR/revise_tuple_nested_destructuring_sanitizer.out"
+  tuple_nested_destructuring_sanitizer_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_tuple_nested_destructuring_sanitizer.out")"
+  if [[ "$tuple_nested_destructuring_sanitizer_stdout" != "$expected_tuple_nested_destructuring_stdout" ]]; then
+    echo "nested tuple destructuring sanitizer output was unexpected: $tuple_nested_destructuring_sanitizer_stdout" >&2
+    exit 1
+  fi
+else
+  echo "[sanitizer/skip] clang AddressSanitizer is unavailable for nested tuple destructuring test"
 fi
 
 echo "[build/pass] test_native/revise_try_contract.cat"
