@@ -28,8 +28,12 @@ CLAW_EXE="$CLAW_EXE_DIR/$(basename -- "$CLAW_EXE")"
 
 ARTIFACT_DIR="$SCRIPT_DIR/artifacts"
 mkdir -p "$ARTIFACT_DIR"
-CWD_TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claw-native-cwd.XXXXXX")"
-trap 'rm -rf "$CWD_TEST_DIR"' EXIT
+CWD_TEST_DIR="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/claw-native-cwd.XXXXXX")"
+trap 'rm -rf -- "$CWD_TEST_DIR"' EXIT
+if [[ ! -d "$CWD_TEST_DIR" ]]; then
+  printf 'native test temporary directory does not exist: %q\n' "$CWD_TEST_DIR" >&2
+  exit 1
+fi
 
 normalize_stdout() {
   "$1" | tr -d '\r'
