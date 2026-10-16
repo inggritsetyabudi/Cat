@@ -933,7 +933,8 @@ fi
 echo "[build/pass] compiler locates bundled runtime outside repository working directory"
 (
   cd -- "$CWD_TEST_DIR"
-  cwd_independent_output="$CWD_TEST_DIR/revise_cwd_independent.exe"
+  # Keep the working directory outside the repo; keep output paths on the stable artifact tree.
+  cwd_independent_output="$ARTIFACT_DIR/revise_cwd_independent.exe"
   "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_single_file.cat" "$cwd_independent_output" >/dev/null
   expect_generated_ll "$cwd_independent_output"
   cwd_independent_stdout="$(normalize_stdout "$cwd_independent_output")"
