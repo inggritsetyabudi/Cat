@@ -301,6 +301,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     set -e
     [[ "$pty_plain_rc" -eq 0 ]] || fail "NO_COLOR PTY build failed: $pty_plain_rc"
     if grep -q $'\033' "$pty_plain_stderr"; then
+      python3 -c 'import pathlib, sys; print("NO_COLOR PTY stderr bytes:", repr(pathlib.Path(sys.argv[1]).read_bytes()[:256]))' "$pty_plain_stderr" >&2
       fail "NO_COLOR did not suppress ANSI sequences in a PTY"
     fi
     grep -Fq 'FORGE READY | native artifact ready' "$pty_plain_stderr" || fail "NO_COLOR PTY success status missing"
