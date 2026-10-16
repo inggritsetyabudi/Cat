@@ -29,13 +29,7 @@ CLAW_EXE="$CLAW_EXE_DIR/$(basename -- "$CLAW_EXE")"
 ARTIFACT_DIR="$SCRIPT_DIR/artifacts"
 mkdir -p "$ARTIFACT_DIR"
 CWD_TEST_DIR="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/claw-native-cwd.XXXXXX")"
-CWD_TEST_OWNER_BASHPID="$BASHPID"
-cleanup_native_test_dir() {
-  if [[ "$BASHPID" == "$CWD_TEST_OWNER_BASHPID" ]]; then
-    rm -rf -- "$CWD_TEST_DIR"
-  fi
-}
-trap cleanup_native_test_dir EXIT
+trap 'rm -rf -- "$CWD_TEST_DIR"' EXIT
 if [[ ! -d "$CWD_TEST_DIR" ]]; then
   printf 'native test temporary directory does not exist: %q\n' "$CWD_TEST_DIR" >&2
   exit 1
@@ -604,15 +598,14 @@ fi
 
 echo "[build/fail] fixed-array byte-size overflow is rejected before native or LLVM output"
 fixed_array_overflow_output="$CWD_TEST_DIR/revise_bad_fixed_array_size_overflow.exe"
-fixed_array_overflow_log="$CWD_TEST_DIR/revise_bad_fixed_array_size_overflow.log"
-if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_fixed_array_size_overflow.cat" \
-  "$fixed_array_overflow_output" >"$fixed_array_overflow_log" 2>&1; then
+if fixed_array_overflow_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_fixed_array_size_overflow.cat" \
+  "$fixed_array_overflow_output" 2>&1)"; then
   echo "overflowing fixed array unexpectedly built a native executable" >&2
   exit 1
 fi
-if ! grep -Fq 'Fixed Array byte size overflows the target size limit' "$fixed_array_overflow_log"; then
+if [[ "$fixed_array_overflow_diagnostic" != *'Fixed Array byte size overflows the target size limit'* ]]; then
   echo "overflowing fixed-array build failed without the expected size diagnostic:" >&2
-  cat "$fixed_array_overflow_log" >&2
+  printf '%s\n' "$fixed_array_overflow_diagnostic" >&2
   exit 1
 fi
 if [[ -e "$fixed_array_overflow_output" || -e "${fixed_array_overflow_output%.exe}.ll" ]]; then
@@ -699,8 +692,7 @@ fi
 
 echo "[build/fail] nested Anchor payload is rejected before native output"
 nested_anchor_payload_output="$CWD_TEST_DIR/revise_bad_anchor_nested_payload.exe"
-nested_anchor_payload_log="$CWD_TEST_DIR/revise_bad_anchor_nested_payload.log"
-if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_payload.cat" "$nested_anchor_payload_output" >"$nested_anchor_payload_log" 2>&1; then
+if nested_anchor_payload_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_payload.cat" "$nested_anchor_payload_output" 2>&1)"; then
   echo "nested Anchor payload unexpectedly built successfully" >&2
   exit 1
 fi
@@ -708,16 +700,15 @@ if [[ -e "$nested_anchor_payload_output" ]]; then
   echo "nested Anchor payload rejection left a native binary behind: $nested_anchor_payload_output" >&2
   exit 1
 fi
-if ! grep -Fq 'Anchor.new(...) cannot store payload type `Anchor[Int32]` because it contains a nested Anchor' "$nested_anchor_payload_log"; then
+if [[ "$nested_anchor_payload_diagnostic" != *'Anchor.new(...) cannot store payload type `Anchor[Int32]` because it contains a nested Anchor'* ]]; then
   echo "nested Anchor payload build did not report the expected sema diagnostic:" >&2
-  cat "$nested_anchor_payload_log" >&2
+  printf '%s\n' "$nested_anchor_payload_diagnostic" >&2
   exit 1
 fi
 
 echo "[build/fail] generic Shape specialization rejects nested Anchor without native output"
 nested_anchor_shape_output="$CWD_TEST_DIR/revise_bad_anchor_nested_shape_specialization.exe"
-nested_anchor_shape_log="$CWD_TEST_DIR/revise_bad_anchor_nested_shape_specialization.log"
-if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_shape_specialization.cat" "$nested_anchor_shape_output" >"$nested_anchor_shape_log" 2>&1; then
+if nested_anchor_shape_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_shape_specialization.cat" "$nested_anchor_shape_output" 2>&1)"; then
   echo "nested AnchorBox specialization unexpectedly built successfully" >&2
   exit 1
 fi
@@ -725,16 +716,15 @@ if [[ -e "$nested_anchor_shape_output" ]]; then
   echo "nested AnchorBox specialization rejection left a native binary behind: $nested_anchor_shape_output" >&2
   exit 1
 fi
-if ! grep -Fq 'AnchorBox[Anchor[Int32]]` is unsupported because an Anchor payload cannot contain another Anchor' "$nested_anchor_shape_log"; then
+if [[ "$nested_anchor_shape_diagnostic" != *'AnchorBox[Anchor[Int32]]` is unsupported because an Anchor payload cannot contain another Anchor'* ]]; then
   echo "nested AnchorBox specialization build did not report the expected sema diagnostic:" >&2
-  cat "$nested_anchor_shape_log" >&2
+  printf '%s\n' "$nested_anchor_shape_diagnostic" >&2
   exit 1
 fi
 
 echo "[build/fail] Anchor.new rejects nested Anchor inside inferred Shape payload"
 nested_anchor_shape_payload_output="$CWD_TEST_DIR/revise_bad_anchor_nested_shape_payload.exe"
-nested_anchor_shape_payload_log="$CWD_TEST_DIR/revise_bad_anchor_nested_shape_payload.log"
-if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_shape_payload.cat" "$nested_anchor_shape_payload_output" >"$nested_anchor_shape_payload_log" 2>&1; then
+if nested_anchor_shape_payload_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_shape_payload.cat" "$nested_anchor_shape_payload_output" 2>&1)"; then
   echo "Anchor.new with nested Anchor inside a Shape payload unexpectedly built successfully" >&2
   exit 1
 fi
@@ -742,9 +732,9 @@ if [[ -e "$nested_anchor_shape_payload_output" ]]; then
   echo "nested Anchor Shape payload rejection left a native binary behind: $nested_anchor_shape_payload_output" >&2
   exit 1
 fi
-if ! grep -Fq 'is unsupported because an Anchor payload cannot contain another Anchor' "$nested_anchor_shape_payload_log"; then
+if [[ "$nested_anchor_shape_payload_diagnostic" != *'is unsupported because an Anchor payload cannot contain another Anchor'* ]]; then
   echo "nested Anchor Shape payload build did not report the expected sema diagnostic:" >&2
-  cat "$nested_anchor_shape_payload_log" >&2
+  printf '%s\n' "$nested_anchor_shape_payload_diagnostic" >&2
   exit 1
 fi
 
