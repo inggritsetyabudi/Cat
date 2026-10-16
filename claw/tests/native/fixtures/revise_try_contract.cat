@@ -1,28 +1,28 @@
-fn step(flag: Bool) -> Result[Int32, Str] {
+fn step(flag: Bool) -> Result[Int32, String] {
     if flag {
         return Ok(37)
     }
-    return Fail("step-failed")
+    return Fail(String.from("step-failed"))
 }
 
-fn propagate(flag: Bool) -> Result[Int32, Str] {
+fn propagate(flag: Bool) -> Result[Int32, String] {
     val value = try step(flag)
     return Ok(value)
 }
 
 fn handle_locally(flag: Bool) -> Int32 {
     val value = try step(flag) else err {
-        println(err)
+        println(err.as_str())
         return -1
     }
     return value
 }
 
-fn nested() -> Result[Result[Int32, Str], Str] {
+fn nested() -> Result[Result[Int32, String], String] {
     return Ok(Ok(41))
 }
 
-fn unwrap_one() -> Result[Int32, Str] {
+fn unwrap_one() -> Result[Int32, String] {
     val inner_result = try nested()
     return inner_result
 }
@@ -40,12 +40,12 @@ fn main() {
     val propagated_failure = propagate(false)
     pick propagated_failure {
         Ok(_) { println("unexpected") }
-        Fail(error) { println(error) }
+        Fail(error) { println(error.as_str()) }
     }
 
     val nested_result = unwrap_one()
     pick nested_result {
         Ok(value) { println(value) }
-        Fail(error) { println(error) }
+        Fail(error) { println(error.as_str()) }
     }
 }

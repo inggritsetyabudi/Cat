@@ -1,0 +1,9 @@
+fn main() -> Int32 {
+    var outside: Str = "static"
+    if true {
+        val owner = String.from("inner")
+        outside = owner.as_str()
+    }
+    println(outside)
+    return 0
+}

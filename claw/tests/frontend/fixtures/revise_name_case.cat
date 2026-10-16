@@ -26,7 +26,7 @@ fn point_x(point: Point) -> Int32 {
     return point.x
 }
 
-fn result_value() -> Result[Int32, Str] {
+fn result_value() -> Result[Int32, String] {
     return Ok(default_value)
 }
 

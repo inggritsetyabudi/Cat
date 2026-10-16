@@ -1,16 +1,15 @@
 share view shape Name[s] {
     text: ref[s] Str,
 }
-share shape Box[T] {
-    value: T,
-    guard: Int128,
-}
-share fn identity_box(value: Box[Name[borrow]]) -> Box[Name[borrow]] {
+
+share fn identity_name(value: Name[borrow]) -> Name[borrow] {
     return value
 }
-share fn choose_box(left: Box[Name[borrow]], right: Box[Name[borrow]]) -> Box[Name[borrow]] {
+
+share fn choose_name(left: Name[borrow], right: Name[borrow]) -> Name[borrow] {
     return left
 }
-share fn first_text(value: Box[Name[borrow]]) -> ref[borrow] Str {
-    return value.value.text
+
+share fn first_text(value: Name[borrow]) -> ref[borrow] Str {
+    return value.text
 }

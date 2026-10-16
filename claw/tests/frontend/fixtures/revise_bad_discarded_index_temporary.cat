@@ -1,8 +1,0 @@
-fn make_text() -> Str {
-    "temporary"
-}
-
-fn main() -> Int32 {
-    make_text()[0]
-    0
-}

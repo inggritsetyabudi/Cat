@@ -1,0 +1,6 @@
+fn takes_owned(value: String) {
+}
+
+fn main() {
+    takes_owned("literal")
+}

@@ -1,14 +1,14 @@
 
-fn step(flag: Bool) -> Result[Int32, Str] {
+fn step(flag: Bool) -> Result[Int32, String] {
     if flag {
         return Ok(9)
     }
-    return Fail("bad")
+    return Fail(String.from("bad"))
 }
 
 fn show(flag: Bool) {
     val value = try step(flag) else err {
-        println(err)
+        println(err.as_str())
         return
     }
     println(value)

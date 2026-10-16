@@ -5,6 +5,7 @@
 #include "ast/ast.h"
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -157,6 +158,10 @@ std::optional<std::string> builtinCallTag(const SemanticAnalyzer& sema, const Ca
         return std::string("Arena.new");
     }
 
+    if (objectIdent->name == "String" && member->member == "from") {
+        return std::string("String.from");
+    }
+
     return std::nullopt;
 }
 
@@ -220,6 +225,56 @@ bool hasOwnedTupleField(const ResolvedType& type) {
         return std::any_of(type.params.begin(), type.params.end(), hasOwnedTupleField);
     }
     return type.isOwned();
+}
+
+bool hasBorrowedStorage(const ResolvedType& type) {
+    if (type.isView() || !type.scopeName.empty() || !type.viewScope.empty() || type.name == "Span") {
+        return true;
+    }
+    return std::any_of(type.params.begin(), type.params.end(), hasBorrowedStorage);
+}
+
+void appendUniqueTemporaryDrop(std::vector<OirTemporaryDrop>& drops, const OirTemporaryDrop& drop) {
+    if (drop.name.empty()) {
+        return;
+    }
+    const auto duplicate = std::find_if(drops.begin(), drops.end(), [&](const OirTemporaryDrop& candidate) {
+        return candidate.name == drop.name && candidate.type == drop.type && candidate.bindingKey == drop.bindingKey;
+    });
+    if (duplicate == drops.end()) {
+        drops.push_back(drop);
+    }
+}
+
+void appendUniqueTemporaryDrop(std::vector<OirTemporaryDrop>& drops, const OirValue& value) {
+    appendUniqueTemporaryDrop(drops, OirTemporaryDrop{value.text, value.type, value.bindingKey});
+}
+
+void appendTemporaryDrops(
+    FunctionLoweringContext& context,
+    size_t blockIndex,
+    const std::vector<OirTemporaryDrop>& drops) {
+    for (auto it = drops.rbegin(); it != drops.rend(); ++it) {
+        appendInst(context, blockIndex, OirDropInst{it->name, it->type, it->bindingKey});
+    }
+}
+
+bool methodReturnsBorrowFromReceiver(const MethodSignature& method) {
+    return method.viewReturnFromReceiver ||
+        (method.function.viewReturnSourceParam.has_value() &&
+         *method.function.viewReturnSourceParam == std::numeric_limits<size_t>::max()) ||
+        (method.function.scopeReturnSourceParam.has_value() &&
+         *method.function.scopeReturnSourceParam == std::numeric_limits<size_t>::max());
+}
+
+bool callReturnsBorrowFromArgument(
+    const FunctionSignature* signature,
+    const MethodSignature* method,
+    size_t argumentIndex) {
+    return (signature &&
+            ((signature->viewReturnSourceParam.has_value() && *signature->viewReturnSourceParam == argumentIndex) ||
+             (signature->scopeReturnSourceParam.has_value() && *signature->scopeReturnSourceParam == argumentIndex))) ||
+        (method && method->viewReturnSourceArg.has_value() && *method->viewReturnSourceArg == argumentIndex);
 }
 
 void appendDropForValue(
@@ -680,11 +735,27 @@ OirValue lowerExpr(
             return object;
         }
         const std::string type = exprType(sema, expr);
+        const ResolvedType* resultResolvedType = sema.lookupExprType(expr);
+        const ResolvedType* objectResolvedType = sema.lookupExprType(member->object.get());
+        std::vector<OirTemporaryDrop> borrowedOwners = object.borrowedOwners;
+        if (objectResolvedType && objectResolvedType->name != "Arena" &&
+            hasOwnedTupleField(*objectResolvedType) && !sema.isPlaceExpression(member->object.get())) {
+            appendUniqueTemporaryDrop(
+                borrowedOwners,
+                OirTemporaryDrop{object.text, objectResolvedType->describe(), object.bindingKey});
+        }
         if (type == "Unit") {
+            appendTemporaryDrops(context, blockIndex, borrowedOwners);
             return OirValue{"unit", "Unit", true};
         }
         const std::string result = context.tempName();
         appendInst(context, blockIndex, OirFieldInst{result, object, member->member, type});
+        if (resultResolvedType && hasBorrowedStorage(*resultResolvedType)) {
+            OirValue resultValue{result, type, false};
+            resultValue.borrowedOwners = std::move(borrowedOwners);
+            return resultValue;
+        }
+        appendTemporaryDrops(context, blockIndex, borrowedOwners);
         return OirValue{result, type, false};
     }
     if (auto* index = dynamic_cast<const IndexExpr*>(expr)) {
@@ -698,12 +769,35 @@ OirValue lowerExpr(
         }
         const std::string result = context.tempName();
         const std::string type = exprType(sema, expr);
+        const ResolvedType* objectResolvedType = sema.lookupExprType(index->object.get());
+        const ResolvedType* resultResolvedType = sema.lookupExprType(expr);
+        std::vector<OirTemporaryDrop> borrowedOwners = object.borrowedOwners;
+        for (const auto& owner : indexValue.borrowedOwners) {
+            appendUniqueTemporaryDrop(borrowedOwners, owner);
+        }
+        if (objectResolvedType && objectResolvedType->name != "Arena" && hasOwnedTupleField(*objectResolvedType) &&
+            !sema.isPlaceExpression(index->object.get())) {
+            appendUniqueTemporaryDrop(borrowedOwners, OirTemporaryDrop{object.text, objectResolvedType->describe(), object.bindingKey});
+        }
         appendInst(context, blockIndex, OirIndexInst{result, object, indexValue, type});
+        if (resultResolvedType && hasBorrowedStorage(*resultResolvedType)) {
+            OirValue resultValue{result, type, false};
+            resultValue.borrowedOwners = std::move(borrowedOwners);
+            return resultValue;
+        }
+        appendTemporaryDrops(context, blockIndex, borrowedOwners);
         return OirValue{result, type, false};
     }
     if (auto* borrow = dynamic_cast<const BorrowExpr*>(expr)) {
         OirValue lowered = lowerExpr(sema, borrow->target.get(), context, blockIndex);
         lowered.type = exprType(sema, expr);
+        const ResolvedType* targetType = sema.lookupExprType(borrow->target.get());
+        if (targetType && targetType->name != "Arena" && hasOwnedTupleField(*targetType) &&
+            !sema.isPlaceExpression(borrow->target.get())) {
+            appendUniqueTemporaryDrop(
+                lowered.borrowedOwners,
+                OirTemporaryDrop{lowered.text, targetType->describe(), lowered.bindingKey});
+        }
         return lowered;
     }
     if (auto* unary = dynamic_cast<const UnaryExpr*>(expr)) {
@@ -714,6 +808,7 @@ OirValue lowerExpr(
         const std::string result = context.tempName();
         const std::string type = exprType(sema, expr);
         appendInst(context, blockIndex, OirUnaryInst{result, unary->op, operand, type});
+        appendTemporaryDrops(context, blockIndex, operand.borrowedOwners);
         return OirValue{result, type, false};
     }
     if (auto* binary = dynamic_cast<const BinaryExpr*>(expr)) {
@@ -775,6 +870,17 @@ OirValue lowerExpr(
             const std::string type = exprType(sema, expr);
             std::vector<OirValue> args{left, right};
             appendInst(context, blockIndex, OirCallInst{result, fullMethodName, std::move(args), type});
+            std::vector<OirTemporaryDrop> borrowedOwners = left.borrowedOwners;
+            for (const auto& owner : right.borrowedOwners) {
+                appendUniqueTemporaryDrop(borrowedOwners, owner);
+            }
+            const ResolvedType* resultResolvedType = sema.lookupExprType(expr);
+            if (resultResolvedType && hasBorrowedStorage(*resultResolvedType)) {
+                OirValue resultValue{result, type, false};
+                resultValue.borrowedOwners = std::move(borrowedOwners);
+                return resultValue;
+            }
+            appendTemporaryDrops(context, blockIndex, borrowedOwners);
             return OirValue{result, type, false};
         }
 
@@ -789,6 +895,17 @@ OirValue lowerExpr(
         const std::string result = context.tempName();
         const std::string type = exprType(sema, expr);
         appendInst(context, blockIndex, OirBinaryInst{result, binaryOpName(binary->op), left, right, type});
+        std::vector<OirTemporaryDrop> borrowedOwners = left.borrowedOwners;
+        for (const auto& owner : right.borrowedOwners) {
+            appendUniqueTemporaryDrop(borrowedOwners, owner);
+        }
+        const ResolvedType* resultResolvedType = sema.lookupExprType(expr);
+        if (resultResolvedType && hasBorrowedStorage(*resultResolvedType)) {
+            OirValue resultValue{result, type, false};
+            resultValue.borrowedOwners = std::move(borrowedOwners);
+            return resultValue;
+        }
+        appendTemporaryDrops(context, blockIndex, borrowedOwners);
         return OirValue{result, type, false};
     }
     if (auto* shapeInit = dynamic_cast<const ShapeInitExpr*>(expr)) {
@@ -831,18 +948,25 @@ OirValue lowerExpr(
         std::string callee;
         std::vector<OirValue> args;
         std::optional<OirValue> builtinReceiver;
+        std::optional<OirValue> methodReceiver;
+        const Expr* methodReceiverExpr = nullptr;
+        const ResolvedType* methodReceiverType = nullptr;
+        std::optional<MethodSignature> methodSignature;
         if (auto* memberCallee = dynamic_cast<const MemberExpr*>(call->callee.get())) {
-            const auto methodSig = sema.lookupMethodSignature(call->callee.get());
-            if (methodSig.has_value()) {
+            methodSignature = sema.lookupMethodSignature(call->callee.get());
+            if (methodSignature.has_value()) {
+                methodReceiverExpr = memberCallee->object.get();
+                methodReceiverType = sema.lookupExprType(methodReceiverExpr);
                 const OirValue receiver = lowerExpr(sema, memberCallee->object.get(), context, blockIndex);
                 if (receiver.terminates) {
                     return receiver;
                 }
+                methodReceiver = receiver;
                 if (callBuiltinTag.has_value()) {
                     callee = receiver.text + "." + memberCallee->member;
                     builtinReceiver = receiver;
                 } else {
-                    callee = methodSig->receiverType.name + "." + memberCallee->member;
+                    callee = methodSignature->receiverType.name + "." + memberCallee->member;
                     args.push_back(receiver);
                 }
             } else {
@@ -852,27 +976,107 @@ OirValue lowerExpr(
             callee = calleeText(call->callee.get());
         }
 
+        const FunctionSignature* callableSignature = methodSignature.has_value()
+            ? &methodSignature->function
+            : sema.lookupCallableSignature(call->callee.get());
+        const ResolvedType* callResultResolvedType = sema.lookupExprType(expr);
+        const bool callResultCarriesBorrowedStorage =
+            callResultResolvedType && hasBorrowedStorage(*callResultResolvedType);
+        std::vector<OirTemporaryDrop> postCallDrops;
+        std::vector<OirTemporaryDrop> receiverPostCallDrops;
+        std::vector<OirTemporaryDrop> returnedBorrowOwners;
+        const bool returnsBorrowFromReceiver = methodSignature.has_value() && callResultCarriesBorrowedStorage &&
+            methodReturnsBorrowFromReceiver(*methodSignature);
+        if (methodReceiver.has_value() && methodReceiverExpr && methodReceiverType) {
+            if (returnsBorrowFromReceiver) {
+                for (const auto& owner : methodReceiver->borrowedOwners) {
+                    appendUniqueTemporaryDrop(returnedBorrowOwners, owner);
+                }
+                if (methodReceiverType->name != "Arena" && hasOwnedTupleField(*methodReceiverType) &&
+                    !sema.isPlaceExpression(methodReceiverExpr)) {
+                    appendUniqueTemporaryDrop(
+                        returnedBorrowOwners,
+                        OirTemporaryDrop{methodReceiver->text, methodReceiverType->describe(), methodReceiver->bindingKey});
+                }
+            } else {
+                for (const auto& owner : methodReceiver->borrowedOwners) {
+                    appendUniqueTemporaryDrop(receiverPostCallDrops, owner);
+                }
+                if (methodSignature.has_value() && methodSignature->receiverType.isView() &&
+                    methodReceiverType->name != "Arena" && hasOwnedTupleField(*methodReceiverType) &&
+                    !sema.isPlaceExpression(methodReceiverExpr)) {
+                    appendUniqueTemporaryDrop(
+                        receiverPostCallDrops,
+                        OirTemporaryDrop{methodReceiver->text, methodReceiverType->describe(), methodReceiver->bindingKey});
+                }
+            }
+        }
+
         args.reserve(args.size() + call->args.size());
-        for (const auto& arg : call->args) {
-            OirValue loweredArg = lowerExpr(sema, arg.get(), context, blockIndex);
+        for (size_t i = 0; i < call->args.size(); ++i) {
+            const Expr* argumentExpr = call->args[i].get();
+            OirValue loweredArg = lowerExpr(sema, argumentExpr, context, blockIndex);
             if (loweredArg.terminates) {
                 return loweredArg;
             }
+            const ResolvedType* argumentType = sema.lookupExprType(argumentExpr);
+            const ResolvedType* parameterType = callableSignature && i < callableSignature->paramTypes.size()
+                ? &callableSignature->paramTypes[i]
+                : nullptr;
+            const bool borrowedRuntimePrint = callee == "print" || callee == "println";
+            const bool borrowedParameter = parameterType && parameterType->isView();
+            const bool transfersArgument = parameterType && parameterType->isOwned();
+            const bool returnsBorrowFromArg = callReturnsBorrowFromArgument(
+                callableSignature,
+                methodSignature.has_value() ? &*methodSignature : nullptr,
+                i);
+            if (returnsBorrowFromArg && callResultCarriesBorrowedStorage) {
+                for (const auto& owner : loweredArg.borrowedOwners) {
+                    appendUniqueTemporaryDrop(returnedBorrowOwners, owner);
+                }
+                if (argumentType && argumentType->name != "Arena" && hasOwnedTupleField(*argumentType) &&
+                    !sema.isPlaceExpression(argumentExpr)) {
+                    appendUniqueTemporaryDrop(
+                        returnedBorrowOwners,
+                        OirTemporaryDrop{loweredArg.text, argumentType->describe(), loweredArg.bindingKey});
+                }
+            } else {
+                for (const auto& owner : loweredArg.borrowedOwners) {
+                    appendUniqueTemporaryDrop(postCallDrops, owner);
+                }
+                if (argumentType && argumentType->name != "Arena" && hasOwnedTupleField(*argumentType) &&
+                    !sema.isPlaceExpression(argumentExpr) && !transfersArgument &&
+                    (borrowedRuntimePrint || borrowedParameter)) {
+                    appendUniqueTemporaryDrop(
+                        postCallDrops,
+                        OirTemporaryDrop{loweredArg.text, argumentType->describe(), loweredArg.bindingKey});
+                }
+            }
             args.push_back(std::move(loweredArg));
         }
+        postCallDrops.insert(postCallDrops.begin(), receiverPostCallDrops.begin(), receiverPostCallDrops.end());
+        const auto appendPostCallDrops = [&]() {
+            for (auto it = postCallDrops.rbegin(); it != postCallDrops.rend(); ++it) {
+                appendInst(context, blockIndex, OirDropInst{it->name, it->type, it->bindingKey});
+            }
+        };
 
         const std::string type = exprType(sema, expr);
         const auto callExternalInfo = externalCallInfo(sema, call, callee, type);
         if (type == "Unit") {
             appendInst(context, blockIndex, OirCallInst{
                 std::nullopt, callee, std::move(args), type, callBuiltinTag, callExternalInfo, builtinReceiver});
+            appendPostCallDrops();
             return OirValue{"unit", "Unit", true};
         }
 
         const std::string result = context.tempName();
         appendInst(context, blockIndex, OirCallInst{
             result, callee, std::move(args), type, callBuiltinTag, callExternalInfo, builtinReceiver});
-        return OirValue{result, type, false};
+        appendPostCallDrops();
+        OirValue resultValue{result, type, false};
+        resultValue.borrowedOwners = std::move(returnedBorrowOwners);
+        return resultValue;
     }
 
     return OirValue{"<expr>", exprType(sema, expr), false};
@@ -1029,6 +1233,7 @@ std::optional<size_t> lowerStmt(
         }
         if (!value.isUnit) {
             appendInst(context, currentBlockIndex, OirDiscardInst{value});
+            appendTemporaryDrops(context, currentBlockIndex, value.borrowedOwners);
             if (exprType && exprType->isOwned() && exprType->name == "Anchor" &&
                 !sema.isPlaceExpression(exprStmt->expr.get())) {
                 appendInst(context, currentBlockIndex, OirDropInst{value.text, exprType->describe()});

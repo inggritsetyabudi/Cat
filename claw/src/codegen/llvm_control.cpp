@@ -370,6 +370,40 @@ bool LlvmEmitter::emitTry(const LirTryInst& value, FunctionState& state, std::ve
 
 void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state, std::vector<std::string>& lines) {
     const std::string builtinTag = value.builtinTag.value_or(tailSegment(value.callee));
+    if (builtinTag == "String.from") {
+        if (value.args.size() != 1) {
+            throw std::runtime_error("LLVM lowering expected one Str view argument for String.from.");
+        }
+        if (!value.result.has_value()) {
+            return;
+        }
+        const std::string source = ensureValue(value.args.front(), state, lines);
+        const std::string sourcePointer = extractPointer(source, value.args.front().type, state, lines);
+        const std::string length = extractLength(source, value.args.front().type, state, lines);
+        const std::string isEmpty = state.temp("string.from.empty");
+        const std::string capacity = state.temp("string.from.capacity");
+        lines.push_back("  " + isEmpty + " = icmp eq i64 " + length + ", 0");
+        lines.push_back("  " + capacity + " = select i1 " + isEmpty + ", i64 1, i64 " + length);
+        const std::string allocSymbol = quoteGlobal("claw.runtime.string.alloc");
+        const std::string copySymbol = quoteGlobal("claw.runtime.string.copy");
+        addRuntimeDecl("declare ptr " + allocSymbol + "(i64)");
+        addRuntimeDecl("declare void " + copySymbol + "(ptr, ptr, i64)");
+        const std::string data = state.temp("string.from.data");
+        lines.push_back("  " + data + " = call ptr " + allocSymbol + "(i64 " + capacity + ")");
+        lines.push_back("  call void " + copySymbol + "(ptr " + data + ", ptr " + sourcePointer + ", i64 " + length + ")");
+        const std::string first = state.temp("string.from.first");
+        const std::string second = state.temp("string.from.second");
+        const std::string result = localName(*value.result);
+        lines.push_back("  " + first + " = insertvalue %claw.buffer poison, ptr " + data + ", 0");
+        lines.push_back("  " + second + " = insertvalue %claw.buffer " + first + ", i64 " + length + ", 1");
+        lines.push_back("  " + result + " = insertvalue %claw.buffer " + second + ", i64 " + capacity + ", 2");
+        state.namedValues[*value.result] = result;
+        state.namedAddresses.erase(*value.result);
+        state.params.erase(*value.result);
+        state.valueTypes[*value.result] = value.type;
+        return;
+    }
+
     if (builtinTag == "Anchor.new") {
         if (value.args.size() != 1) {
             throw std::runtime_error("LLVM lowering expected one argument for Anchor.new.");
@@ -506,7 +540,55 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         return;
     }
 
-    if (methodName == "len" && (baseType == "Str" || baseType == "Span" || baseType == "Vec")) {
+    if (methodName == "as_str" && baseType == "String") {
+        if (!value.result.has_value()) {
+            return;
+        }
+        const std::string pointerValue = extractPointer(receiverValue, receiverType, state, lines);
+        const std::string lengthValue = extractLength(receiverValue, receiverType, state, lines);
+        const std::string sliceBase = state.temp("string.as_str.base");
+        const std::string result = localName(*value.result);
+        lines.push_back("  " + sliceBase + " = insertvalue %claw.slice poison, ptr " + pointerValue + ", 0");
+        lines.push_back("  " + result + " = insertvalue %claw.slice " + sliceBase + ", i64 " + lengthValue + ", 1");
+        state.namedValues[*value.result] = result;
+        state.namedAddresses.erase(*value.result);
+        state.params.erase(*value.result);
+        storeResultType();
+        return;
+    }
+
+    if (methodName == "clone" && baseType == "String") {
+        if (!value.args.empty()) {
+            throw std::runtime_error("LLVM lowering expected no arguments for String.clone.");
+        }
+        if (!value.result.has_value()) {
+            return;
+        }
+        const std::string pointerValue = extractPointer(receiverValue, receiverType, state, lines);
+        const std::string lengthValue = extractLength(receiverValue, receiverType, state, lines);
+        const std::string capacityValue = state.temp("string.clone.capacity");
+        lines.push_back("  " + capacityValue + " = extractvalue %claw.buffer " + receiverValue + ", 2");
+        const std::string allocSymbol = quoteGlobal("claw.runtime.string.alloc");
+        const std::string copySymbol = quoteGlobal("claw.runtime.string.copy");
+        addRuntimeDecl("declare ptr " + allocSymbol + "(i64)");
+        addRuntimeDecl("declare void " + copySymbol + "(ptr, ptr, i64)");
+        const std::string data = state.temp("string.clone.data");
+        lines.push_back("  " + data + " = call ptr " + allocSymbol + "(i64 " + capacityValue + ")");
+        lines.push_back("  call void " + copySymbol + "(ptr " + data + ", ptr " + pointerValue + ", i64 " + lengthValue + ")");
+        const std::string first = state.temp("string.clone.first");
+        const std::string second = state.temp("string.clone.second");
+        const std::string result = localName(*value.result);
+        lines.push_back("  " + first + " = insertvalue %claw.buffer poison, ptr " + data + ", 0");
+        lines.push_back("  " + second + " = insertvalue %claw.buffer " + first + ", i64 " + lengthValue + ", 1");
+        lines.push_back("  " + result + " = insertvalue %claw.buffer " + second + ", i64 " + capacityValue + ", 2");
+        state.namedValues[*value.result] = result;
+        state.namedAddresses.erase(*value.result);
+        state.params.erase(*value.result);
+        storeResultType();
+        return;
+    }
+
+    if (methodName == "len" && (baseType == "Str" || baseType == "String" || baseType == "Span" || baseType == "Vec")) {
         if (!value.result.has_value()) {
             return;
         }
@@ -517,7 +599,7 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         return;
     }
 
-    if (methodName == "is_empty" && (baseType == "Str" || baseType == "Span" || baseType == "Vec")) {
+    if (methodName == "is_empty" && (baseType == "Str" || baseType == "String" || baseType == "Span" || baseType == "Vec")) {
         if (!value.result.has_value()) {
             return;
         }
@@ -528,12 +610,12 @@ void LlvmEmitter::emitBuiltinCall(const LirCallInst& value, FunctionState& state
         return;
     }
 
-    if (methodName == "capacity" && baseType == "Vec") {
+    if (methodName == "capacity" && (baseType == "Vec" || baseType == "String")) {
         if (!value.result.has_value()) {
             return;
         }
         const std::string resultReg = localName(*value.result);
-        const std::string capReg = state.temp("vec.cap");
+        const std::string capReg = state.temp(baseType == "String" ? "string.cap" : "vec.cap");
         lines.push_back("  " + capReg + " = extractvalue %claw.buffer " + receiverValue + ", 2");
         lines.push_back("  " + resultReg + " = add i64 0, " + capReg);
         storeResultType();

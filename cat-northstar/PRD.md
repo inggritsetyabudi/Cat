@@ -67,14 +67,14 @@ Enam mekanisme ini dipakai berulang. Karena itu risiko tiap bagian di bawah bisa
 
 ```cat proposal
 shape Config {
-    share host: Str
+    share host: String
     share port: Int32
 }
 
 implements Config {
-    share fn new(host: Str, port: Int32) -> Result[Config, Str] {
-        if port < 1 or port > 65535 { return Fail("port tidak valid") }
-        return Ok(Config { host: host, port: port })
+    share fn new(host: Str, port: Int32) -> Result[Config, String] {
+        if port < 1 or port > 65535 { return Fail(String.from("port tidak valid")) }
+        return Ok(Config { host: String.from(host), port: port })
     }
 }
 
@@ -115,7 +115,7 @@ error: shape 'Config' tidak boleh dibuat dengan literal di luar modulnya
 | `[1, 2, 3]` | `Array[Int32, 3]` |
 | `vec[1, 2, 3]` | `Vec[Int32]` |
 | `set(1, 2, 3)` | `Set[Int32]` |
-| `map{"a": 1, "b": 2}` | `Map[Str, Int32]` |
+| `map{1: 10, 2: 20}` | `Map[Int32, Int32]` |
 
 - `vec`, `set`, `map` adalah kata cadangan, jadi `vec[`, `set(`, `map{` selalu dibaca sebagai literal dan tidak bentrok dengan indexing, pemanggilan fungsi, atau literal shape.
 - Literal kosong (`vec[]`, `set()`, `map{}`) butuh tipe yang bisa dikenali dari anotasi, parameter, atau tipe return.
@@ -124,8 +124,8 @@ error: shape 'Config' tidak boleh dibuat dengan literal di luar modulnya
 ```cat proposal
 val a = [1, 2, 3]                       // Array[Int32, 3]
 val v = vec[1, 2, 3]                    // Vec[Int32]
-val s = set("x", "y")                   // Set[Str]
-val m = map{"a": 1, "b": 2}             // Map[Str, Int32]
+val s = set(10, 20)                       // Set[Int32]
+val m = map{1: 10, 2: 20}                 // Map[Int32, Int32]
 val e: Vec[Int32] = vec[]               // kosong: tipe dari anotasi
 val first = v[0]                        // indexing: ada operan kiri
 ```
@@ -251,10 +251,10 @@ Karena tidak ada fallback ke binding, menambah varian baru ke sebuah `choice` ti
 - Satu `try` membuka tepat satu `Result`. Rangkaian `Result` ditulis sebagai beberapa `val ... = try`.
 
 ```cat proposal
-fn load(p: Str) -> Result[Config, Str] {
-    val text = try read(p)                         // E = Str, identik: shorthand sah
+fn load(p: Str) -> Result[Config, String] {
+    val text = try read(p)                         // E = String, identik: shorthand sah
     val cfg  = try parse(text) else err {          // E berbeda: form penuh
-        return Fail(f"parse gagal: {err}")
+        return Fail(err)
     }
     return Ok(cfg)
 }
@@ -471,9 +471,17 @@ val heart = '\u{2764}'
 
 **Aturan**
 
-- Escape string sama dengan Char.
-- Interpolasi `f"... {ekspresi} ..."`: lexer menghasilkan token f-string; isi `{}` diparse sebagai expression; `{{` dan `}}` untuk kurung literal. Nilai harus punya kontrak konversi teks (namanya diputuskan bersama kontrak `Default`).
-- Multiline `f"..."` didukung. Tidak ada raw string di v1.
+- **Status implementasi:** Fondasi borrowed `Str`/owned `String` di bawah — [sudah]. F-string/interpolasi dan string builder tetap ditunda.
+
+- `Str`/`str` adalah alias tipe **view UTF-8 borrowed** `{ptr, len}` (konsepnya setara Rust `&str`), bukan string owned. `String`/`string` adalah alias tipe **owned, immutable, move-only** `{ptr, len, cap}`; pada target 64-bit ukurannya 24 byte dengan alignment 8.
+- Literal string bertipe `Str` dan menunjuk ke storage statis read-only. Literal tidak mengalokasikan heap dan tidak disalin; tidak ada konversi implisit dari `Str` ke `String`.
+- `String.from(str)` membuat salinan byte UTF-8 eksplisit ke storage owned. `value.as_str()` menghasilkan view yang hidupnya terikat otomatis ke owner; `value.clone()` adalah salinan owned eksplisit.
+- Move, parameter owned, dan return `String` mentransfer kepemilikan; setiap alokasi owned dibebaskan tepat sekali. `Str` tidak memiliki destructor dan tidak pernah membebaskan storage. OOM pada alokasi `String` menghentikan proses secara deterministik.
+- Borrow checker menyimpulkan hubungan view-owner tanpa anotasi lifetime pada source; view yang dapat lolos dari owner lokal atau dipakai setelah owner dipindahkan/diubah ditolak saat kompilasi. View dari owner temporary boleh dipakai langsung sampai akhir full-expression, tetapi tidak boleh disimpan, dikembalikan, atau dilewatkan melalui join nilai `if`; simpan owner `String` pada binding terlebih dahulu. Field pada shape normal tidak boleh menyimpan `Str`; gunakan `String` untuk teks yang harus dimiliki.
+- Sampai generic storage memiliki propagasi borrow dan element-drop glue, `Vec`/`Set`/`Map`/`Queue` menolak payload `Str` maupun `String`. Choice dan shape dengan payload/field owned `String` didukung bila recursive drop tersedia; `Maybe[ref Str]` adalah carrier terbatas untuk hasil opsional view.
+- Jalur string statis tidak menambah alokasi, copy, atau runtime dispatch; hanya konversi owned eksplisit yang mengalokasikan. Error ownership harus menyertakan lokasi sumber, alasan jelas, hint tindakan, serta warna yang mengikuti kebijakan terminal; `NO_COLOR` dan kebijakan no-ANSI Windows tetap dihormati.
+- Escape string sama dengan Char. Tidak ada raw string di v1.
+- F-string/interpolasi dan string builder **ditunda**: lexer/parser, API builder, serta kontrak konversi teks belum menjadi bagian dari fondasi ini.
 - `///` disimpan sebagai data dokumentasi dan dilekatkan ke deklarasi berikutnya. Di item non-`share` hasilnya peringatan. `claw doc` membuat dokumentasi dari item `share`.
 
 **Risiko → penutup**
@@ -521,14 +529,14 @@ implements Vector2 with Add[Vector2] { ... }
 - Satu bentuk publik: indexing dengan range.
 
 ```cat proposal
-val part  = text[2..5]            // ref Str (pinjaman dari text)
+val part  = text[2..5]            // Str view (pinjaman dari text)
 val chunk = data[1..=3]           // Span[Int32]
 val safe  = text.get(2..5)        // Maybe[ref Str], tidak defect
 ```
 
 - Ujung kiri `a`, kanan `b`, wajib `a <= b <= panjang`; melanggar = defect, kecuali lewat `get` yang mengembalikan `Maybe`.
 - Unit indeks `Str` = byte, dan kedua ujung harus jatuh di batas karakter UTF-8; kalau tidak, defect.
-- Hasil selalu **pinjaman** terikat ke scope sumbernya. Ingin salinan milik: `Str.from(part)` atau `.to_owned()`.
+- Hasil selalu **borrowed `Str` view** yang terikat otomatis ke owner sumbernya. Ingin salinan milik: `String.from(part)`; tidak ada konversi `Str.from` atau `.to_owned()`.
 - Method `slice(start, length)` dihapus dari API publik; ia hanya menjadi target lowering internal.
 
 **Cara kerja compiler:** LLVM menghitung `ptr = base + a` dan `len = b - a` setelah cek batas (GEP + `sub`), lalu membentuk struct view. Ini juga menyelesaikan lowering `Span.slice` yang belum ada menurut `builtin-methods.md`.

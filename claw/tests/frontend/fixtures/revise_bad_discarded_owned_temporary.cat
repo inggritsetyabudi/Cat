@@ -1,8 +1,0 @@
-fn payload() -> Str {
-    "discarded"
-}
-
-fn main() -> Int32 {
-    payload()
-    0
-}

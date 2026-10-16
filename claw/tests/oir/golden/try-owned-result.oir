@@ -7,95 +7,104 @@ oir.choice Maybe of T [abi=claw link=internal symbol=revise_try_owned_result::Ma
   layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
   case None
   case Some(T)
-oir.fn make_anchor(flag: Bool [scalar]) -> Result[Anchor[Str], Str] [indirect] [abi=claw link=internal symbol=revise_try_owned_result::make_anchor ffi=false]
+oir.fn make_anchor(flag: Bool [scalar]) -> Result[Anchor[String], String] [indirect] [abi=claw link=internal symbol=revise_try_owned_result::make_anchor ffi=false]
   block entry:
     branch flag -> if_then_0, if_join_1
   block if_then_0:
-    %t0 = call Anchor.new("owned") : Anchor[Str]
-    %t1 = Ok(%t0) : Result[Anchor[Str], Str]
-    return %t1 : Result[Anchor[Str], Str]
+    %t0 = call String.from("owned") : String
+    %t1 = call Anchor.new(%t0) : Anchor[String]
+    %t2 = Ok(%t1) : Result[Anchor[String], String]
+    return %t2 : Result[Anchor[String], String]
   block if_join_1:
-    %t2 = Fail("no-anchor") : Result[Anchor[Str], Str]
-    return %t2 : Result[Anchor[Str], Str]
-oir.fn take_owned_result(flag: Bool [scalar]) -> Result[Anchor[Str], Str] [indirect] [abi=claw link=internal symbol=revise_try_owned_result::take_owned_result ffi=false]
+    %t3 = call String.from("no-anchor") : String
+    %t4 = Fail(%t3) : Result[Anchor[String], String]
+    return %t4 : Result[Anchor[String], String]
+oir.fn take_owned_result(flag: Bool [scalar]) -> Result[Anchor[String], String] [indirect] [abi=claw link=internal symbol=revise_try_owned_result::take_owned_result ffi=false]
   block entry:
-    %t0 = call make_anchor(flag) : Result[Anchor[Str], Str]
-    val result: Result[Anchor[Str], Str] = %t0
+    %t0 = call make_anchor(flag) : Result[Anchor[String], String]
+    val result: Result[Anchor[String], String] = %t0
     try result -> payload, else err -> try_fail_0
-    %t2 = Ok(payload) : Result[Anchor[Str], Str]
-    return %t2 : Result[Anchor[Str], Str]
+    %t2 = Ok(payload) : Result[Anchor[String], String]
+    return %t2 : Result[Anchor[String], String]
   block try_fail_0:
-    %t1 = Fail(err) : Result[Anchor[Str], Str]
-    return %t1 : Result[Anchor[Str], Str]
+    %t1 = Fail(err) : Result[Anchor[String], String]
+    return %t1 : Result[Anchor[String], String]
 oir.fn drop_temporary_result(flag: Bool [scalar]) -> Unit [void] [abi=claw link=internal symbol=revise_try_owned_result::drop_temporary_result ffi=false]
   block entry:
-    %t0 = call make_anchor(flag) : Result[Anchor[Str], Str]
+    %t0 = call make_anchor(flag) : Result[Anchor[String], String]
     try %t0 -> payload, else err -> try_fail_0
     call println("temporary-ok") : Unit
-    drop payload : Anchor[Str]
+    drop payload : Anchor[String]
     return unit : Unit
   block try_fail_0:
-    call println(err) : Unit
-    drop err : Str
+    %t1 = call err.as_str() : ref Str
+    call println(%t1) : Unit
+    drop err : String
     return unit : Unit
 oir.fn drop_shadowed_try_result(flag: Bool [scalar]) -> Unit [void] [abi=claw link=internal symbol=revise_try_owned_result::drop_shadowed_try_result ffi=false]
   block entry:
-    %t0 = call Anchor.new("outer") : Anchor[Str]
-    val payload: Anchor[Str] = %t0
+    %t0 = call String.from("outer") : String
+    %t1 = call Anchor.new(%t0) : Anchor[String]
+    val payload: Anchor[String] = %t1
     branch true -> if_then_0, if_join_1
   block if_then_0:
-    %t1 = call make_anchor(flag) : Result[Anchor[Str], Str]
-    try %t1 -> payload, else err -> try_fail_2
-    %t2 = call payload.get() : ref Str
-    call println(%t2) : Unit
-    drop payload : Anchor[Str]
+    %t2 = call make_anchor(flag) : Result[Anchor[String], String]
+    try %t2 -> payload, else err -> try_fail_2
+    %t4 = call payload.get() : ref String
+    %t5 = call %t4.as_str() : ref Str
+    call println(%t5) : Unit
+    drop payload : Anchor[String]
     goto if_join_1
   block try_fail_2:
-    call println(err) : Unit
-    drop err : Str
-    drop payload : Anchor[Str]
+    %t3 = call err.as_str() : ref Str
+    call println(%t3) : Unit
+    drop err : String
+    drop payload : Anchor[String]
     return unit : Unit
   block if_join_1:
-    %t3 = call payload.get() : ref Str
-    call println(%t3) : Unit
-    drop payload : Anchor[Str]
+    %t6 = call payload.get() : ref String
+    %t7 = call %t6.as_str() : ref Str
+    call println(%t7) : Unit
+    drop payload : Anchor[String]
     return unit : Unit
 oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_try_owned_result::main ffi=false]
   block entry:
     call drop_temporary_result(true) : Unit
     call drop_temporary_result(false) : Unit
-    %t0 = call take_owned_result(true) : Result[Anchor[Str], Str]
-    val success: Result[Anchor[Str], Str] = %t0
-    pick success : Result[Anchor[Str], Str]
+    %t0 = call take_owned_result(true) : Result[Anchor[String], String]
+    val success: Result[Anchor[String], String] = %t0
+    pick success : Result[Anchor[String], String]
     case Ok(anchor) -> pick_Ok_1
     case Fail(error) -> pick_Fail_2
   block pick_Ok_1:
-    %t1 = call anchor.get() : ref Str
-    call println(%t1) : Unit
-    drop anchor : Anchor[Str]
+    %t1 = call anchor.get() : ref String
+    %t2 = call %t1.as_str() : ref Str
+    call println(%t2) : Unit
+    drop anchor : Anchor[String]
     goto pick_join_0
   block pick_Fail_2:
-    call println(error) : Unit
-    drop error : Str
+    %t3 = call error.as_str() : ref Str
+    call println(%t3) : Unit
+    drop error : String
     goto pick_join_0
   block pick_join_0:
-    %t2 = call take_owned_result(false) : Result[Anchor[Str], Str]
-    val failure: Result[Anchor[Str], Str] = %t2
-    pick failure : Result[Anchor[Str], Str]
+    %t4 = call take_owned_result(false) : Result[Anchor[String], String]
+    val failure: Result[Anchor[String], String] = %t4
+    pick failure : Result[Anchor[String], String]
     case Ok(anchor) -> pick_Ok_4
     case Fail(error) -> pick_Fail_5
   block pick_Ok_4:
-    %t3 = call anchor.get() : ref Str
-    call println(%t3) : Unit
-    drop anchor : Anchor[Str]
+    %t5 = call anchor.get() : ref String
+    %t6 = call %t5.as_str() : ref Str
+    call println(%t6) : Unit
+    drop anchor : Anchor[String]
     goto pick_join_3
   block pick_Fail_5:
-    call println(error) : Unit
-    drop error : Str
+    %t7 = call error.as_str() : ref Str
+    call println(%t7) : Unit
+    drop error : String
     goto pick_join_3
   block pick_join_3:
     call drop_shadowed_try_result(true) : Unit
     call drop_shadowed_try_result(false) : Unit
-    drop failure : Result[Anchor[Str], Str]
-    drop success : Result[Anchor[Str], Str]
     return unit : Unit

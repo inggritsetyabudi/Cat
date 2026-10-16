@@ -1,0 +1,5 @@
+fn main() {
+    var value = String.from("old")
+    value = String.from("new")
+    println(value.as_str())
+}

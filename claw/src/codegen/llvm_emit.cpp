@@ -119,6 +119,185 @@ void LlvmEmitter::emitCallInst(const LirCallInst& value, FunctionState& state, s
     }
 }
 
+bool LlvmEmitter::typeHasOwnedDrop(std::string_view typeText) const {
+    std::unordered_set<std::string> active;
+    const auto visit = [&](const auto& self, std::string_view candidateText) -> bool {
+        const std::string normalized = trim(candidateText);
+        if (stripViewPrefix(normalized) != normalized) {
+            return false;
+        }
+        const ParsedTypeName parsed = parseTypeName(normalized);
+        const std::string base = canonicalBackendTypeBase(parsed.base);
+        if (base == "String" || base == "Anchor") {
+            return true;
+        }
+        if (!active.insert(normalized).second) {
+            return false;
+        }
+
+        bool found = false;
+        if (base == "Tuple") {
+            found = std::any_of(parsed.args.begin(), parsed.args.end(), [&](const std::string& arg) {
+                return self(self, arg);
+            });
+        } else if (const auto shapeIt = shapesByName.find(base); shapeIt != shapesByName.end()) {
+            const LirShape& shape = *shapeIt->second;
+            std::unordered_map<std::string, std::string> bindings;
+            if (shape.typeParams.size() == parsed.args.size()) {
+                for (size_t i = 0; i < shape.typeParams.size(); ++i) {
+                    bindings[shape.typeParams[i]] = parsed.args[i];
+                }
+                for (const auto& field : shape.fields) {
+                    const std::string fieldType = substituteTypeText(field.type, bindings);
+                    if (self(self, fieldType)) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        } else if (const auto choice = resolveChoiceType(normalized); choice.has_value()) {
+            for (const auto& item : choice->cases) {
+                if (std::any_of(item.payloadTypes.begin(), item.payloadTypes.end(), [&](const std::string& payloadType) {
+                        return self(self, payloadType);
+                    })) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        active.erase(normalized);
+        return found;
+    };
+    return visit(visit, typeText);
+}
+
+void LlvmEmitter::emitOwnedDropAtAddress(
+    std::string_view typeText,
+    std::string_view address,
+    FunctionState& state,
+    std::vector<std::string>& lines) {
+    const std::string normalized = trim(typeText);
+    if (stripViewPrefix(normalized) != normalized) {
+        return;
+    }
+    const ParsedTypeName parsed = parseTypeName(normalized);
+    const std::string base = canonicalBackendTypeBase(parsed.base);
+
+    if (base == "String" || base == "Anchor") {
+        const auto layout = abiLayoutForType(normalized);
+        const size_t align = layout.has_value() ? layout->align : 1;
+        const std::string value = loadValueFromAddress(address, normalized, align, state, lines);
+        const std::string data = base == "String" ? state.temp("string.drop.data") : value;
+        if (base == "String") {
+            lines.push_back("  " + data + " = extractvalue %claw.buffer " + value + ", 0");
+        } else if (parsed.args.size() == 1 && typeHasOwnedDrop(parsed.args.front())) {
+            emitOwnedDropAtAddress(parsed.args.front(), value, state, lines);
+        }
+        const std::string runtimeName = base == "String"
+            ? "claw.runtime.string.free"
+            : "claw.runtime.anchor.free";
+        const std::string freeSymbol = quoteGlobal(runtimeName);
+        addRuntimeDecl("declare void " + freeSymbol + "(ptr)");
+        lines.push_back("  call void " + freeSymbol + "(ptr " + data + ")");
+        return;
+    }
+
+    if (base == "Tuple") {
+        const std::string llvmAggregateType = llvmType(normalized);
+        for (size_t i = 0; i < parsed.args.size(); ++i) {
+            if (!typeHasOwnedDrop(parsed.args[i])) {
+                continue;
+            }
+            const std::string fieldAddress = state.temp("tuple.drop.field.addr");
+            lines.push_back(
+                "  " + fieldAddress + " = getelementptr inbounds " + llvmAggregateType + ", ptr " +
+                std::string(address) + ", i32 0, i32 " + std::to_string(i));
+            emitOwnedDropAtAddress(parsed.args[i], fieldAddress, state, lines);
+        }
+        return;
+    }
+
+    if (const auto shapeIt = shapesByName.find(base); shapeIt != shapesByName.end()) {
+        const LirShape& shape = *shapeIt->second;
+        std::unordered_map<std::string, std::string> bindings;
+        if (shape.typeParams.size() != parsed.args.size()) {
+            return;
+        }
+        for (size_t i = 0; i < shape.typeParams.size(); ++i) {
+            bindings[shape.typeParams[i]] = parsed.args[i];
+        }
+        const std::string llvmAggregateType = llvmType(normalized);
+        for (size_t i = 0; i < shape.fields.size(); ++i) {
+            const std::string fieldType = substituteTypeText(shape.fields[i].type, bindings);
+            if (!typeHasOwnedDrop(fieldType)) {
+                continue;
+            }
+            const std::string fieldAddress = state.temp("shape.drop.field.addr");
+            lines.push_back(
+                "  " + fieldAddress + " = getelementptr inbounds " + llvmAggregateType + ", ptr " +
+                std::string(address) + ", i32 0, i32 " + std::to_string(i));
+            emitOwnedDropAtAddress(fieldType, fieldAddress, state, lines);
+        }
+        return;
+    }
+
+    const auto choice = resolveChoiceType(normalized);
+    if (!choice.has_value()) {
+        return;
+    }
+    std::vector<size_t> droppingCases;
+    for (size_t i = 0; i < choice->cases.size(); ++i) {
+        const auto& item = choice->cases[i];
+        if (std::any_of(item.payloadTypes.begin(), item.payloadTypes.end(), [&](const std::string& payloadType) {
+                return typeHasOwnedDrop(payloadType);
+            })) {
+            droppingCases.push_back(i);
+        }
+    }
+    if (droppingCases.empty()) {
+        return;
+    }
+
+    const std::string tagAddress = state.temp("choice.drop.tag.addr");
+    const std::string tag = state.temp("choice.drop.tag");
+    lines.push_back(
+        "  " + tagAddress + " = getelementptr inbounds " + choice->llvmTypeText + ", ptr " +
+        std::string(address) + ", i32 0, i32 0");
+    lines.push_back("  " + tag + " = load i32, ptr " + tagAddress + ", align " + std::to_string(choice->tagSizeBytes));
+
+    const std::string doneLabel = state.inlineLabel("drop.choice.done");
+    std::vector<std::pair<size_t, std::string>> caseLabels;
+    for (const size_t caseIndex : droppingCases) {
+        caseLabels.emplace_back(caseIndex, state.inlineLabel("drop.choice.case"));
+    }
+    lines.push_back("  switch i32 " + tag + ", label %" + blockLabel(doneLabel) + " [");
+    for (const auto& [caseIndex, caseLabel] : caseLabels) {
+        lines.push_back("    i32 " + std::to_string(caseIndex) + ", label %" + blockLabel(caseLabel));
+    }
+    lines.push_back("  ]");
+
+    for (const auto& [caseIndex, caseLabel] : caseLabels) {
+        const auto& item = choice->cases[caseIndex];
+        lines.push_back(blockLabel(caseLabel) + ":");
+        const size_t payloadCount = std::min(item.payloadTypes.size(), item.layout.payloadFields.size());
+        for (size_t i = 0; i < payloadCount; ++i) {
+            const std::string& payloadType = item.payloadTypes[i];
+            if (!typeHasOwnedDrop(payloadType)) {
+                continue;
+            }
+            const size_t payloadOffset = choice->payloadOffsetBytes + item.layout.payloadFields[i].offsetBytes;
+            const std::string payloadAddress = state.temp("choice.drop.payload.addr");
+            lines.push_back(
+                "  " + payloadAddress + " = getelementptr inbounds i8, ptr " + std::string(address) +
+                ", i64 " + std::to_string(payloadOffset));
+            emitOwnedDropAtAddress(payloadType, payloadAddress, state, lines);
+        }
+        lines.push_back("  br label %" + blockLabel(doneLabel));
+    }
+    lines.push_back(blockLabel(doneLabel) + ":");
+}
+
 void LlvmEmitter::emitStoreField(const LirStoreFieldInst& value, FunctionState& state, std::vector<std::string>& lines) {
     size_t fieldAlign = 1;
     const ParsedTypeName objectType = parseTypeName(value.object.type);
@@ -147,7 +326,26 @@ void LlvmEmitter::emitStoreField(const LirStoreFieldInst& value, FunctionState& 
 
     const std::string fieldAddress = emitFieldAddress(value.object, value.field, state, lines);
     const std::string operand = ensureValue(value.value, state, lines);
+    const std::string objectKey = value.object.bindingKey.empty() ? value.object.text : value.object.bindingKey;
+    const bool firstInitialization = state.uninitializedOwnedAggregates.contains(objectKey);
+    if (!firstInitialization && typeHasOwnedDrop(value.value.type)) {
+        emitOwnedDropAtAddress(value.value.type, fieldAddress, state, lines);
+    }
     storeValueToAddress(fieldAddress, value.value.type, operand, fieldAlign, lines);
+    if (firstInitialization) {
+        auto& initializedFields = state.initializedAggregateFields[objectKey];
+        initializedFields.insert(value.field);
+        size_t expectedFieldCount = 0;
+        if (objectType.base == "Tuple") {
+            expectedFieldCount = objectType.args.size();
+        } else if (const auto shapeIt = shapesByName.find(objectType.base); shapeIt != shapesByName.end()) {
+            expectedFieldCount = shapeIt->second->fields.size();
+        }
+        if (expectedFieldCount > 0 && initializedFields.size() >= expectedFieldCount) {
+            state.uninitializedOwnedAggregates.erase(objectKey);
+            state.initializedAggregateFields.erase(objectKey);
+        }
+    }
 }
 
 std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
@@ -260,6 +458,10 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     }
                     state.stackPointers[bindingKey] = pointerName;
                     state.valueTypes[bindingKey] = value.type;
+                    if (typeHasOwnedDrop(value.type)) {
+                        state.uninitializedOwnedAggregates.insert(bindingKey);
+                        state.initializedAggregateFields.erase(bindingKey);
+                    }
                     blockLines.push_back("  " + pointerName + " = alloca " + llvmType(value.type) + ", align " + std::to_string(align));
                 },
                 [&](const LirStoreInst& value) {
@@ -277,6 +479,8 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     const size_t align = layout.has_value() ? layout->align : 1;
                     const std::string operand = ensureValue(value.value, state, blockLines);
                     storeValueToAddress(targetIt->second, targetType, operand, align, blockLines);
+                    state.uninitializedOwnedAggregates.erase(targetKey);
+                    state.initializedAggregateFields.erase(targetKey);
                 },
                 [&](const LirReturnInst& value) {
                     if (state.returnSlot.has_value()) {
@@ -300,19 +504,16 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     (void)ensureValue(value.value, state, blockLines);
                 },
                 [&](const LirDropInst& value) {
+                    const LirValue dropValue{value.name, value.type, false, value.bindingKey};
                     const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(value.type)));
-                    if (baseType == "Anchor") {
-                        const std::string freeSymbol = quoteGlobal("claw.runtime.anchor.free");
-                        addRuntimeDecl("declare void " + freeSymbol + "(ptr)");
-                        const std::string operand = ensureValue(
-                            LirValue{value.name, value.type, false, value.bindingKey}, state, blockLines);
-                        blockLines.push_back("  call void " + freeSymbol + "(ptr " + operand + ")");
-                    } else if (baseType == "Arena") {
+                    if (baseType == "Arena") {
                         const std::string freeSymbol = quoteGlobal("claw.runtime.arena.free");
                         addRuntimeDecl("declare void " + freeSymbol + "(ptr)");
-                        const std::string operand = ensureValue(
-                            LirValue{value.name, value.type, false, value.bindingKey}, state, blockLines);
+                        const std::string operand = ensureValue(dropValue, state, blockLines);
                         blockLines.push_back("  call void " + freeSymbol + "(ptr " + operand + ")");
+                    } else if (typeHasOwnedDrop(value.type)) {
+                        const std::string address = ensureAddress(dropValue, state, blockLines);
+                        emitOwnedDropAtAddress(value.type, address, state, blockLines);
                     } else {
                         blockLines.push_back("  ; drop " + value.name + " : " + value.type);
                     }

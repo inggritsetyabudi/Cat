@@ -4,7 +4,9 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace claw::frontend {
@@ -24,6 +26,7 @@ struct BorrowToken {
     std::string rootName;
     std::vector<std::string> accessPath;
     std::string viewKind;
+    std::string rootBindingIdentity;
 
     bool operator==(const BorrowToken& other) const = default;
 };
@@ -53,10 +56,12 @@ struct TrackedVar {
     std::vector<BorrowToken> activeBorrows;
     std::optional<BorrowToken> lexicalBorrow;
     std::string backendBindingKey;
+    std::string bindingIdentity;
 };
 
 struct ScopeBinding {
     std::string name;
+    std::string bindingIdentity;
     std::optional<TrackedVar> previousState;
 };
 
@@ -84,6 +89,7 @@ private:
     std::vector<ScopeFrame> scopeStack;
     OwnershipResult ownershipResult;
     std::vector<Diagnostic> diagnostics;
+    size_t nextBindingIdentity = 0;
 
     void reportError(const std::string& msg);
     void reportError(const SourceSpan& span, const std::string& msg);
@@ -93,12 +99,14 @@ private:
     void checkStmt(Stmt* stmt);
     void checkExpr(Expr* expr, bool isConsume);
     void checkCallExpr(CallExpr* call);
-    void consumeTuplePatternSource(const Expr* expr);
+    void consumePatternSource(const Expr* expr);
     void registerTuplePatternBindings(const PickPattern* pattern, const ResolvedType& type);
 
     void enterScope(const BlockStmt* block = nullptr, ScopeKind kind = ScopeKind::Normal);
     void exitScope();
     void defineTrackedVar(const std::string& name, const TrackedVar& state);
+    std::optional<std::pair<size_t, size_t>> findBindingPosition(std::string_view identity) const;
+    bool borrowFitsBindingScope(const BorrowToken& token, const std::pair<size_t, size_t>& target) const;
     void recordDropBeforeStmt(
         const Stmt* stmt,
         const std::string& name,

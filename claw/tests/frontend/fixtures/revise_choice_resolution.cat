@@ -19,7 +19,7 @@ fn packet_value(packet: Packet[Int32]) -> Int32 {
     }
 }
 
-fn step() -> Result[Int32, Str] {
+fn step() -> Result[Int32, String] {
     return Ok(41)
 }
 

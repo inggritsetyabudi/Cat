@@ -1,9 +1,9 @@
 shape Holder {
-    anchor: Anchor[Str]
+    anchor: Anchor[String]
 }
 
 fn make_holder() -> Holder {
-    Holder { anchor: Anchor.new("nested") }
+    Holder { anchor: Anchor.new(String.from("nested")) }
 }
 
 fn main() -> Int32 {

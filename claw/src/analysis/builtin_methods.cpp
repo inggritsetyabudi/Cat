@@ -17,6 +17,14 @@ ResolvedType makeOwnedType(const std::string& name) {
     return type;
 }
 
+ResolvedType makeStrViewType() {
+    ResolvedType type;
+    type.name = "Str";
+    type.viewKind = "look";
+    type.category = TypeCategory::View;
+    return type;
+}
+
 ResolvedType asViewType(const ResolvedType& base, const std::string& viewKind) {
     ResolvedType adapted = base;
     adapted.viewKind = viewKind;
@@ -77,6 +85,7 @@ const std::vector<BuiltinMethodSpec>& builtinMethodSpecs() {
         };
 
         addSizedLookMethods("Str");
+        addSizedLookMethods("String");
         addSizedLookMethods("Span");
         addSizedLookMethods("Vec");
         addSizedLookMethods("Map");
@@ -86,6 +95,10 @@ const std::vector<BuiltinMethodSpec>& builtinMethodSpecs() {
         addByteIndexMethod("Str");
         addByteEdgeMethods("Str");
         addTextSearchMethods("Str");
+
+        addCapacityLookMethod("String");
+        entries.push_back(BuiltinMethodSpec{"String", "as_str", "look", {}, makeStrViewType(), std::nullopt, true});
+        entries.push_back(BuiltinMethodSpec{"String", "clone", "look", {}, makeOwnedType("String")});
 
         entries.push_back(BuiltinMethodSpec{"Str", "contains", "look", {asViewType(makeOwnedType("Str"), "look")}, makePlainType("Bool")});
         entries.push_back(BuiltinMethodSpec{"Str", "contains_byte", "look", {makePlainType("UInt8")}, makePlainType("Bool")});

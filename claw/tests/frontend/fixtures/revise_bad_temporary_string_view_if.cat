@@ -1,0 +1,8 @@
+fn main() {
+    val borrowed = if true {
+        String.from("left").as_str()
+    } else {
+        String.from("right").as_str()
+    }
+    println(borrowed)
+}

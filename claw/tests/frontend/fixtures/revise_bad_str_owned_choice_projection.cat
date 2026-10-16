@@ -1,0 +1,11 @@
+shape Holder {
+    outcome: Result[Int32, String]
+}
+
+fn main() {
+    val holder = Holder { outcome: Fail(String.from("owned")) }
+    pick holder.outcome {
+        Ok(value) { println(value) }
+        Fail(error) { println(error.as_str()) }
+    }
+}

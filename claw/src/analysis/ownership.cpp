@@ -33,7 +33,7 @@ StorageState mergeStorageState(StorageState left, StorageState right) {
 
 std::string unavailableValueMessage(StorageState state, const std::string& name) {
     if (state == StorageState::Moved) {
-        return "Use of moved value -> " + name;
+        return "Use of moved value -> " + name + ". Hint: use the value before moving it, or call `clone()` when a separate owned copy is required.";
     }
     return "Use of uninitialized value -> " + name;
 }
@@ -55,7 +55,8 @@ std::string formatBorrowTarget(const BorrowToken& token) {
 }
 
 bool borrowPathsOverlap(const BorrowToken& left, const BorrowToken& right) {
-    if (left.rootName != right.rootName) {
+    if (left.rootBindingIdentity.empty() || right.rootBindingIdentity.empty() ||
+        left.rootBindingIdentity != right.rootBindingIdentity) {
         return false;
     }
 
@@ -73,7 +74,9 @@ bool borrowPathsOverlap(const BorrowToken& left, const BorrowToken& right) {
 }
 
 bool borrowPathIsPrefix(const BorrowToken& prefix, const BorrowToken& value) {
-    if (prefix.rootName != value.rootName || prefix.accessPath.size() > value.accessPath.size()) {
+    if (prefix.rootBindingIdentity.empty() || value.rootBindingIdentity.empty() ||
+        prefix.rootBindingIdentity != value.rootBindingIdentity ||
+        prefix.accessPath.size() > value.accessPath.size()) {
         return false;
     }
 
@@ -113,7 +116,7 @@ std::string borrowConflictMessage(const BorrowToken& requested, const BorrowToke
 
 std::string ownerMutationConflictMessage(std::string_view ownerName, const BorrowToken& existing, std::string_view action) {
     return "Cannot " + std::string(action) + " `" + std::string(ownerName) +
-        "` while `" + formatBorrowTarget(existing) + "` is still borrowed.";
+        "` while `" + formatBorrowTarget(existing) + "` is still borrowed. Hint: end the view's scope before moving or replacing its owner.";
 }
 
 std::string pathMutationConflictMessage(std::string_view target, const BorrowToken& existing) {
@@ -142,7 +145,8 @@ void releaseBorrowTokenInStateMap(
     std::unordered_map<std::string, TrackedVar>& stateMap,
     const BorrowToken& token) {
     const auto it = stateMap.find(token.rootName);
-    if (it == stateMap.end() || !isBorrowRootType(it->second.type)) {
+    if (token.rootBindingIdentity.empty() || it == stateMap.end() || !isBorrowRootType(it->second.type) ||
+        it->second.bindingIdentity != token.rootBindingIdentity) {
         return;
     }
 
@@ -177,6 +181,7 @@ void OwnershipChecker::check(RealmDecl* realm, const SemanticAnalyzer& semanticA
     varStates.clear();
     pathReachable = true;
     scopeStack.clear();
+    nextBindingIdentity = 0;
     ownershipResult = OwnershipResult{};
 
     for (auto& decl : realm->declarations) {
@@ -215,11 +220,10 @@ void OwnershipChecker::checkFnDecl(FnDecl* fn) {
     if (fn->body) {
         for (size_t i = 0; i < fn->body->statements.size(); ++i) {
             Stmt* stmt = fn->body->statements[i].get();
-            if (signature && i + 1 == fn->body->statements.size() &&
-                signature->returnType.name == "Tuple" && signature->returnType.isOwned()) {
+            if (signature && i + 1 == fn->body->statements.size() && signature->returnType.isOwned()) {
                 if (auto* tail = dynamic_cast<ExprStmt*>(stmt); tail && tail->expr) {
                     const ResolvedType tailType = typeOfExpr(tail->expr.get());
-                    if (tailType.name == "Tuple" && tailType.isOwned()) {
+                    if (tailType.isOwned()) {
                         checkExpr(tail->expr.get(), true);
                         continue;
                     }
@@ -232,7 +236,7 @@ void OwnershipChecker::checkFnDecl(FnDecl* fn) {
     exitScope();
 }
 
-void OwnershipChecker::consumeTuplePatternSource(const Expr* expr) {
+void OwnershipChecker::consumePatternSource(const Expr* expr) {
     const auto* source = dynamic_cast<const IdentExpr*>(expr);
     if (!source) {
         return;
@@ -324,7 +328,7 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
             return;
         }
 
-        const auto bindingTypeIt = semantic->result().bindingTypes.find(bind);
+const auto bindingTypeIt = semantic->result().bindingTypes.find(bind);
         const ResolvedType bindingType = bindingTypeIt != semantic->result().bindingTypes.end()
             ? bindingTypeIt->second
             : makeUnknownType();
@@ -344,9 +348,27 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         state.backendBindingKey = bind->backendBindingKey;
         if (isBorrowCarrierType(bindingType) && bind->value) {
             if (const auto token = resolveBorrowToken(bind->value.get(), bindingType)) {
-                if (acquireBorrowToken(*token, bind->value.get())) {
+                std::optional<std::pair<size_t, size_t>> targetPosition;
+                if (!scopeStack.empty()) {
+                    targetPosition = std::make_pair(scopeStack.size() - 1, scopeStack.back().bindings.size());
+                }
+                if (!targetPosition.has_value() || !borrowFitsBindingScope(*token, *targetPosition)) {
+                    reportError(
+                        bind,
+                        "Borrowed view `" + bindingType.describe() + "` would outlive the value it refers to. Hint: keep the view in the same or a narrower scope than its owner, or return a view only from a ref parameter.");
+                } else if (acquireBorrowToken(*token, bind->value.get())) {
                     state.lexicalBorrow = token;
                 }
+            }
+        }
+
+        const auto priorBinding = varStates.find(bind->name);
+        if (priorBinding != varStates.end() && hasActiveBorrow(priorBinding->second)) {
+            if (const auto* borrow = firstActiveBorrow(priorBinding->second)) {
+                reportError(
+                    bind,
+                    "Cannot shadow `" + bind->name + "` while a view of `" + formatBorrowTarget(*borrow) +
+                        "` is still live. Hint: use a different variable name or end the view's scope first.");
             }
         }
 
@@ -393,7 +415,12 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
                     state.lexicalBorrow.reset();
                     if (assign->value) {
                         if (const auto token = resolveBorrowToken(assign->value.get(), state.type)) {
-                            if (acquireBorrowToken(*token, assign->value.get())) {
+                            const auto targetPosition = findBindingPosition(state.bindingIdentity);
+                            if (!targetPosition.has_value() || !borrowFitsBindingScope(*token, *targetPosition)) {
+                                reportError(
+                                    assign,
+                                    "Borrowed view `" + state.type.describe() + "` would outlive the value it refers to. Hint: keep the view in the same or a narrower scope than its owner, or return a view only from a ref parameter.");
+                            } else if (acquireBorrowToken(*token, assign->value.get())) {
                                 state.lexicalBorrow = token;
                             }
                         }
@@ -637,14 +664,33 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         if (pickedType.name == "Tuple" && std::any_of(pick->branches.begin(), pick->branches.end(), [](const PickBranch& branch) {
                 return static_cast<bool>(branch.tuplePattern);
             })) {
-            consumeTuplePatternSource(pick->value.get());
+            consumePatternSource(pick->value.get());
         }
-        const auto baseline = varStates;
-        const bool baselineReachable = pathReachable;
         const ChoiceInfo* choiceInfo = pickedType.isUnknown() ? nullptr : semantic->lookupChoice(pickedType.name);
         const auto choiceBindings = choiceInfo
             ? buildTypeBindings(choiceInfo->typeParams, pickedType.params)
             : std::unordered_map<std::string, ResolvedType>{};
+        if (choiceInfo) {
+            const bool hasOwnedPayload = std::any_of(
+                choiceInfo->variants.begin(),
+                choiceInfo->variants.end(),
+                [&](const auto& entry) {
+                    return std::any_of(entry.second.payloadTypes.begin(), entry.second.payloadTypes.end(), [&](const ResolvedType& payloadType) {
+                        return substituteType(payloadType, choiceBindings).isOwned();
+                    });
+                });
+            if (hasOwnedPayload) {
+                if (!dynamic_cast<IdentExpr*>(pick->value.get())) {
+                    reportError(
+                        pick->value.get(),
+                        "Cannot pick an owned choice payload from a temporary or projected value. Hint: move the choice into a local variable first.");
+                } else {
+                    consumePatternSource(pick->value.get());
+                }
+            }
+        }
+        const auto baseline = varStates;
+        const bool baselineReachable = pathReachable;
 
         std::optional<std::unordered_map<std::string, TrackedVar>> mergedState;
         for (const auto& branch : pick->branches) {
@@ -828,14 +874,33 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
         if (pickedType.name == "Tuple" && std::any_of(pickExpr->branches.begin(), pickExpr->branches.end(), [](const PickBranch& branch) {
                 return static_cast<bool>(branch.tuplePattern);
             })) {
-            consumeTuplePatternSource(pickExpr->value.get());
+            consumePatternSource(pickExpr->value.get());
         }
-        const auto baseline = varStates;
-        const bool baselineReachable = pathReachable;
         const ChoiceInfo* choiceInfo = pickedType.isUnknown() ? nullptr : semantic->lookupChoice(pickedType.name);
         const auto choiceBindings = choiceInfo
             ? buildTypeBindings(choiceInfo->typeParams, pickedType.params)
             : std::unordered_map<std::string, ResolvedType>{};
+        if (choiceInfo) {
+            const bool hasOwnedPayload = std::any_of(
+                choiceInfo->variants.begin(),
+                choiceInfo->variants.end(),
+                [&](const auto& entry) {
+                    return std::any_of(entry.second.payloadTypes.begin(), entry.second.payloadTypes.end(), [&](const ResolvedType& payloadType) {
+                        return substituteType(payloadType, choiceBindings).isOwned();
+                    });
+                });
+            if (hasOwnedPayload) {
+                if (!dynamic_cast<IdentExpr*>(pickExpr->value.get())) {
+                    reportError(
+                        pickExpr->value.get(),
+                        "Cannot pick an owned choice payload from a temporary or projected value. Hint: move the choice into a local variable first.");
+                } else {
+                    consumePatternSource(pickExpr->value.get());
+                }
+            }
+        }
+        const auto baseline = varStates;
+        const bool baselineReachable = pathReachable;
 
         std::optional<std::unordered_map<std::string, TrackedVar>> mergedState;
         for (const auto& branch : pickExpr->branches) {
@@ -1123,16 +1188,47 @@ void OwnershipChecker::exitScope() {
 }
 
 void OwnershipChecker::defineTrackedVar(const std::string& name, const TrackedVar& state) {
+    TrackedVar storedState = state;
+    if (storedState.bindingIdentity.empty()) {
+        storedState.bindingIdentity = "ownership-binding-" + std::to_string(nextBindingIdentity++);
+    }
     if (!scopeStack.empty()) {
         ScopeBinding binding;
         binding.name = name;
+        binding.bindingIdentity = storedState.bindingIdentity;
         const auto existing = varStates.find(name);
         if (existing != varStates.end()) {
             binding.previousState = existing->second;
         }
         scopeStack.back().bindings.push_back(std::move(binding));
     }
-    varStates[name] = state;
+    varStates[name] = std::move(storedState);
+}
+
+std::optional<std::pair<size_t, size_t>> OwnershipChecker::findBindingPosition(std::string_view identity) const {
+    if (identity.empty()) {
+        return std::nullopt;
+    }
+    for (size_t depth = scopeStack.size(); depth > 0; --depth) {
+        const auto& bindings = scopeStack[depth - 1].bindings;
+        for (size_t index = bindings.size(); index > 0; --index) {
+            if (bindings[index - 1].bindingIdentity == identity) {
+                return std::pair<size_t, size_t>{depth - 1, index - 1};
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+bool OwnershipChecker::borrowFitsBindingScope(
+    const BorrowToken& token,
+    const std::pair<size_t, size_t>& target) const {
+    const auto owner = findBindingPosition(token.rootBindingIdentity);
+    if (!owner.has_value()) {
+        return false;
+    }
+    return owner->first < target.first ||
+        (owner->first == target.first && owner->second < target.second);
 }
 
 void OwnershipChecker::recordDropBeforeStmt(
@@ -1212,7 +1308,7 @@ std::optional<BorrowToken> OwnershipChecker::resolveBorrowPath(Expr* expr) const
             return it->second.lexicalBorrow;
         }
         if (isBorrowRootType(it->second.type)) {
-            return BorrowToken{ident->name, {}, {}};
+            return BorrowToken{ident->name, {}, {}, it->second.bindingIdentity};
         }
         return std::nullopt;
     }
@@ -1308,8 +1404,15 @@ std::optional<BorrowToken> OwnershipChecker::resolveBorrowToken(Expr* expr, cons
 }
 
 bool OwnershipChecker::acquireBorrowToken(const BorrowToken& token, const AstNode* node) {
+    if (token.rootBindingIdentity.empty()) {
+        reportError(
+            node,
+            "Cannot safely track the owner of this borrowed view. Hint: bind the owner to a local variable before creating the view.");
+        return false;
+    }
     const auto it = varStates.find(token.rootName);
-    if (it == varStates.end() || !isBorrowRootType(it->second.type)) {
+    if (it == varStates.end() || !isBorrowRootType(it->second.type) ||
+        it->second.bindingIdentity != token.rootBindingIdentity) {
         return false;
     }
 
@@ -1332,7 +1435,8 @@ bool OwnershipChecker::acquireBorrowToken(const BorrowToken& token, const AstNod
 
 void OwnershipChecker::releaseBorrowToken(const BorrowToken& token) {
     const auto it = varStates.find(token.rootName);
-    if (it == varStates.end() || !isBorrowRootType(it->second.type)) {
+    if (token.rootBindingIdentity.empty() || it == varStates.end() || !isBorrowRootType(it->second.type) ||
+        it->second.bindingIdentity != token.rootBindingIdentity) {
         return;
     }
 

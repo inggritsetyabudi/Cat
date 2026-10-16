@@ -204,17 +204,21 @@ run_check_fail "tuple pick rejects owned tuple fields" "$FIXTURE_DIR/revise_bad_
 run_check_fail "tuple pick rejects Span borrow-carrier fields" "$FIXTURE_DIR/revise_bad_tuple_pick_span.cat" "Tuple pick patterns currently support only plain, concrete, non-view fields"
 run_check_fail "owned tuple pick patterns remain unsupported" "$FIXTURE_DIR/revise_bad_tuple_owned_pick.cat" "Tuple pick patterns currently support only plain, concrete, non-view fields"
 run_check_fail "pick cannot leak a temporary owned tuple through wildcard" "$FIXTURE_DIR/revise_bad_tuple_owned_pick_temporary.cat" "Pick over a temporary owned tuple is unsupported"
-run_check_fail "owned temporary without destructor is rejected" "$FIXTURE_DIR/revise_bad_discarded_owned_temporary.cat" 'Cannot discard owned temporary of type `Str` because no safe destructor is available.'
+run_check_pass "static Str literal view can be returned safely" "$FIXTURE_DIR/revise_static_str_return.cat"
 run_check_fail "nested Anchor payload requires recursive destruction" "$FIXTURE_DIR/revise_bad_anchor_nested_payload.cat" 'Anchor.new(...) cannot store payload type `Anchor[Int32]` because it contains a nested Anchor'
 run_check_fail "nested Anchor payload type is unsupported" "$FIXTURE_DIR/revise_bad_anchor_nested_type.cat" "is unsupported because an Anchor payload cannot contain another Anchor"
 run_check_fail "generic Shape specialization cannot nest Anchor payloads" "$FIXTURE_DIR/revise_bad_anchor_nested_shape_specialization.cat" 'is unsupported because an Anchor payload cannot contain another Anchor'
 run_check_fail "Anchor.new cannot wrap a Shape with an Anchor field" "$FIXTURE_DIR/revise_bad_anchor_nested_shape_payload.cat" 'is unsupported because an Anchor payload cannot contain another Anchor'
-run_check_pass "valid AnchorBox[Str] and Anchor[Int32] specializations" "$SCRIPT_DIR/../native/fixtures/revise_anchor_box_specialization.cat"
+run_check_pass "valid AnchorBox[Int32] and Anchor[Int32] specializations" "$SCRIPT_DIR/../native/fixtures/revise_anchor_box_specialization.cat"
+run_check_fail "Anchor cannot store a borrowed Str payload" "$FIXTURE_DIR/revise_bad_anchor_borrowed_str.cat" 'Hint: create owned text with `String.from(view)` before anchoring it.'
 run_check_warning "overloaded Add returning discarded Anchor" "$SCRIPT_DIR/../native/fixtures/revise_discarded_binary_anchor_temporary.cat" "only the final expression in a block returns implicitly"
 run_check_fail "discarded ShapeInit without destructor is rejected" "$FIXTURE_DIR/revise_bad_discarded_shape_init.cat" 'Cannot discard owned temporary of type `Record` because no safe destructor is available.'
 run_check_fail "member projection from owned temporary is rejected" "$FIXTURE_DIR/revise_bad_discarded_member_temporary.cat" "Cannot discard an expression projected from an owned temporary"
-run_check_fail "index projection from owned temporary is rejected" "$FIXTURE_DIR/revise_bad_discarded_index_temporary.cat" "Cannot discard an expression projected from an owned temporary"
-run_check_fail "borrowing method on owned temporary is rejected" "$FIXTURE_DIR/revise_bad_discarded_borrowed_receiver.cat" "Cannot discard a call on an owned temporary receiver"
+run_check_pass "String temporary may be indexed while the expression is live" "$FIXTURE_DIR/revise_index_from_string_temporary.cat"
+run_check_fail "discarding a borrowed view from a temporary owner is rejected" "$FIXTURE_DIR/revise_bad_discarded_borrowed_receiver.cat" "Cannot discard a borrowed view whose owner is a temporary"
+run_check_fail "borrowed String view cannot escape a temporary owner" "$FIXTURE_DIR/revise_bad_temporary_string_view.cat" "Borrowed view cannot escape a temporary owner"
+run_check_fail "borrowed temporary cannot cross an if-expression branch join" "$FIXTURE_DIR/revise_bad_temporary_string_view_if.cat" 'Borrowed view from a temporary owner cannot cross an `if` expression branch'
+run_check_fail "member assignment cannot store a borrowed temporary view" "$FIXTURE_DIR/revise_bad_temporary_string_member_assignment.cat" "Borrowed view cannot escape a temporary owner"
 
 echo "[air/pass] recursive tuple pick patterns"
 tuple_pick_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_tuple_pick.cat")"
@@ -267,9 +271,9 @@ fi
 echo "[air/pass] test_frontend/revise_surface.cat"
 revise_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_surface.cat")"
 if [[ "$revise_air_output" != *"air.module revise_surface"* ]] ||
-   [[ "$revise_air_output" != *"val greeting: Str"* ]] ||
+   [[ "$revise_air_output" != *"val greeting: ref Str"* ]] ||
    [[ "$revise_air_output" != *"var total: Int64 = 42 : Int64"* ]] ||
-   [[ "$revise_air_output" != *"scan item: UInt8 over greeting : Str"* ]]; then
+   [[ "$revise_air_output" != *"scan item: UInt8 over greeting : ref Str"* ]]; then
   echo "revised surface AIR did not reflect the expected val/var and Str surface" >&2
   exit 1
 fi
@@ -315,7 +319,7 @@ if ! value_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_
 fi
 run_check_fail "if value without else" "$FIXTURE_DIR/revise_bad_if_value_missing_else.cat" "'if' as a value requires an 'else' branch."
 run_check_fail "incompatible if branch types" "$FIXTURE_DIR/revise_bad_if_value_incompatible.cat" "Incompatible branch types in if expression"
-run_check_fail "incompatible pick branch types" "$FIXTURE_DIR/revise_bad_pick_value_incompatible.cat" "Branch type mismatch in pick expression: expected Int32, got Str."
+run_check_fail "incompatible pick branch types" "$FIXTURE_DIR/revise_bad_pick_value_incompatible.cat" "Branch type mismatch in pick expression: expected Int32, got ref Str."
 run_check_fail "non-exhaustive pick value" "$FIXTURE_DIR/revise_bad_pick_value_non_exhaustive.cat" "Non-exhaustive pick for choice type 'Route'."
 run_check_fail "wildcard must be last in pick value" "$FIXTURE_DIR/revise_bad_pick_value_wildcard_nonfinal.cat" "The '_' catch-all branch must be the last branch in a pick."
 run_check_fail "branch after wildcard is unreachable" "$FIXTURE_DIR/revise_bad_pick_value_wildcard_nonfinal.cat" "Unreachable pick branch after the '_' catch-all branch."
@@ -355,8 +359,8 @@ fi
 run_check_pass "test_native/revise_try_contract.cat" "$SCRIPT_DIR/../native/fixtures/revise_try_contract.cat"
 echo "[air/pass] test_native/revise_try_contract.cat"
 try_contract_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_try_contract.cat")"
-if [[ "$try_contract_air_output" != *"val inner_result = try nested() : Result[Result[Int32, Str], Str]"* ]] ||
-   [[ "$try_contract_air_output" != *"return inner_result : Result[Int32, Str]"* ]]; then
+if [[ "$try_contract_air_output" != *"val inner_result = try nested() : Result[Result[Int32, String], String]"* ]] ||
+   [[ "$try_contract_air_output" != *"return inner_result : Result[Int32, String]"* ]]; then
   echo "try AIR did not preserve exactly one Result layer" >&2
   exit 1
 fi
@@ -372,14 +376,14 @@ fi
 run_check_fail "test_frontend/revise_bad_try_return.cat" "$FIXTURE_DIR/revise_bad_try_return.cat" '`try` shorthand requires the current function to return Result[T, E].'
 run_check_fail "test_frontend/revise_bad_try_var.cat" "$FIXTURE_DIR/revise_bad_try_var.cat" '`try` is only allowed in a `val` initializer.'
 run_check_fail "try in return expression" "$FIXTURE_DIR/revise_bad_try_return_expr.cat" 'Expected expression.'
-run_check_fail "shorthand try with a different error type" "$FIXTURE_DIR/revise_bad_try_error_type.cat" '`try` shorthand error type mismatch: expected Int32, got Str'
+run_check_fail "shorthand try with a different error type" "$FIXTURE_DIR/revise_bad_try_error_type.cat" '`try` shorthand error type mismatch: expected Int32, got String'
 run_check_fail "nonterminal try else block" "$FIXTURE_DIR/revise_bad_try_else_nonterminal.cat" '`try ... else` failure block must terminate the current control path.'
 run_check_fail "owned Result reuse after try" "$FIXTURE_DIR/revise_bad_try_owned_reuse.cat" 'Use of moved value -> result'
 run_check_fail "try error alias with mismatched generic argument" "$FIXTURE_DIR/revise_bad_try_alias_generic_mismatch" '`try` shorthand error type mismatch'
 run_check_fail "same nominal spelling in different modules" "$FIXTURE_DIR/revise_bad_try_alias_cross_module" '`try` shorthand error type mismatch'
 run_air_fail "var try initializer" "$FIXTURE_DIR/revise_bad_try_var.cat" '`try` is only allowed in a `val` initializer.'
 run_air_fail "try in return expression" "$FIXTURE_DIR/revise_bad_try_return_expr.cat" 'Expected expression.'
-run_air_fail "shorthand try with a different error type" "$FIXTURE_DIR/revise_bad_try_error_type.cat" '`try` shorthand error type mismatch: expected Int32, got Str'
+run_air_fail "shorthand try with a different error type" "$FIXTURE_DIR/revise_bad_try_error_type.cat" '`try` shorthand error type mismatch: expected Int32, got String'
 run_air_fail "nonterminal try else block" "$FIXTURE_DIR/revise_bad_try_else_nonterminal.cat" '`try ... else` failure block must terminate the current control path.'
 run_air_fail "try error alias with mismatched generic argument" "$FIXTURE_DIR/revise_bad_try_alias_generic_mismatch" '`try` shorthand error type mismatch'
 run_air_fail "same nominal spelling in different modules" "$FIXTURE_DIR/revise_bad_try_alias_cross_module" '`try` shorthand error type mismatch'
@@ -397,8 +401,8 @@ if [[ "$revise_maybe_air_output" != *"add_one("* ]] ||
 fi
 
 run_check_pass "test_frontend/revise_anchor.cat" "$FIXTURE_DIR/revise_anchor.cat"
-run_check_fail "test_frontend/revise_bad_anchor_view_payload.cat" "$FIXTURE_DIR/revise_bad_anchor_view_payload.cat" 'Anchor.new(...) requires an owned payload'
-run_check_fail "test_frontend/revise_bad_anchor_scoped_aggregate.cat" "$FIXTURE_DIR/revise_bad_anchor_scoped_aggregate.cat" 'Anchor.new(...) requires an owned payload'
+run_check_fail "test_frontend/revise_bad_anchor_view_payload.cat" "$FIXTURE_DIR/revise_bad_anchor_view_payload.cat" 'cannot store borrowed Str view `ref Str`. Hint: create owned text with `String.from(view)` before anchoring it.'
+run_check_fail "test_frontend/revise_bad_anchor_scoped_aggregate.cat" "$FIXTURE_DIR/revise_bad_anchor_scoped_aggregate.cat" 'PairView[s] cannot be anchored directly. Hint: pass an owned value; for text, use `String.from(view)`.'
 run_check_fail "test_frontend/revise_bad_anchor_return_local.cat" "$FIXTURE_DIR/revise_bad_anchor_return_local.cat" "Returned ref value must come from one of the function's ref parameters."
 run_check_pass "test_frontend/revise_anchor_choice.cat" "$FIXTURE_DIR/revise_anchor_choice.cat"
 
@@ -487,7 +491,7 @@ run_check_fail "test_frontend/revise_bad_operator_compound_immutable.cat" "$FIXT
 short_circuit_ownership_fixture="$SCRIPT_DIR/../native/fixtures/revise_operator_short_circuit_ownership.cat"
 run_check_pass "test_native/revise_operator_short_circuit_ownership.cat" "$short_circuit_ownership_fixture"
 short_circuit_ownership_oir="$("$CLAW_EXE" oir "$short_circuit_ownership_fixture")"
-if [[ "$short_circuit_ownership_oir" != *"drop anchor : Anchor[Str]"* ]]; then
+if [[ "$short_circuit_ownership_oir" != *"drop anchor : Anchor[String]"* ]]; then
   echo "short-circuit ownership OIR did not retain the caller's Anchor drop" >&2
   exit 1
 fi
@@ -605,7 +609,7 @@ choice Result[T, E] {
     Ok(value: T)
     Fail(cause: E)
 }
-fn load() -> Result[Int32, Str] {
+fn load() -> Result[Int32, String] {
     lift Ok(1) as value fail issue {
         return Fail(issue)
     }
@@ -810,3 +814,86 @@ run_check_fail "UInt8 fixed-array element assignment remains out of scope" \
 
 run_check_pass "fixed Array[Int32,5] aggregate return and parameter" \
   "$SCRIPT_DIR/../native/fixtures/revise_fixed_array_large.cat"
+
+
+run_check_pass "Str/String aliases and owned/borrowed native acceptance" \
+  "$SCRIPT_DIR/../native/fixtures/revise_string_owner.cat"
+run_check_pass "branch-local Str borrow ends before owner move" \
+  "$FIXTURE_DIR/revise_str_branch_local_borrow.cat"
+run_check_fail "local String owner cannot escape through Str return" \
+  "$FIXTURE_DIR/revise_bad_str_local_return.cat" \
+  "Hint: return a view derived from a ref parameter"
+run_check_fail "normal shapes cannot store borrowed Str fields" \
+  "$FIXTURE_DIR/revise_bad_str_borrowed_field.cat" \
+  'Hint: use `String` for owned text'
+run_check_fail "generic Result cannot store a borrowed Str payload" \
+  "$FIXTURE_DIR/revise_bad_str_result_payload.cat" \
+  "cannot store a borrowed view inside its payload. Hint:"
+run_check_fail "generic Vec cannot store borrowed Str" \
+  "$FIXTURE_DIR/revise_bad_str_generic_storage.cat" \
+  "cannot store a borrowed view inside its payload. Hint:"
+run_check_fail "generic normal shape cannot store borrowed Str" \
+  "$FIXTURE_DIR/revise_bad_str_generic_shape_storage.cat" \
+  "cannot store a borrowed view inside its payload. Hint:"
+run_check_fail "owner cannot be moved while its Str view is live" \
+  "$FIXTURE_DIR/revise_bad_str_owner_move.cat" \
+  "Hint: end the view's scope before moving or replacing its owner."
+run_check_fail "view cannot be assigned outside the owner's scope" \
+  "$FIXTURE_DIR/revise_bad_str_view_escape.cat" \
+  'Borrowed view `ref Str` would outlive the value it refers to. Hint:'
+run_check_fail "owner cannot be shadowed while its Str view is live" \
+  "$FIXTURE_DIR/revise_bad_str_owner_shadow.cat" \
+  'Cannot shadow `owner` while a view of `owner` is still live. Hint:'
+run_check_fail "Str literal does not implicitly allocate an owned String" \
+  "$FIXTURE_DIR/revise_bad_string_implicit_copy.cat" \
+  'Hint: use `String.from(str)` when an owned copy is required.'
+run_check_fail "generic Vec cannot store owned String before element drop glue exists" \
+  "$FIXTURE_DIR/revise_bad_string_container_storage.cat" \
+  'cannot contain owned `String` values because element drop glue is not available yet. Hint:'
+run_check_fail "generic Queue cannot store owned String before element drop glue exists" \
+  "$FIXTURE_DIR/revise_bad_string_queue_storage.cat" \
+  'cannot contain owned `String` values because element drop glue is not available yet. Hint:'
+run_check_fail "copied Str alias keeps the original String borrowed" \
+  "$FIXTURE_DIR/revise_bad_str_view_alias_move.cat" \
+  'Cannot move `owner` while `owner` is still borrowed. Hint:'
+run_check_fail "borrow remains live across branch merge" \
+  "$FIXTURE_DIR/revise_bad_str_branch_owner_move.cat" \
+  'Cannot move `first` while `first` is still borrowed. Hint:'
+run_check_fail "Maybe[ref Str] cannot return a view of a local owner" \
+  "$FIXTURE_DIR/revise_bad_str_maybe_return.cat" \
+  "Returned ref value must come from one of the function's ref parameters. Hint:"
+run_check_fail "String.from rejects non-Str arguments" \
+  "$FIXTURE_DIR/revise_bad_string_from_non_str.cat" \
+  'String.from(view) requires Str, got integer literal. Hint: pass a string literal or borrowed `Str`'
+run_check_fail "mixed static and parameter Str returns retain caller borrow" \
+  "$FIXTURE_DIR/revise_bad_string_mixed_static_borrow_return.cat" \
+  'Cannot move `owner` while `owner` is still borrowed. Hint:'
+run_check_fail "owned choice payload cannot be picked from a projection" \
+  "$FIXTURE_DIR/revise_bad_str_owned_choice_projection.cat" \
+  'Cannot pick an owned choice payload from a temporary or projected value. Hint:'
+
+string_escape_output=""
+if string_escape_output="$("$CLAW_EXE" check "$FIXTURE_DIR/revise_bad_str_owner_move.cat" 2>&1)"; then
+  echo "owner-move diagnostic unexpectedly passed" >&2
+  exit 1
+fi
+if [[ "$string_escape_output" != *"revise_bad_str_owner_move.cat:4:17"* ]]; then
+  echo "owner-move diagnostic did not retain its source span:" >&2
+  echo "$string_escape_output" >&2
+  exit 1
+fi
+
+if command -v script >/dev/null 2>&1; then
+  string_diag_command="\"$CLAW_EXE\" check \"$FIXTURE_DIR/revise_bad_str_owner_move.cat\""
+  string_color_output="$(TERM=xterm script -q -c "$string_diag_command" /dev/null 2>&1 || true)"
+  if [[ "$string_color_output" != *$'\033[1;31merror'* || "$string_color_output" != *$'\033[1;36mHint:'* ]]; then
+    echo "String diagnostics were not colored on a supported terminal:" >&2
+    echo "$string_color_output" >&2
+    exit 1
+  fi
+  string_no_color_output="$(NO_COLOR=1 TERM=xterm script -q -c "$string_diag_command" /dev/null 2>&1 || true)"
+  if [[ "$string_no_color_output" == *$'\033['* ]]; then
+    echo "NO_COLOR did not disable ANSI diagnostics" >&2
+    exit 1
+  fi
+fi

@@ -246,6 +246,7 @@ public:
 private:
     std::unordered_set<std::string> builtinPlainTypes;
     std::unordered_set<std::string> builtinOwnedTypes;
+    std::unordered_set<std::string> builtinViewTypes;
     std::unordered_set<std::string> shapeNames;
     std::unordered_set<std::string> choiceNames;
     std::unordered_map<std::string, std::string> viewShapeScopeParams;

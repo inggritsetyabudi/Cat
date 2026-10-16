@@ -437,6 +437,8 @@ struct IteratorState {
 struct FunctionState {
     const LirFunction& function;
     std::unordered_map<std::string, std::string> stackPointers;
+    std::unordered_set<std::string> uninitializedOwnedAggregates;
+    std::unordered_map<std::string, std::unordered_set<std::string>> initializedAggregateFields;
     std::unordered_map<std::string, std::string> params;
     std::unordered_map<std::string, std::string> namedValues;
     std::unordered_map<std::string, std::string> namedAddresses;
@@ -538,6 +540,12 @@ private:
     std::string ensureNamedValue(std::string_view name, FunctionState& state, std::vector<std::string>& lines);
     std::optional<std::string> tryAddressOfValue(const LirValue& value, FunctionState& state, std::vector<std::string>& lines);
     std::string ensureAddress(const LirValue& value, FunctionState& state, std::vector<std::string>& lines);
+    bool typeHasOwnedDrop(std::string_view typeText) const;
+    void emitOwnedDropAtAddress(
+        std::string_view typeText,
+        std::string_view address,
+        FunctionState& state,
+        std::vector<std::string>& lines);
     const LayoutFieldInfo* findShapeFieldLayout(std::string_view typeText, std::string_view field) const;
     size_t findShapeFieldIndex(std::string_view typeText, std::string_view field) const;
     std::string loadValueFromAddress(

@@ -1,0 +1,8 @@
+fn make_text() -> String {
+    String.from("temporary")
+}
+
+fn main() -> Int32 {
+    make_text().as_str()[0]
+    0
+}

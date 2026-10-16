@@ -850,7 +850,7 @@ rm -f "$static_output" "${static_output%.exe}.ll"
 "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_static.cat" "$static_output" >/dev/null
 expect_generated_ll "$static_output"
 static_stdout="$(normalize_stdout "$static_output")"
-if [[ "$static_stdout" != $'1.0.0\ntrue' ]]; then
+if [[ "$static_stdout" != $'1.0.0\n1.0.0\nstable\ntrue' ]]; then
   echo "revised static native output was unexpected: $static_stdout" >&2
   exit 1
 fi
@@ -972,19 +972,25 @@ fi
 if grep -Fq 'target triple = "x86_64-w64-windows-gnu"' "$index_compound_ll"; then
   if ! grep -Fq 'define i32 @"revise_operator_index_compound::update"(ptr %arg.values.addr)' "$index_compound_ll" ||
      ! grep -Fq 'define i32 @"revise_operator_index_compound::forward_update"(ptr %arg.values.addr)' "$index_compound_ll" ||
-     ! grep -Fq 'call i32 @"revise_operator_index_compound::update"(ptr %arg.values.addr)' "$index_compound_ll"; then
-    echo "Win64 borrowed Span ABI must use pointer parameters for both callee definitions and direct calls" >&2
+     ! grep -Fq 'call i32 @"revise_operator_index_compound::update"(ptr %arg.values.addr)' "$index_compound_ll" ||
+     ! grep -Fq 'define i64 @"revise_operator_index_compound::text_length"(ptr %arg.text.addr)' "$index_compound_ll" ||
+     ! grep -Fq 'define i64 @"revise_operator_index_compound::forward_text_length"(ptr %arg.text.addr)' "$index_compound_ll" ||
+     ! grep -Fq 'call i64 @"revise_operator_index_compound::text_length"(ptr %arg.text.addr)' "$index_compound_ll"; then
+    echo "Win64 borrowed Str/Span ABI must use pointer parameters for both callee definitions and direct calls" >&2
     exit 1
   fi
 elif grep -Fq 'target triple = "x86_64-unknown-linux-gnu"' "$index_compound_ll"; then
   if ! grep -Fq 'define i32 @"revise_operator_index_compound::update"(%claw.slice %arg.values)' "$index_compound_ll" ||
-     ! grep -Fq 'call i32 @"revise_operator_index_compound::update"(%claw.slice %arg.values)' "$index_compound_ll"; then
-    echo "SysV x64 Span ABI must retain the direct aggregate parameter and call" >&2
+     ! grep -Fq 'call i32 @"revise_operator_index_compound::update"(%claw.slice %arg.values)' "$index_compound_ll" ||
+     ! grep -Fq 'define i64 @"revise_operator_index_compound::text_length"(%claw.slice %arg.text)' "$index_compound_ll" ||
+     ! grep -Fq 'define i64 @"revise_operator_index_compound::forward_text_length"(%claw.slice %arg.text)' "$index_compound_ll" ||
+     ! grep -Fq 'call i64 @"revise_operator_index_compound::text_length"(%claw.slice %arg.text)' "$index_compound_ll"; then
+    echo "SysV x64 borrowed Str/Span ABI must retain direct aggregate parameters and calls" >&2
     exit 1
   fi
 else
-  target_triple="$(sed -n 's/^target triple = "\(.*\)"$/\1/p' "$index_compound_ll")"
-  printf '[abi/skip] no explicit borrowed Span signature assertion for target %s\n' "${target_triple:-unknown}"
+  target_triple="$(sed -n 's/^target triple = \"\(.*\)\"$/\1/p' "$index_compound_ll")"
+  printf '[abi/skip] no explicit borrowed Str/Span signature assertion for target %s\n' "${target_triple:-unknown}"
 fi
 clang -Wno-override-module \
   "$index_compound_ll" \
@@ -992,7 +998,7 @@ clang -Wno-override-module \
   "$NATIVE_FIXTURE_DIR/revise_operator_index_compound_harness.c" \
   -o "$index_compound_output"
 index_compound_stdout="$(normalize_stdout "$index_compound_output")"
-if [[ "$index_compound_stdout" != $'9\n42\n42' ]]; then
+if [[ "$index_compound_stdout" != $'9\n42\n42\n3' ]]; then
   echo "index-compound native output was unexpected: $index_compound_stdout" >&2
   exit 1
 fi
@@ -1041,6 +1047,33 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address -x c - -o 
   ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 "$if_pick_values_asan" >/dev/null
 else
   echo "[asan/skip] clang AddressSanitizer is unavailable"
+fi
+
+echo "[build/pass] test_native/revise_string_temporary_cleanup.cat"
+string_temporary_output="$ARTIFACT_DIR/revise_string_temporary_cleanup.exe"
+rm -f "$string_temporary_output" "${string_temporary_output%.exe}.ll"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_string_temporary_cleanup.cat" "$string_temporary_output" >/dev/null
+expect_generated_ll "$string_temporary_output"
+string_temporary_stdout="$(normalize_stdout "$string_temporary_output")"
+expected_string_temporary_stdout=$'3\n5\ntemporary\nborrowed\n8\n97\nretained\nretained'
+if [[ "$string_temporary_stdout" != "$expected_string_temporary_stdout" ]]; then
+  echo "String temporary cleanup native output was unexpected: $string_temporary_stdout" >&2
+  exit 1
+fi
+
+string_temporary_asan="$CWD_TEST_DIR/revise_string_temporary_cleanup_asan"
+if [[ -x "$CWD_TEST_DIR/asan_probe" ]]; then
+  echo "[asan/pass] temporary String receiver/argument cleanup and named-owner borrowing"
+  clang -fsanitize=address,undefined -O1 -g "${string_temporary_output%.exe}.ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$string_temporary_asan"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 \
+    "$string_temporary_asan" > "$CWD_TEST_DIR/revise_string_temporary_cleanup_asan.out"
+  string_temporary_asan_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_string_temporary_cleanup_asan.out")"
+  if [[ "$string_temporary_asan_stdout" != "$expected_string_temporary_stdout" ]]; then
+    echo "String temporary cleanup ASan output was unexpected: $string_temporary_asan_stdout" >&2
+    exit 1
+  fi
+else
+  echo "[asan/skip] clang AddressSanitizer is unavailable for temporary String cleanup test"
 fi
 
 discarded_anchor_asan="$CWD_TEST_DIR/revise_discarded_anchor_temporary_asan"
@@ -1400,4 +1433,161 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
   fi
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for UInt8 fixed arrays"
+fi
+
+
+string_owner_output="$ARTIFACT_DIR/revise_string_owner.exe"
+string_owner_ll="${string_owner_output%.exe}.ll"
+rm -f "$string_owner_output" "$string_owner_ll"
+echo "[build/pass] Str/String aliases, owned moves/returns/parameters, clone, UTF-8 view"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_string_owner.cat" "$string_owner_output" >/dev/null
+expect_generated_ll "$string_owner_output"
+string_owner_stdout="$(normalize_stdout "$string_owner_output")"
+expected_string_owner_stdout=$'static literal\nstatic literal\nstatic literal\nstatic literal\nstatic literal\nowned return\nowned return\nowned return\né'
+if [[ "$string_owner_stdout" != "$expected_string_owner_stdout" ]]; then
+  echo "String ownership native output was unexpected:" >&2
+  printf '%s\n' "$string_owner_stdout" >&2
+  exit 1
+fi
+if ! grep -q '%claw.buffer = type { ptr, i64, i64 }' "$string_owner_ll" ||
+   ! grep -q '%claw.slice = type { ptr, i64 }' "$string_owner_ll"; then
+  echo "Str/String LLVM ABI did not expose {ptr,len} view and {ptr,len,cap} owner layouts" >&2
+  exit 1
+fi
+string_owner_oir="$("$CLAW_EXE" oir "$NATIVE_FIXTURE_DIR/revise_string_owner.cat")"
+if ! grep -Fq 'oir.fn identity_view(text: ref Str [direct]) -> ref Str [direct]' <<<"$string_owner_oir" ||
+   ! grep -Fq 'oir.fn relay_owned(value: String [indirect]) -> String [indirect]' <<<"$string_owner_oir"; then
+  echo "Str/String OIR parameter and return ABI classifications were unexpected" >&2
+  exit 1
+fi
+string_alloc_calls="$(grep -c 'call ptr @"claw.runtime.string.alloc"' "$string_owner_ll" || true)"
+string_free_calls="$(grep -c 'call void @"claw.runtime.string.free"' "$string_owner_ll" || true)"
+if [[ "$string_alloc_calls" != "4" || "$string_free_calls" != "5" ]]; then
+  echo "String allocation/free lowering was unexpected: alloc=$string_alloc_calls free=$string_free_calls" >&2
+  exit 1
+fi
+
+string_owner_sanitized="$CWD_TEST_DIR/revise_string_owner_sanitized"
+if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,leak -x c - -o "$CWD_TEST_DIR/string_owner_sanitizer_probe" >/dev/null 2>&1; then
+  echo "[asan/ubsan/lsan/pass] String clone, move, parameter, explicit/implicit return, and drop"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+    "$string_owner_ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$string_owner_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$string_owner_sanitized" > "$CWD_TEST_DIR/revise_string_owner_sanitized.out"
+  string_owner_sanitized_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_string_owner_sanitized.out")"
+  if [[ "$string_owner_sanitized_stdout" != "$expected_string_owner_stdout" ]]; then
+    echo "sanitized String ownership output was unexpected" >&2
+    exit 1
+  fi
+else
+  echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for String ownership"
+fi
+
+static_str_return_output="$ARTIFACT_DIR/revise_static_str_return.exe"
+static_str_return_ll="${static_str_return_output%.exe}.ll"
+"$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_static_str_return.cat" "$static_str_return_output" >/dev/null
+expect_generated_ll "$static_str_return_output"
+if [[ "$(normalize_stdout "$static_str_return_output")" != "static-view" ]] ||
+   grep -q 'call ptr @"claw.runtime.string.alloc"' "$static_str_return_ll"; then
+  echo "static Str return output or allocation-free lowering was unexpected" >&2
+  exit 1
+fi
+
+string_shadowed_owner_output="$ARTIFACT_DIR/revise_string_shadowed_owner.exe"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_string_shadowed_owner.cat" "$string_shadowed_owner_output" >/dev/null
+expect_generated_ll "$string_shadowed_owner_output"
+if [[ "$(normalize_stdout "$string_shadowed_owner_output")" != $'inner\nouter' ]]; then
+  echo "same-name nested String owner/view scopes produced unexpected output" >&2
+  exit 1
+fi
+
+
+string_utf8_oob_output="$ARTIFACT_DIR/revise_string_view_utf8_defect.exe"
+rm -f "$string_utf8_oob_output" "${string_utf8_oob_output%.exe}.ll"
+echo "[defect/pass] String.as_str() keeps UTF-8 boundary checks"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_string_view_utf8_defect.cat" "$string_utf8_oob_output" >/dev/null
+expect_generated_ll "$string_utf8_oob_output"
+if "$string_utf8_oob_output" >/dev/null 2>&1; then
+  echo "expected String-derived Str range ending inside a UTF-8 code point to trap" >&2
+  exit 1
+fi
+
+
+string_shape_drop_output="$ARTIFACT_DIR/revise_string_shape_drop.exe"
+string_shape_drop_ll="${string_shape_drop_output%.exe}.ll"
+rm -f "$string_shape_drop_output" "$string_shape_drop_ll"
+echo "[build/pass] recursive drop and overwrite for String inside nested shapes"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_string_shape_drop.cat" "$string_shape_drop_output" >/dev/null
+expect_generated_ll "$string_shape_drop_output"
+string_shape_drop_stdout="$(normalize_stdout "$string_shape_drop_output")"
+if [[ "$string_shape_drop_stdout" != "after" ]]; then
+  echo "nested String field replacement output was unexpected: $string_shape_drop_stdout" >&2
+  exit 1
+fi
+
+string_choice_drop_output="$ARTIFACT_DIR/revise_string_choice_drop.exe"
+string_choice_drop_ll="${string_choice_drop_output%.exe}.ll"
+rm -f "$string_choice_drop_output" "$string_choice_drop_ll"
+echo "[build/pass] recursive drop for String payload in generic choices"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_string_choice_drop.cat" "$string_choice_drop_output" >/dev/null
+expect_generated_ll "$string_choice_drop_output"
+string_choice_drop_stdout="$(normalize_stdout "$string_choice_drop_output")"
+if [[ "$string_choice_drop_stdout" != "drop-ok" ]]; then
+  echo "choice-owned String output was unexpected: $string_choice_drop_stdout" >&2
+  exit 1
+fi
+
+if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,leak -x c - -o "$CWD_TEST_DIR/string_drop_sanitizer_probe" >/dev/null 2>&1; then
+  for string_drop_case in revise_string_shape_drop revise_string_choice_drop revise_string_overwrite revise_static revise_try_contract revise_try_owned_result revise_string_shadowed_owner revise_static_str_return; do
+    case "$string_drop_case" in
+      revise_string_shape_drop) expected_drop_stdout="after" ;;
+      revise_string_choice_drop) expected_drop_stdout="drop-ok" ;;
+      revise_string_overwrite) expected_drop_stdout="new" ;;
+      revise_static) expected_drop_stdout=$'1.0.0\n1.0.0\nstable\ntrue' ;;
+      revise_try_contract) expected_drop_stdout=$'37\nstep-failed\n-1\n37\nstep-failed\n41' ;;
+      revise_try_owned_result) expected_drop_stdout=$'temporary-ok\nno-anchor\nowned\nno-anchor\nowned\nouter\nno-anchor' ;;
+      revise_string_shadowed_owner) expected_drop_stdout=$'inner\nouter' ;;
+      revise_static_str_return) expected_drop_stdout="static-view" ;;
+    esac
+    drop_output="$ARTIFACT_DIR/${string_drop_case}_sanitized.exe"
+    drop_ll="${drop_output%.exe}.ll"
+    if [[ "$string_drop_case" == "revise_static_str_return" ]]; then
+      drop_fixture="$FRONTEND_FIXTURE_DIR/${string_drop_case}.cat"
+    else
+      drop_fixture="$NATIVE_FIXTURE_DIR/${string_drop_case}.cat"
+    fi
+    "$CLAW_EXE" build "$drop_fixture" "$drop_output" >/dev/null
+    expect_generated_ll "$drop_output"
+    if [[ "$string_drop_case" == "revise_static" ]]; then
+      static_alloc_calls="$(grep -c 'call ptr @"claw.runtime.string.alloc"' "$drop_ll" || true)"
+      static_free_calls="$(grep -c 'call void @"claw.runtime.string.free"' "$drop_ll" || true)"
+      if [[ "$static_alloc_calls" != "1" || "$static_free_calls" != "1" ]]; then
+        echo "static Str globals caused unexpected ownership calls: alloc=$static_alloc_calls free=$static_free_calls" >&2
+        exit 1
+      fi
+    fi
+    if [[ "$string_drop_case" == "revise_string_overwrite" ]]; then
+      overwrite_alloc_calls="$(grep -c 'call ptr @"claw.runtime.string.alloc"' "$drop_ll" || true)"
+      overwrite_free_calls="$(grep -c 'call void @"claw.runtime.string.free"' "$drop_ll" || true)"
+      if [[ "$overwrite_alloc_calls" != "2" || "$overwrite_free_calls" != "2" ]]; then
+        echo "String overwrite did not allocate/free exactly twice: alloc=$overwrite_alloc_calls free=$overwrite_free_calls" >&2
+        exit 1
+      fi
+    fi
+    clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+      "$drop_ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$drop_output.san"
+    ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+    UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+    LSAN_OPTIONS=exitcode=23 "$drop_output.san" > "$drop_output.san.out"
+    sanitized_drop_stdout="$(tr -d '\r' < "$drop_output.san.out")"
+    if [[ "$sanitized_drop_stdout" != "$expected_drop_stdout" ]]; then
+      echo "sanitized recursive String drop output was unexpected for $string_drop_case" >&2
+      exit 1
+    fi
+  done
+  echo "[asan/ubsan/lsan/pass] String owner/overwrite, recursive drops, Result/Anchor transfers, static return, and shadowed owners"
+else
+  echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for recursive String drop"
 fi

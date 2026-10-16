@@ -115,7 +115,7 @@ fi
 run_llvm "test_frontend/revise_scoped_type_propagation.cat" "$FRONTEND_FIXTURE_DIR/revise_scoped_type_propagation.cat" "$scoped_type_ll"
 scoped_type_output="$(tr -d '\r' < "$scoped_type_ll")"
 if [[ "$scoped_type_output" != *'call %claw.slice @"revise_scoped_type_propagation::identity_ref"('* ]] ||
-   [[ "$scoped_type_output" != *'call %"revise_scoped_type_propagation::PairView" @"revise_scoped_type_propagation::identity_pair"('* ]] ||
+   [[ "$scoped_type_output" != *'call void @"revise_scoped_type_propagation::identity_pair"(ptr '* ]] ||
    [[ "$scoped_type_output" != *'call %claw.slice @"revise_scoped_type_propagation::first_text"('* ]] ||
    [[ "$scoped_type_output" != *'@"claw.runtime.println.slice"'* ]]; then
   echo "scoped-type LLVM output did not include signature propagation markers" >&2

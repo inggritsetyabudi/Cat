@@ -1,0 +1,8 @@
+fn bad() -> Maybe[ref Str] {
+    val owner = String.from("local")
+    owner.as_str().get(0..1)
+}
+
+fn main() -> Int32 {
+    return 0
+}

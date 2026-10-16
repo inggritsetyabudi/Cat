@@ -56,6 +56,9 @@ static void claw_write_i128(__int128 value) {
 
 void* claw_runtime_anchor_alloc(int64_t size) __asm__(CLAW_RT_ASM(claw.runtime.anchor.alloc));
 void claw_runtime_anchor_free(void* ptr) __asm__(CLAW_RT_ASM(claw.runtime.anchor.free));
+void* claw_runtime_string_alloc(int64_t capacity) __asm__(CLAW_RT_ASM(claw.runtime.string.alloc));
+void claw_runtime_string_copy(void* destination, const unsigned char* source, int64_t length) __asm__(CLAW_RT_ASM(claw.runtime.string.copy));
+void claw_runtime_string_free(void* ptr) __asm__(CLAW_RT_ASM(claw.runtime.string.free));
 
 void* claw_runtime_anchor_alloc(int64_t size) {
     const size_t request = size <= 0 ? 1u : (size_t)size;
@@ -68,6 +71,34 @@ void* claw_runtime_anchor_alloc(int64_t size) {
 }
 
 void claw_runtime_anchor_free(void* ptr) {
+    free(ptr);
+}
+
+void* claw_runtime_string_alloc(int64_t capacity) {
+    if (capacity < 0 || (uint64_t)capacity > (uint64_t)SIZE_MAX) {
+        fputs("fatal: String capacity is outside the platform allocation range\n", stderr);
+        abort();
+    }
+    const size_t request = capacity == 0 ? 1u : (size_t)capacity;
+    void* ptr = malloc(request);
+    if (ptr == NULL) {
+        fputs("fatal: String allocation failed\n", stderr);
+        abort();
+    }
+    return ptr;
+}
+
+void claw_runtime_string_copy(void* destination, const unsigned char* source, int64_t length) {
+    if (length > 0) {
+        if (destination == NULL || source == NULL || (uint64_t)length > (uint64_t)SIZE_MAX) {
+            fputs("fatal: invalid String copy range\n", stderr);
+            abort();
+        }
+        memcpy(destination, source, (size_t)length);
+    }
+}
+
+void claw_runtime_string_free(void* ptr) {
     free(ptr);
 }
 
