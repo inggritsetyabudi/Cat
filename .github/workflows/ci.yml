@@ -1,0 +1,94 @@
+name: Build and test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux (Clang, Release)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends clang cmake ninja-build
+
+      - name: Record toolchain versions
+        run: |
+          clang++ --version
+          cmake --version
+          ninja --version
+
+      - name: Configure clean Release build
+        run: |
+          rm -rf claw/build-ci
+          cmake -S claw -B claw/build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
+
+      - name: Build compiler
+        run: cmake --build claw/build-ci --target claw --parallel 4
+
+      - name: Run complete test suite
+        env:
+          CLAW_EXE: ${{ github.workspace }}/claw/build-ci/claw
+        run: bash claw/tests/run_all_tests.sh
+
+  windows-ucrt64:
+    name: Windows (MSYS2 UCRT64, Clang, Release)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Configure Git line endings for MSYS2
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up MSYS2 UCRT64
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            python
+
+      - name: Record toolchain versions
+        run: |
+          clang++ --version
+          cmake --version
+          ninja --version
+          python3 --version
+
+      - name: Configure clean Release build
+        run: |
+          rm -rf claw/build-ci
+          cmake -S claw -B claw/build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
+
+      - name: Build compiler
+        run: cmake --build claw/build-ci --target claw --parallel 4
+
+      - name: Run complete test suite
+        run: |
+          export CLAW_EXE="$(cygpath -u "$GITHUB_WORKSPACE")/claw/build-ci/claw.exe"
+          printf 'Using compiler: %s\n' "$CLAW_EXE"
+          bash claw/tests/run_all_tests.sh
