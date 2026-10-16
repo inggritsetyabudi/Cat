@@ -1,0 +1,5 @@
+fn use_lowercase_vec(value: vec[Int32]) {
+}
+
+fn main() {
+}
