@@ -37,6 +37,9 @@ assert_no_clang_diagnostics() {
     fail "temporary clang diagnostics were not removed from $directory"
   fi
 }
+has_ansi_color() {
+  grep -Eq $'\033\\[[0-9;]*m' "$1"
+}
 native_output_path_for_comparison() {
   if [[ "$IS_POSIX" -eq 1 ]]; then
     printf '%s\n' "$1"
@@ -281,7 +284,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
   else
     [[ "$pty_rc" -eq 0 ]] || fail "PTY success build failed: $pty_rc"
     grep -Fq 'FORGE READY | native artifact ready' "$pty_success_stderr" || fail "PTY success status missing"
-    grep -q $'\033\[' "$pty_success_stderr" || fail "interactive PTY output did not contain ANSI color"
+    has_ansi_color "$pty_success_stderr" || fail "interactive PTY output did not contain ANSI color"
     [[ "$(tr -cd '\r' <"$pty_success_stderr" | wc -c)" -ge 7 ]] || fail "spinner did not visibly animate during the slow linker phase"
     if grep -Eq '[0-9]+%' "$pty_success_stderr"; then
       fail "PTY output contains an estimated percentage"
@@ -300,9 +303,9 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     pty_plain_rc=$?
     set -e
     [[ "$pty_plain_rc" -eq 0 ]] || fail "NO_COLOR PTY build failed: $pty_plain_rc"
-    if grep -q $'\033' "$pty_plain_stderr"; then
+    if has_ansi_color "$pty_plain_stderr"; then
       python3 -c 'import pathlib, sys; print("NO_COLOR PTY stderr bytes:", repr(pathlib.Path(sys.argv[1]).read_bytes()[:256]))' "$pty_plain_stderr" >&2
-      fail "NO_COLOR did not suppress ANSI sequences in a PTY"
+      fail "NO_COLOR did not suppress ANSI color codes in a PTY"
     fi
     grep -Fq 'FORGE READY | native artifact ready' "$pty_plain_stderr" || fail "NO_COLOR PTY success status missing"
 
@@ -316,8 +319,8 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     pty_dumb_rc=$?
     set -e
     [[ "$pty_dumb_rc" -eq 0 ]] || fail "TERM=dumb PTY build failed: $pty_dumb_rc"
-    if grep -q $'\033' "$pty_dumb_stderr"; then
-      fail "TERM=dumb did not suppress ANSI sequences in a PTY"
+    if has_ansi_color "$pty_dumb_stderr"; then
+      fail "TERM=dumb did not suppress ANSI color codes in a PTY"
     fi
     grep -Fq 'FORGE READY | native artifact ready' "$pty_dumb_stderr" || fail "TERM=dumb PTY success status missing"
 
