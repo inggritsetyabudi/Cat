@@ -1,0 +1,14 @@
+fn main() -> Int32 {
+    val ascii: Str = "\u{41}"
+    val controls: Str = "\"\'\\\n\t\r\0"
+    val emoji: Str = "\u{1F600}😀"
+    val empty: Str = ""
+    if ascii.len() != 1 or controls.len() != 7 or emoji.len() != 8 or empty.len() != 0 {
+        return 1
+    }
+    print(ascii)
+    print(controls)
+    print(emoji)
+    println("!")
+    return 0
+}

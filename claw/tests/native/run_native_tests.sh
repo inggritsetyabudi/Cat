@@ -1226,7 +1226,27 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for Unicode Char tests"
 fi
+string_escape_output="$ARTIFACT_DIR/revise_string_escapes.exe"
+string_escape_ll="${string_escape_output%.exe}.ll"
+rm -f "$string_escape_output" "$string_escape_ll"
+echo "[build/pass] test_native/revise_string_escapes.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_string_escapes.cat" "$string_escape_output" >/dev/null
+expect_generated_ll "$string_escape_output"
+"$string_escape_output" > "$CWD_TEST_DIR/revise_string_escapes.out"
+python3 - "$CWD_TEST_DIR/revise_string_escapes.out" <<'PY'
+from pathlib import Path
+import sys
 
+actual = Path(sys.argv[1]).read_bytes()
+expected = bytes([65, 34, 39, 92, 10, 9, 13, 0]) + "😀😀!\n".encode("utf-8")
+if actual != expected:
+    print(f"ordinary string escape output differed: {actual!r}", file=sys.stderr)
+    raise SystemExit(1)
+PY
+if ! grep -Fq 'c"\F0\9F\98\80\F0\9F\98\80\00"' "$string_escape_ll"; then
+  echo "string escape LLVM IR did not preserve UTF-8 emoji bytes and terminator" >&2
+  exit 1
+fi
 echo "[build/pass] Str range-view indexing and safe get"
 str_range_views_output="$ARTIFACT_DIR/revise_str_range_views.exe"
 rm -f "$str_range_views_output" "${str_range_views_output%.exe}.ll"

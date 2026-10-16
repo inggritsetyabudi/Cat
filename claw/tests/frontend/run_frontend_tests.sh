@@ -662,6 +662,35 @@ run_check_fail "integer-to-Char rejects values above U+10FFFF" \
   "does not fit target type Char."
 run_check_pass "PRD §11 Char Unicode scalars, UTF-8, escapes, and scalar boundaries" \
   "$FIXTURE_DIR/revise_char_literals.cat"
+run_check_pass "PRD §12 ordinary string escapes match the Char escape contract" \
+  "$FIXTURE_DIR/revise_string_escapes.cat"
+run_check_fail "unknown ordinary string escape" \
+  "$FIXTURE_DIR/revise_bad_string_unknown_escape.cat" \
+  "Unknown escape sequence in string literal."
+run_check_fail "empty Unicode ordinary string escape" \
+  "$FIXTURE_DIR/revise_bad_string_unicode_empty.cat" \
+  "Malformed Unicode escape in string literal."
+run_check_fail "malformed Unicode ordinary string escape" \
+  "$FIXTURE_DIR/revise_bad_string_unicode_malformed.cat" \
+  "Malformed Unicode escape in string literal."
+run_check_fail "Unicode ordinary string escape without closing brace" \
+  "$FIXTURE_DIR/revise_bad_string_unicode_missing_brace.cat" \
+  "Malformed Unicode escape in string literal."
+run_check_fail "surrogate ordinary string escape" \
+  "$FIXTURE_DIR/revise_bad_string_surrogate.cat" \
+  "Unicode escape is not a valid Unicode scalar value."
+run_check_fail "ordinary string escape above U+10FFFF" \
+  "$FIXTURE_DIR/revise_bad_string_out_of_range.cat" \
+  "Unicode escape is not a valid Unicode scalar value."
+run_check_fail "terminal backslash in ordinary string" \
+  "$FIXTURE_DIR/revise_bad_string_terminal_backslash.cat" \
+  "Malformed escape sequence in string literal."
+run_check_fail "unterminated ordinary string" \
+  "$FIXTURE_DIR/revise_bad_string_unterminated.cat" \
+  "Unterminated string literal"
+run_check_fail "ordinary string cannot cross a raw newline" \
+  "$FIXTURE_DIR/revise_bad_string_raw_newline.cat" \
+  "Unterminated string literal"
 run_check_fail "empty character literal" \
   "$FIXTURE_DIR/revise_bad_char_empty.cat" \
   "Character literal must contain exactly one Unicode scalar value."
@@ -714,6 +743,16 @@ fi
 if [[ "$char_span_output" != *"revise_bad_char_empty.cat:2:15"* ]]; then
   echo "character-literal diagnostic did not preserve its source span:" >&2
   echo "$char_span_output" >&2
+  exit 1
+fi
+string_span_output=""
+if string_span_output="$("$CLAW_EXE" check "$FIXTURE_DIR/revise_bad_string_unknown_escape.cat" 2>&1)"; then
+  echo "unknown string escape unexpectedly passed span check" >&2
+  exit 1
+fi
+if [[ "$string_span_output" != *"revise_bad_string_unknown_escape.cat:2:20"* || "$string_span_output" != *"^^^^^^"* ]]; then
+  echo "string-literal diagnostic did not preserve its UTF-8 byte span:" >&2
+  echo "$string_span_output" >&2
   exit 1
 fi
 char_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_char_literals.cat")"
