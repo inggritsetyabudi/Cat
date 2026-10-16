@@ -40,6 +40,15 @@ assert_no_clang_diagnostics() {
 has_ansi_color() {
   grep -Eq $'\033\\[[0-9;]*m' "$1"
 }
+assert_ansi_color_policy() {
+  local output_file="$1"
+  local context="$2"
+  if [[ "$IS_POSIX" -eq 1 ]]; then
+    has_ansi_color "$output_file" || fail "$context did not contain ANSI color on POSIX"
+  elif has_ansi_color "$output_file"; then
+    fail "$context emitted ANSI color despite the Windows plain-text fallback"
+  fi
+}
 native_output_path_for_comparison() {
   if [[ "$IS_POSIX" -eq 1 ]]; then
     printf '%s\n' "$1"
@@ -272,7 +281,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
   pty_success_stdout="$TEST_DIR/pty-success.stdout"
   pty_success_tmp="$TEST_DIR/pty-success-tmp"
   mkdir -p "$pty_success_tmp"
-  printf '%s\n' '[cli-status/pass] PTY success uses ANSI color and an animated indeterminate phase'
+    printf '%s\n' '[cli-status/pass] PTY success honors platform color policy and an animated indeterminate phase'
   set +e
   env -u NO_COLOR TMPDIR="$pty_success_tmp" PATH="$FAKE_CLANG_DIR:$PATH" TERM=xterm-256color CLAW_TEST_CLANG_MODE=success \
     python3 "$SCRIPT_DIR/capture_pty.py" "$pty_success_stderr" "$pty_success_stdout" color -- \
@@ -284,7 +293,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
   else
     [[ "$pty_rc" -eq 0 ]] || fail "PTY success build failed: $pty_rc"
     grep -Fq 'FORGE READY | native artifact ready' "$pty_success_stderr" || fail "PTY success status missing"
-    has_ansi_color "$pty_success_stderr" || fail "interactive PTY output did not contain ANSI color"
+    assert_ansi_color_policy "$pty_success_stderr" "interactive PTY success status"
     [[ "$(tr -cd '\r' <"$pty_success_stderr" | wc -c)" -ge 7 ]] || fail "spinner did not visibly animate during the slow linker phase"
     if grep -Eq '[0-9]+%' "$pty_success_stderr"; then
       fail "PTY output contains an estimated percentage"
@@ -295,7 +304,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
 
     pty_plain_stderr="$TEST_DIR/pty-no-color.stderr"
     pty_plain_stdout="$TEST_DIR/pty-no-color.stdout"
-    printf '%s\n' '[cli-status/pass] NO_COLOR suppresses ANSI in a capable PTY'
+    printf '%s\n' '[cli-status/pass] NO_COLOR suppresses ANSI color SGR in a capable PTY'
     set +e
     PATH="$FAKE_CLANG_DIR:$PATH" TERM=xterm-256color CLAW_TEST_CLANG_MODE=success \
       python3 "$SCRIPT_DIR/capture_pty.py" "$pty_plain_stderr" "$pty_plain_stdout" no-color -- \
@@ -326,7 +335,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
 
     pty_compile_failure_stderr="$TEST_DIR/pty-compile-failure.stderr"
     pty_compile_failure_stdout="$TEST_DIR/pty-compile-failure.stdout"
-    printf '%s\n' '[cli-status/pass] PTY compile error keeps diagnostics and colors the failure status'
+    printf '%s\n' '[cli-status/pass] PTY compile error keeps diagnostics and honors platform color policy'
     set +e
     env -u NO_COLOR TERM=xterm-256color \
       python3 "$SCRIPT_DIR/capture_pty.py" "$pty_compile_failure_stderr" "$pty_compile_failure_stdout" color -- \
@@ -335,7 +344,12 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     set -e
     [[ "$pty_compile_failure_rc" -eq 1 ]] || fail "PTY compile failure exit code changed: $pty_compile_failure_rc"
     grep -Fq 'error[parse]: Character literal must contain exactly one Unicode scalar value.' "$pty_compile_failure_stderr" || fail "PTY compile diagnostic missing"
-    grep -Fq $'\033[31;1mFORGE HALTED | compile rejected; see diagnostics\033[0m' "$pty_compile_failure_stderr" || fail "PTY compile failure summary is not red"
+    if [[ "$IS_POSIX" -eq 1 ]]; then
+      grep -Fq $'\033[31;1mFORGE HALTED | compile rejected; see diagnostics\033[0m' "$pty_compile_failure_stderr" || fail "PTY compile failure summary is not red"
+    else
+      grep -Fq 'FORGE HALTED | compile rejected; see diagnostics' "$pty_compile_failure_stderr" || fail "Windows plain-text compile failure summary missing"
+    fi
+    assert_ansi_color_policy "$pty_compile_failure_stderr" "PTY compile failure summary"
     python3 - "$pty_compile_failure_stderr" <<'PY'
 import re
 import sys
@@ -354,7 +368,7 @@ PY
     pty_failure_stdout="$TEST_DIR/pty-link-failure.stdout"
     pty_failure_tmp="$TEST_DIR/pty-failure-tmp"
     mkdir -p "$pty_failure_tmp"
-    printf '%s\n' '[cli-status/pass] PTY linker failure stops spinner, classifies exit 23, and cleans diagnostics'
+    printf '%s\n' '[cli-status/pass] PTY linker failure stops spinner, classifies exit 23, and honors platform color policy'
     set +e
     env -u NO_COLOR TMPDIR="$pty_failure_tmp" PATH="$FAKE_CLANG_DIR:$PATH" TERM=xterm-256color CLAW_TEST_CLANG_MODE=fail \
       python3 "$SCRIPT_DIR/capture_pty.py" "$pty_failure_stderr" "$pty_failure_stdout" color -- \
@@ -364,8 +378,8 @@ PY
     [[ "$pty_failure_rc" -eq 1 ]] || fail "PTY linker failure exit code changed: $pty_failure_rc"
     grep -Fq 'simulated clang failure: exit 23' "$pty_failure_stderr" || fail "simulated linker diagnostic missing"
     grep -Fq '`clang` exited with status 23' "$pty_failure_stderr" || fail "PTY linker failure omitted exit 23 classification"
-    grep -q $'\033\[' "$pty_failure_stderr" || fail "interactive failure status did not use ANSI color"
-    python3 - "$pty_failure_stderr" <<'PY'
+    assert_ansi_color_policy "$pty_failure_stderr" "interactive failure status"
+    python3 - "$pty_failure_stderr" "$IS_POSIX" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -379,8 +393,11 @@ if "[=====!" not in visible:
 diagnostic_at = text.find("simulated clang failure: exit 23")
 if diagnostic_at < 0 or not text[:diagnostic_at].endswith("\n"):
     raise SystemExit("linker diagnostic was interleaved with the active spinner line")
-if not raw.rstrip().endswith(b"\x1b[0m"):
-    raise SystemExit("failure status did not reset its ANSI styling")
+if sys.argv[2] == "1":
+    if not raw.rstrip().endswith(b"\x1b[0m"):
+        raise SystemExit("POSIX failure status did not reset its ANSI styling")
+elif raw.rstrip().endswith(b"\x1b[0m"):
+    raise SystemExit("Windows plain-text fallback unexpectedly emitted ANSI styling")
 PY
     if [[ "$IS_POSIX" -eq 1 ]]; then
       assert_no_clang_diagnostics "$pty_failure_tmp"
