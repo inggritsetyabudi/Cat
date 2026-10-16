@@ -516,7 +516,7 @@ fi
 run_check_fail "test_frontend/revise_bad_contract.cat" "$FIXTURE_DIR/revise_bad_contract.cat" "receiver type does not match contract"
 
 
-TEMP_DIR="$(mktemp -d)"
+TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claw-frontend.XXXXXX")"
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
 cat > "$TEMP_DIR/legacy_hold.cat" <<'EOF'
