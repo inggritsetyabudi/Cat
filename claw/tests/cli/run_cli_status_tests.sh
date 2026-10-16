@@ -118,10 +118,11 @@ grep -Fq '[!.....] | FORGE HALTED | input path unresolved; see details' "$missin
 # A slow fake linker gives the PTY test enough time to observe multiple spinner frames.
 FAKE_CLANG_DIR="$TEST_DIR/fake-bin"
 mkdir -p "$FAKE_CLANG_DIR"
-cat >"$FAKE_CLANG_DIR/clang" <<'SH'
+if [[ "$IS_POSIX" -eq 1 ]]; then
+  cat >"$FAKE_CLANG_DIR/clang" <<'SH'
 #!/bin/sh
 sleep 0.36
-  case "${CLAW_TEST_CLANG_MODE:-success}" in
+case "${CLAW_TEST_CLANG_MODE:-success}" in
   fail)
     printf '%s\n' 'simulated clang failure: exit 23' >&2
     exit 23
@@ -157,7 +158,46 @@ sleep 0.36
     ;;
 esac
 SH
-chmod +x "$FAKE_CLANG_DIR/clang"
+  chmod +x "$FAKE_CLANG_DIR/clang"
+else
+  real_clang="$(command -v clang || true)"
+  [[ -n "$real_clang" && -x "$real_clang" ]] || fail "native Clang compiler needed to build the Windows fake linker"
+  cat >"$TEST_DIR/fake-clang.c" <<'C'
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char **argv) {
+    const char *mode = getenv("CLAW_TEST_CLANG_MODE");
+    if (mode == NULL) mode = "success";
+    Sleep(360);
+    if (strcmp(mode, "fail") == 0) {
+        fputs("simulated clang failure: exit 23\n", stderr);
+        return 23;
+    }
+    if (strcmp(mode, "success") == 0) {
+        for (int i = 1; i + 1 < argc; ++i) {
+            if (strcmp(argv[i], "-o") == 0) {
+                FILE *output = fopen(argv[i + 1], "wb");
+                if (output == NULL) {
+                    fputs("could not create fake linker output\n", stderr);
+                    return 91;
+                }
+                return fclose(output) == 0 ? 0 : 92;
+            }
+        }
+        fputs("fake linker did not receive an -o output path\n", stderr);
+        return 93;
+    }
+    fprintf(stderr, "unknown fake clang mode: %s\n", mode);
+    return 2;
+}
+C
+  "$real_clang" -std=c11 -O2 "$TEST_DIR/fake-clang.c" -o "$FAKE_CLANG_DIR/clang.exe" || \
+    fail "could not compile native Windows fake linker"
+fi
 
 if [[ "$IS_POSIX" -eq 1 ]]; then
   fake_failure_tmp="$TEST_DIR/fake-failure-tmp"
