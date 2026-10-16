@@ -4,7 +4,7 @@
 
 - Menambahkan workflow GitHub Actions pada `pull_request` dan push ke `main`, dengan job bukti terpisah untuk Linux dan Windows MSYS2 UCRT64.
 - Kedua job melakukan konfigurasi CMake/Ninja Release dari direktori build bersih, membangun target `claw` memakai Clang, lalu menjalankan `claw/tests/run_all_tests.sh` penuh.
-- `CLAW_EXE` ditetapkan eksplisit pada kedua platform. Job Windows juga memasang paket MSYS2 `python`, yang menyediakan `python3` untuk PRD doc-test.
+- `CLAW_EXE` ditetapkan eksplisit pada kedua platform. Job Windows memasang paket MSYS2 `python` untuk PRD doc-test (`python3`) dan `diffutils` untuk pembandingan golden test (`diff`/`cmp`).
 - Tidak ada test yang di-skip, `continue-on-error`, atau penurunan cakupan. Izin workflow dibatasi ke `contents: read`; action pihak ketiga dipin ke commit SHA; tidak ada secret yang diberikan ke job.
 - Build/test artifacts hanya ada di workspace runner sementara; tidak ditambahkan langkah unggah artifact.
 
@@ -12,7 +12,8 @@
 
 - Baseline `b756b987a67c7ea449d76f9eedc4e2f6ce9a60a9`: konfigurasi/build Release bersih dan `bash claw/tests/run_all_tests.sh` lulus di Linux, pada worktree sementara. Toolchain: Clang 18.1.3, CMake 3.28.3, Ninja 1.11.1.
 - Sintaks workflow diperiksa dengan `actionlint` v1.7.12.
-- Job Windows belum dijalankan pada komputer ini. Verifikasi Windows harus berasal dari eksekusi GitHub Actions sesudah definisi workflow tersedia di branch default; sebelum itu tidak ada check Windows yang dapat diklaim lulus atau dijadikan required check.
+- PR run `38903409953`: Linux full suite lulus; Windows setup, configure, build, dan PRD doc-test lulus, tetapi suite frontend gagal karena `diff` belum terpasang. Paket MSYS2 `diffutils` ditambahkan; hasil rerun masih menunggu.
+- Workflow sudah menjalankan checks pada PR branch, tetapi belum ada required check/branch-protection rule di `main`. Verifikasi permanen pada branch default tetap memerlukan workflow berada di `main` dan run setelah perubahan itu.
 
 ## Batas rilis
 

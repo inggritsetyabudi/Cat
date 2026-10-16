@@ -70,6 +70,7 @@ jobs:
             mingw-w64-ucrt-x86_64-clang
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
+            diffutils
             python
 
       - name: Record toolchain versions
@@ -77,6 +78,7 @@ jobs:
           clang++ --version
           cmake --version
           ninja --version
+          diff --version
           python3 --version
 
       - name: Configure clean Release build
