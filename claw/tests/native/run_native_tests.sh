@@ -969,6 +969,23 @@ if [[ "$index_call_count" != "1" ]]; then
   echo "compound index expression should call next_index exactly once; found $index_call_count calls" >&2
   exit 1
 fi
+if grep -Fq 'target triple = "x86_64-w64-windows-gnu"' "$index_compound_ll"; then
+  if ! grep -Fq 'define i32 @"revise_operator_index_compound::update"(ptr %arg.values.addr)' "$index_compound_ll" ||
+     ! grep -Fq 'define i32 @"revise_operator_index_compound::forward_update"(ptr %arg.values.addr)' "$index_compound_ll" ||
+     ! grep -Fq 'call i32 @"revise_operator_index_compound::update"(ptr %arg.values.addr)' "$index_compound_ll"; then
+    echo "Win64 borrowed Span ABI must use pointer parameters for both callee definitions and direct calls" >&2
+    exit 1
+  fi
+elif grep -Fq 'target triple = "x86_64-unknown-linux-gnu"' "$index_compound_ll"; then
+  if ! grep -Fq 'define i32 @"revise_operator_index_compound::update"(%claw.slice %arg.values)' "$index_compound_ll" ||
+     ! grep -Fq 'call i32 @"revise_operator_index_compound::update"(%claw.slice %arg.values)' "$index_compound_ll"; then
+    echo "SysV x64 Span ABI must retain the direct aggregate parameter and call" >&2
+    exit 1
+  fi
+else
+  target_triple="$(sed -n 's/^target triple = "\(.*\)"$/\1/p' "$index_compound_ll")"
+  printf '[abi/skip] no explicit borrowed Span signature assertion for target %s\n' "${target_triple:-unknown}"
+fi
 clang -Wno-override-module \
   "$index_compound_ll" \
   "$CLAW_DIR/runtime/native_runtime.c" \
