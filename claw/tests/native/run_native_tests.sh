@@ -399,7 +399,7 @@ assert_stored_nested_range_layout nested_u64 '{ { i64, i64, i1 }, i16 }' 8
 wide_range_tuple_stdout="$CWD_TEST_DIR/revise_wide_range_tuple_layout.stdout"
 wide_range_tuple_expected="$CWD_TEST_DIR/revise_wide_range_tuple_layout.expected"
 printf '5\n7\n' > "$wide_range_tuple_expected"
-"$wide_range_tuple_output" > "$wide_range_tuple_stdout"
+normalize_stdout "$wide_range_tuple_output" > "$wide_range_tuple_stdout"
 if ! cmp -s "$wide_range_tuple_expected" "$wide_range_tuple_stdout"; then
   echo "nested Range tuple field extraction did not match its exact expected output" >&2
   od -An -tx1c "$wide_range_tuple_stdout" >&2
@@ -412,7 +412,7 @@ expect_generated_ll "$wide_unsigned_print_output"
 wide_unsigned_print_stdout="$CWD_TEST_DIR/revise_wide_unsigned_print.stdout"
 wide_unsigned_print_expected="$CWD_TEST_DIR/revise_wide_unsigned_print.expected"
 printf '32768|65535\n2147483648|4294967295\n9223372036854775808|18446744073709551615\n9223372036854775808|18446744073709551615\n-9223372036854775807|9223372036854775807\n' > "$wide_unsigned_print_expected"
-"$wide_unsigned_print_output" > "$wide_unsigned_print_stdout"
+normalize_stdout "$wide_unsigned_print_output" > "$wide_unsigned_print_stdout"
 if ! cmp -s "$wide_unsigned_print_expected" "$wide_unsigned_print_stdout"; then
   echo "wide unsigned and signed Int64 print output did not match the exact boundary bytes" >&2
   od -An -tx1c "$wide_unsigned_print_stdout" >&2
@@ -425,7 +425,7 @@ expect_generated_ll "$uint8_print_output"
 uint8_print_stdout="$CWD_TEST_DIR/revise_uint8_print.stdout"
 uint8_print_expected="$CWD_TEST_DIR/revise_uint8_print.expected"
 printf '254255' > "$uint8_print_expected"
-"$uint8_print_output" > "$uint8_print_stdout"
+normalize_stdout "$uint8_print_output" > "$uint8_print_stdout"
 if ! cmp -s "$uint8_print_expected" "$uint8_print_stdout"; then
   echo "UInt8 print native output did not match the exact no-newline bytes '254255'" >&2
   od -An -tx1c "$uint8_print_stdout" >&2
@@ -438,7 +438,7 @@ expect_generated_ll "$int8_print_output"
 int8_print_stdout="$CWD_TEST_DIR/revise_int8_print.stdout"
 int8_print_expected="$CWD_TEST_DIR/revise_int8_print.expected"
 printf '%s\n' '-128,-1,0,127' > "$int8_print_expected"
-"$int8_print_output" > "$int8_print_stdout"
+normalize_stdout "$int8_print_output" > "$int8_print_stdout"
 if ! cmp -s "$int8_print_expected" "$int8_print_stdout"; then
   echo "Int8 print/println output did not match the exact signed edge bytes" >&2
   od -An -tx1c "$int8_print_stdout" >&2
@@ -451,7 +451,7 @@ expect_generated_ll "$int16_print_output"
 int16_print_stdout="$CWD_TEST_DIR/revise_int16_print.stdout"
 int16_print_expected="$CWD_TEST_DIR/revise_int16_print.expected"
 printf '%s\n' '-32768' '-1' '0' '1' '32767' > "$int16_print_expected"
-"$int16_print_output" > "$int16_print_stdout"
+normalize_stdout "$int16_print_output" > "$int16_print_stdout"
 if ! cmp -s "$int16_print_expected" "$int16_print_stdout"; then
   echo "Int16 println native output did not match the exact signed boundary bytes" >&2
   od -An -tx1c "$int16_print_stdout" >&2
@@ -1182,7 +1182,7 @@ if [[ -x "$CWD_TEST_DIR/asan_ubsan_lsan_probe" ]]; then
   ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
   UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   LSAN_OPTIONS=exitcode=23 \
-    "$nested_range_tuple_sanitized" > "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out"
+    "$nested_range_tuple_sanitized" | tr -d '\r' > "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out"
   if ! cmp -s "$wide_range_tuple_expected" "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out"; then
     echo "nested Range tuple sanitizer output differed from the native regression" >&2
     od -An -tx1c "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out" >&2
