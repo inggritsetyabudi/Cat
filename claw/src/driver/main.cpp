@@ -699,6 +699,17 @@ void validateMainCalls(const claw::workspace::LoadedProject& project) {
 std::vector<claw::frontend::Diagnostic> collectProjectWarnings(
     const claw::workspace::LoadedProject& project) {
     std::vector<claw::frontend::Diagnostic> warnings;
+    for (const auto& unit : project.units) {
+        if (!unit.ast) {
+            continue;
+        }
+        for (auto warning : unit.ast->warnings) {
+            if (warning.path.empty()) {
+                warning.path = unit.path.string();
+            }
+            warnings.push_back(std::move(warning));
+        }
+    }
     if (project.units.empty()) {
         return warnings;
     }
@@ -801,9 +812,39 @@ void validateEntryPoint(
         throw claw::frontend::DiagnosticError("Entry point validation failed.", {diagnostic});
     }
 }
+
+std::string renderDocumentation(const claw::frontend::RealmDecl& realm) {
+    std::ostringstream output;
+    bool wroteItem = false;
+    for (const auto& decl : realm.declarations) {
+        if (!decl || !decl->isShared || !decl->documentation.has_value()) {
+            continue;
+        }
+
+        std::string name;
+        if (const auto* fn = dynamic_cast<const claw::frontend::FnDecl*>(decl.get())) {
+            name = fn->name;
+        } else if (const auto* shape = dynamic_cast<const claw::frontend::ShapeDecl*>(decl.get())) {
+            name = shape->name;
+        } else if (const auto* choice = dynamic_cast<const claw::frontend::ChoiceDecl*>(decl.get())) {
+            name = choice->name;
+        } else {
+            continue;
+        }
+
+        if (wroteItem) {
+            output << '\n';
+        }
+        output << "# " << name << "\n\n" << *decl->documentation << '\n';
+        wroteItem = true;
+    }
+    return output.str();
+}
+
 void printUsage() {
     std::cout << "Usage: claw <command> <file.cat|workspace|config> [output.exe]\n"
               << "Commands:\n"
+              << "  doc           Generate Markdown documentation for shared items\n"
               << "  check         Parse and validate semantics + ownership\n"
               << "  validate      Validate a workspace entry graph rooted at main.cat\n"
               << "  air           Emit analyzed AIR after semantic analysis\n"
@@ -818,6 +859,9 @@ void printUsage() {
 std::string canonicalizeCommand(std::string_view rawCommand) {
     if (rawCommand == "check") {
         return "check";
+    }
+    if (rawCommand == "doc") {
+        return "doc";
     }
     if (rawCommand == "validate") {
         return "validate";
@@ -862,6 +906,10 @@ int main(int argc, char** argv) {
         printUsage();
         return 1;
     }
+    if (command == "doc" && argc != 3) {
+        std::cerr << "Usage: claw doc <source.cat>\n";
+        return 1;
+    }
 
     buildProgress.begin();
 
@@ -890,6 +938,23 @@ int main(int argc, char** argv) {
 
     buildProgress.advance();
     try {
+        if (command == "doc") {
+            if (!std::filesystem::is_regular_file(openedPath) || openedPath.extension() != ".cat") {
+                std::cerr << "claw doc expects a regular .cat source file.\n";
+                return 1;
+            }
+
+            claw::frontend::Lexer lexer(source);
+            claw::frontend::Parser parser(lexer.tokenize());
+            auto realm = parser.parseFile();
+            auto warnings = attachPath(realm->warnings, openedPath);
+            if (!warnings.empty()) {
+                std::cerr << formatDiagnosticsWithSources(warnings, diagnosticPath, source) << "\n";
+            }
+            std::cout << renderDocumentation(*realm);
+            return 0;
+        }
+
         claw::workspace::ProjectLoader loader;
         auto project = loader.load(openedPath.empty() ? std::filesystem::path(filepath) : openedPath);
         buildProgress.advance();

@@ -127,7 +127,8 @@ void Lexer::skipWhitespace() {
             advance();
             continue;
         }
-        if (peek() == '/' && peekAhead(1) == '/') {
+        if (peek() == '/' && peekAhead(1) == '/' &&
+            !(braceDepth == 0 && peekAhead(2) == '/')) {
             while (!isAtEnd() && peek() != '\n') {
                 advance();
             }
@@ -138,6 +139,21 @@ void Lexer::skipWhitespace() {
         }
         break;
     }
+}
+
+Token Lexer::readDocComment() {
+    const size_t startLine = line;
+    const size_t startColumn = column;
+    const size_t startPos = pos;
+    advance();
+    advance();
+    advance();
+
+    std::string text;
+    while (!isAtEnd() && peek() != '\n' && peek() != '\r') {
+        text += advance();
+    }
+    return makeToken(TokenKind::DocComment, std::move(text), startLine, startColumn, pos - startPos);
 }
 
 Token Lexer::makeToken(
@@ -416,6 +432,11 @@ std::vector<Token> Lexer::tokenize() {
             break;
         }
 
+        if (braceDepth == 0 && peek() == '/' && peekAhead(1) == '/' && peekAhead(2) == '/') {
+            tokens.push_back(readDocComment());
+            continue;
+        }
+
         const size_t startLine = line;
         const size_t startColumn = column;
         const size_t startPos = pos;
@@ -556,6 +577,12 @@ std::vector<Token> Lexer::tokenize() {
             default:
                 tokens.push_back(makeToken(TokenKind::Error, std::string(1, c), startLine, startColumn, 1));
                 break;
+        }
+
+        if (!tokens.empty() && tokens.back().kind == TokenKind::LBrace) {
+            ++braceDepth;
+        } else if (!tokens.empty() && tokens.back().kind == TokenKind::RBrace && braceDepth > 0) {
+            --braceDepth;
         }
     }
 
