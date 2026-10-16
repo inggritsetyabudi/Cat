@@ -516,8 +516,17 @@ fi
 run_check_fail "test_frontend/revise_bad_contract.cat" "$FIXTURE_DIR/revise_bad_contract.cat" "receiver type does not match contract"
 
 
-TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claw-frontend.XXXXXX")"
-trap 'rm -rf "$TEMP_DIR"' EXIT
+TEMP_DIR="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/claw-frontend.XXXXXX" 2>/dev/null || true)"
+trap 'if [[ -n "$TEMP_DIR" ]]; then rm -rf -- "$TEMP_DIR"; fi' EXIT
+
+if [[ ! -d "$TEMP_DIR" ]]; then
+  printf 'MSYS mktemp returned a missing directory %q; retrying under %q\n' "$TEMP_DIR" "$SCRIPT_DIR" >&2
+  TEMP_DIR="$(/usr/bin/mktemp -d "$SCRIPT_DIR/.frontend.XXXXXX")"
+fi
+if [[ ! -d "$TEMP_DIR" ]]; then
+  printf 'frontend test temporary directory does not exist: %q\n' "$TEMP_DIR" >&2
+  exit 1
+fi
 
 cat > "$TEMP_DIR/legacy_hold.cat" <<'EOF'
 fn main() {
