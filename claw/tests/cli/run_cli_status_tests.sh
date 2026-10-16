@@ -37,6 +37,16 @@ assert_no_clang_diagnostics() {
     fail "temporary clang diagnostics were not removed from $directory"
   fi
 }
+native_output_path_for_comparison() {
+  if [[ "$IS_POSIX" -eq 1 ]]; then
+    printf '%s\n' "$1"
+  else
+    cygpath -m "$1"
+  fi
+}
+normalized_cli_stdout() {
+  tr -d '\r' <"$1" | sed 's#\\#/#g'
+}
 
 success_output="$TEST_DIR/success.exe"
 success_stdout="$TEST_DIR/success.stdout"
@@ -48,7 +58,10 @@ if ! env TMPDIR="$success_tmp" "$CLAW_EXE" build "$FIXTURE_DIR/revise_maybe.cat"
   cat "$success_stderr" >&2
   fail "valid Cat program did not build"
 fi
-[[ "$(cat "$success_stdout")" == "Built native executable: $success_output" ]] || fail "success stdout changed"
+expected_success_output="$(native_output_path_for_comparison "$success_output")"
+actual_success_stdout="$(normalized_cli_stdout "$success_stdout")"
+[[ "$actual_success_stdout" == "Built native executable: $expected_success_output" ]] || \
+  fail "success stdout changed (expected 'Built native executable: $expected_success_output', got '$actual_success_stdout')"
 grep -Fq 'C@ Forge | Native optimized (-O2)' "$success_stderr" || fail "missing Cat Forge profile label"
 grep -Fq 'Key: = complete, > active, . waiting' "$success_stderr" || fail "phase-state legend missing"
 grep -Fq '[>.....] | Resolve input path' "$success_stderr" || fail "initial phase status missing"
