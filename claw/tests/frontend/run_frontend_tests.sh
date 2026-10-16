@@ -884,16 +884,26 @@ if [[ "$string_escape_output" != *"revise_bad_str_owner_move.cat:4:17"* ]]; then
 fi
 
 if command -v script >/dev/null 2>&1; then
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) string_expect_ansi_color=0 ;;
+    *) string_expect_ansi_color=1 ;;
+  esac
   string_diag_command="\"$CLAW_EXE\" check \"$FIXTURE_DIR/revise_bad_str_owner_move.cat\""
   string_color_output="$(TERM=xterm script -q -c "$string_diag_command" /dev/null 2>&1 || true)"
-  if [[ "$string_color_output" != *$'\033[1;31merror'* || "$string_color_output" != *$'\033[1;36mHint:'* ]]; then
-    echo "String diagnostics were not colored on a supported terminal:" >&2
+  if [[ "$string_expect_ansi_color" -eq 1 ]]; then
+    if [[ "$string_color_output" != *$'\033[1;31merror'* || "$string_color_output" != *$'\033[1;36mHint:'* ]]; then
+      echo "String diagnostics were not colored on a supported POSIX terminal:" >&2
+      echo "$string_color_output" >&2
+      exit 1
+    fi
+  elif printf '%s' "$string_color_output" | grep -Eq $'\033\\[[0-9;]*m'; then
+    echo "String diagnostics emitted ANSI color despite the Windows plain-text policy:" >&2
     echo "$string_color_output" >&2
     exit 1
   fi
   string_no_color_output="$(NO_COLOR=1 TERM=xterm script -q -c "$string_diag_command" /dev/null 2>&1 || true)"
-  if [[ "$string_no_color_output" == *$'\033['* ]]; then
-    echo "NO_COLOR did not disable ANSI diagnostics" >&2
+  if printf '%s' "$string_no_color_output" | grep -Eq $'\033\\[[0-9;]*m'; then
+    echo "NO_COLOR did not disable ANSI color SGR in diagnostics" >&2
     exit 1
   fi
 fi
