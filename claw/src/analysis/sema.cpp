@@ -4650,6 +4650,27 @@ std::optional<size_t> SemanticAnalyzer::resolveViewSourceParam(const Expr* expr)
         return resolveViewSourceParam(borrow->target.get());
     }
 
+    if (auto* ifExpr = dynamic_cast<const IfExpr*>(expr)) {
+        const auto tail = [&](const BlockStmt* block) -> const Expr* {
+            if (!block || block->statements.empty()) return nullptr;
+            const auto* stmt = dynamic_cast<const ExprStmt*>(block->statements.back().get());
+            return stmt ? stmt->expr.get() : nullptr;
+        };
+        const auto a = resolveViewSourceParam(tail(ifExpr->thenBlock.get()));
+        const auto b = resolveViewSourceParam(tail(ifExpr->elseBlock.get()));
+        return a.has_value() && b.has_value() && a == b ? a : std::nullopt;
+    }
+    if (auto* pickExpr = dynamic_cast<const PickExpr*>(expr)) {
+        std::optional<size_t> common;
+        for (const auto& branch : pickExpr->branches) {
+            if (!branch.body || branch.body->statements.empty()) return std::nullopt;
+            const auto* stmt = dynamic_cast<const ExprStmt*>(branch.body->statements.back().get());
+            const auto source = stmt ? resolveViewSourceParam(stmt->expr.get()) : std::nullopt;
+            if (!source.has_value()) return std::nullopt;
+            if (!common.has_value()) common = source; else if (*common != *source) return std::nullopt;
+        }
+        return common;
+    }
     if (auto* call = dynamic_cast<const CallExpr*>(expr)) {
         const FunctionSignature* signature = nullptr;
         std::optional<MethodSignature> methodSignature;

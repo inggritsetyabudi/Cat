@@ -1,0 +1,14 @@
+fn main() -> Int32 {
+    val view: Str = if true {
+        if false {
+            "static"
+        } else {
+            val owner = String.from("nested local")
+            owner.as_str()
+        }
+    } else {
+        "outer static"
+    }
+    println(view)
+    return 0
+}

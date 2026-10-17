@@ -1526,7 +1526,52 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for String ownership"
 fi
-
+branch_escape_bad_output="$CWD_TEST_DIR/revise_bad_str_branch_local_escape.exe"
+rm -f "$branch_escape_bad_output" "${branch_escape_bad_output%.exe}.ll"
+echo "[build/fail] branch-local Str view escape must not emit native artifacts"
+if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_str_branch_local_escape.cat" "$branch_escape_bad_output" >"$CWD_TEST_DIR/revise_bad_str_branch_local_escape.build.log" 2>&1; then
+  echo "branch-local Str escape unexpectedly built" >&2
+  exit 1
+fi
+if [[ -e "$branch_escape_bad_output" || -e "${branch_escape_bad_output%.exe}.ll" ]]; then
+  echo "rejected branch-local Str escape emitted .exe or .ll artifacts" >&2
+  find "$CWD_TEST_DIR" -maxdepth 1 -type f -name 'revise_bad_str_branch_local_escape*' -print >&2
+  exit 1
+fi
+branch_escape_output="$ARTIFACT_DIR/revise_str_branch_escape_safe.exe"
+branch_escape_ll="${branch_escape_output%.exe}.ll"
+rm -f "$branch_escape_output" "$branch_escape_ll"
+echo "[build/pass] safe Str branches, ref parameters, nested literals, and owned String results"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_str_branch_escape_safe.cat" "$branch_escape_output" >/dev/null
+expect_generated_ll "$branch_escape_output"
+expected_branch_escape_stdout=$'outer owner\nouter owner\nstatic second\nouter owner\nnested true\nliteral safe\nowned true\nowned false\nouter owner'
+branch_escape_stdout="$(normalize_stdout "$branch_escape_output")"
+if [[ "$branch_escape_stdout" != "$expected_branch_escape_stdout" ]]; then
+  echo "safe Str branch native output was unexpected:" >&2
+  printf '%s\n' "$branch_escape_stdout" >&2
+  exit 1
+fi
+branch_escape_sanitized="$CWD_TEST_DIR/revise_str_branch_escape_safe_sanitized"
+if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,leak -x c - -o "$CWD_TEST_DIR/branch_escape_sanitizer_probe" >/dev/null 2>&1; then
+  echo "[asan/ubsan/lsan/pass] safe Str branch ownership regression"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+    "$branch_escape_ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$branch_escape_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$branch_escape_sanitized" > "$CWD_TEST_DIR/revise_str_branch_escape_safe_sanitized.out"
+  branch_escape_sanitized_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_str_branch_escape_safe_sanitized.out")"
+  if [[ "$branch_escape_sanitized_stdout" != "$expected_branch_escape_stdout" ]]; then
+    echo "sanitized safe Str branch output was unexpected" >&2
+    printf '%s\n' "$branch_escape_sanitized_stdout" >&2
+    exit 1
+  fi
+elif [[ "$(uname -s)" == Linux* ]]; then
+  echo "Linux clang ASan/UBSan/LSan runtimes are required for Str branch coverage" >&2
+  exit 1
+else
+  echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for Str branch coverage"
+fi
 static_str_return_output="$ARTIFACT_DIR/revise_static_str_return.exe"
 static_str_return_ll="${static_str_return_output%.exe}.ll"
 "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_static_str_return.cat" "$static_str_return_output" >/dev/null

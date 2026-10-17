@@ -220,7 +220,26 @@ run_check_fail "discarding a borrowed view from a temporary owner is rejected" "
 run_check_fail "borrowed String view cannot escape a temporary owner" "$FIXTURE_DIR/revise_bad_temporary_string_view.cat" "Borrowed view cannot escape a temporary owner"
 run_check_fail "borrowed temporary cannot cross an if-expression branch join" "$FIXTURE_DIR/revise_bad_temporary_string_view_if.cat" 'Borrowed view from a temporary owner cannot cross an `if` expression branch'
 run_check_fail "member assignment cannot store a borrowed temporary view" "$FIXTURE_DIR/revise_bad_temporary_string_member_assignment.cat" "Borrowed view cannot escape a temporary owner"
-
+run_check_fail "branch-local String view cannot escape through an if value" "$FIXTURE_DIR/revise_bad_str_branch_local_escape.cat" "owner is destroyed when the branch ends"
+branch_escape_output="$("$CLAW_EXE" check "$FIXTURE_DIR/revise_bad_str_branch_local_escape.cat" 2>&1 || true)"
+if [[ "$branch_escape_output" != *"Hint:"* || "$branch_escape_output" != *"revise_bad_str_branch_local_escape.cat:4:"* || "$branch_escape_output" != *"owner.as_str()"* ]]; then
+  echo "branch-local Str escape diagnostic did not retain an actionable source span and hint" >&2
+  echo "$branch_escape_output" >&2
+  exit 1
+fi
+run_check_fail "else-local String view cannot escape through an if value" "$FIXTURE_DIR/revise_bad_str_branch_else_local_escape.cat" "owner is destroyed when the branch ends"
+run_check_fail "branch-derived view cannot outlive an outer owner move" "$FIXTURE_DIR/revise_bad_str_branch_outer_owner_move.cat" "Cannot merge borrowed views from different branch owners"
+run_check_fail "branch-derived view cannot outlive an outer owner overwrite" "$FIXTURE_DIR/revise_bad_str_branch_outer_owner_overwrite.cat" "Cannot merge borrowed views from different branch owners"
+run_check_fail "different outer owners cannot hide a branch view before move" "$FIXTURE_DIR/revise_bad_str_branch_different_owner_move.cat" "Cannot merge borrowed views from different branch owners"
+run_check_fail "nested branch-local String view cannot escape" "$FIXTURE_DIR/revise_bad_str_nested_branch_local_escape.cat" "owner is destroyed when the branch ends"
+run_check_fail "branch-local String alias slice cannot escape" "$FIXTURE_DIR/revise_bad_str_branch_alias_slice_escape.cat" "owner is destroyed when the branch ends"
+run_check_fail "branch-local String view cannot escape through Maybe" "$FIXTURE_DIR/revise_bad_str_branch_maybe_escape.cat" "owner is destroyed when the branch ends"
+run_check_fail "owner view remains invalid after branch owner move" "$FIXTURE_DIR/revise_bad_str_branch_owner_move.cat" 'Cannot move `first` while `first` is still borrowed'
+run_check_fail "mixed borrowed/static Str return cannot permit owner move" "$FIXTURE_DIR/revise_bad_string_mixed_static_borrow_return.cat" "still borrowed"
+run_check_fail "branch aliases retain their outer owner borrow" "$FIXTURE_DIR/revise_bad_str_branch_alias_owner_move.cat" 'Cannot move `owner` while `owner` is still borrowed'
+run_check_fail "pick branch-local String view cannot escape" "$FIXTURE_DIR/revise_bad_str_pick_local_escape.cat" "owner is destroyed when the branch ends"
+run_check_fail "three pick branches cannot erase a divergent owner" "$FIXTURE_DIR/revise_bad_str_pick_different_owners.cat" "Cannot merge borrowed views from different branch owners"
+run_check_fail "a terminating branch cannot erase the live owner borrow" "$FIXTURE_DIR/revise_bad_str_branch_terminal_owner_move.cat" 'Cannot move `owner` while `owner` is still borrowed'
 echo "[air/pass] recursive tuple pick patterns"
 tuple_pick_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_tuple_pick.cat")"
 if [[ "$tuple_pick_air_output" != *"((left, _), right)"* ]] ||

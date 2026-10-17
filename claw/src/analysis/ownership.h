@@ -57,6 +57,7 @@ struct TrackedVar {
     std::optional<BorrowToken> lexicalBorrow;
     std::string backendBindingKey;
     std::string bindingIdentity;
+    bool isStaticBorrow = false;
 };
 
 struct ScopeBinding {
@@ -77,6 +78,11 @@ struct ScopeFrame {
     std::vector<ScopeBinding> bindings;
 };
 
+struct BorrowProvenance {
+    std::optional<BorrowToken> token;
+    bool isStaticBorrow = false;
+};
+
 class OwnershipChecker {
 public:
     void check(RealmDecl* realm, const SemanticAnalyzer& semantic);
@@ -89,6 +95,8 @@ private:
     std::vector<ScopeFrame> scopeStack;
     OwnershipResult ownershipResult;
     std::vector<Diagnostic> diagnostics;
+    // Capture branch provenance before branch-local bindings are destroyed.
+    std::unordered_map<const Expr*, BorrowProvenance> borrowProvenance;
     size_t nextBindingIdentity = 0;
 
     void reportError(const std::string& msg);
@@ -115,9 +123,11 @@ private:
     std::vector<DropAction> collectUnwindDrops(std::optional<ScopeKind> stopAfterKind) const;
     void acquireView(Expr* expr, const ResolvedType& viewType);
     void releaseView(Expr* expr, const ResolvedType& viewType);
+    bool branchLocalViewEscapes(Expr* expr, const ResolvedType& viewType, size_t branchScopeDepth) const;
     const FunctionSignature* resolveCallSignature(const Expr* callee) const;
     std::optional<MethodSignature> resolveMethodSignature(const Expr* callee) const;
     std::optional<BorrowToken> resolveBorrowPath(Expr* expr) const;
+    bool isStaticBorrowExpr(Expr* expr) const;
     std::optional<std::string> resolveBorrowRootName(Expr* expr) const;
     std::optional<BorrowToken> resolveBorrowToken(Expr* expr, const ResolvedType& viewType) const;
     bool acquireBorrowToken(const BorrowToken& token, const AstNode* node);
