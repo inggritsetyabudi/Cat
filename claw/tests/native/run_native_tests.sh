@@ -1396,3 +1396,45 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for UInt8 fixed arrays"
 fi
+
+fixed_array_assignment_output="$ARTIFACT_DIR/revise_fixed_array_index_assignment.exe"
+fixed_array_assignment_ll="${fixed_array_assignment_output%.exe}.ll"
+rm -f "$fixed_array_assignment_output" "$fixed_array_assignment_ll"
+echo "[build/pass] fixed Array indexed assignment, readback, and index-before-RHS order"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_fixed_array_index_assignment.cat" "$fixed_array_assignment_output" >/dev/null
+expect_generated_ll "$fixed_array_assignment_output"
+fixed_array_assignment_stdout="$(normalize_stdout "$fixed_array_assignment_output")"
+expected_fixed_array_assignment_stdout=$'index-int\nrhs-int\n41\nindex-u8\nrhs-u8\n254'
+if [[ "$fixed_array_assignment_stdout" != "$expected_fixed_array_assignment_stdout" ]]; then
+  echo "fixed-array indexed-assignment output/order was unexpected:" >&2
+  printf '%s\n' "$fixed_array_assignment_stdout" >&2
+  exit 1
+fi
+
+fixed_array_assignment_oob_output="$ARTIFACT_DIR/revise_fixed_array_index_assignment_oob.exe"
+rm -f "$fixed_array_assignment_oob_output" "${fixed_array_assignment_oob_output%.exe}.ll"
+echo "[defect/pass] dynamic fixed Array indexed store traps before GEP/store when index equals length"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_fixed_array_index_assignment_oob.cat" "$fixed_array_assignment_oob_output" >/dev/null
+expect_generated_ll "$fixed_array_assignment_oob_output"
+if "$fixed_array_assignment_oob_output" >/dev/null 2>&1; then
+  echo "expected dynamic fixed-array store index==len defect, but execution succeeded" >&2
+  exit 1
+fi
+
+fixed_array_assignment_sanitized="$CWD_TEST_DIR/revise_fixed_array_index_assignment_sanitized"
+if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,leak -x c - -o "$CWD_TEST_DIR/fixed_array_index_assignment_sanitizer_probe" >/dev/null 2>&1; then
+  echo "[asan/ubsan/lsan/pass] fixed Array Int32/UInt8 mutation, readback, and evaluation order"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+    "$fixed_array_assignment_ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$fixed_array_assignment_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$fixed_array_assignment_sanitized" > "$CWD_TEST_DIR/revise_fixed_array_index_assignment_sanitized.out"
+  fixed_array_assignment_sanitized_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_fixed_array_index_assignment_sanitized.out")"
+  if [[ "$fixed_array_assignment_sanitized_stdout" != "$expected_fixed_array_assignment_stdout" ]]; then
+    echo "sanitized fixed-array indexed-assignment output was unexpected" >&2
+    exit 1
+  fi
+else
+  echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for fixed-array indexed assignment"
+fi

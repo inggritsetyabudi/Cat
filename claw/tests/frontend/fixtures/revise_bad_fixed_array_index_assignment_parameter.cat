@@ -1,0 +1,9 @@
+fn assign(values: Array[Int32, 2]) {
+    values[0_USize] = 9
+}
+
+fn main() -> Int32 {
+    var values: Array[Int32, 2] = [1, 2]
+    assign(values)
+    return 0
+}

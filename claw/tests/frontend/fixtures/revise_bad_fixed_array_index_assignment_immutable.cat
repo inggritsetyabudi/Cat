@@ -1,0 +1,4 @@
+fn main() {
+    val values: Array[Int32, 2] = [1, 2]
+    values[0_USize] = 7
+}

@@ -1,5 +1,4 @@
 fn main() {
     var values = [1, 2, 3]
-    values[0] = 4
     values[1] += 2
 }

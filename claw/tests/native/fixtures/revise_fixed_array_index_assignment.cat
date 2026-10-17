@@ -1,0 +1,30 @@
+fn next_int_index() -> USize {
+    println("index-int")
+    return 1_USize
+}
+
+fn int_rhs() -> Int32 {
+    println("rhs-int")
+    return 41
+}
+
+fn next_byte_index() -> USize {
+    println("index-u8")
+    return 1_USize
+}
+
+fn byte_rhs() -> UInt8 {
+    println("rhs-u8")
+    return 254_UInt8
+}
+
+fn main() -> Int32 {
+    var values: Array[Int32, 2] = [1, 2]
+    values[next_int_index()] = int_rhs()
+    println(values[1_USize])
+
+    var bytes: Array[UInt8, 2] = [0_UInt8, 1_UInt8]
+    bytes[next_byte_index()] = byte_rhs()
+    println(bytes[1_USize])
+    return 0
+}
