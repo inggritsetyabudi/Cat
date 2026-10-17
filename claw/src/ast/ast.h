@@ -226,6 +226,8 @@ struct RawStmt : public Stmt {
 
 struct Decl : public AstNode {
     bool isShared = false;
+    std::optional<std::string> documentation;
+    SourceSpan documentationSpan;
 };
 
 struct FnParam {
@@ -303,6 +305,7 @@ struct RealmDecl : public AstNode {
     std::string name;
     std::vector<ImportDecl> imports;
     std::vector<std::unique_ptr<Decl>> declarations;
+    std::vector<Diagnostic> warnings;
 };
 
 } // namespace claw::frontend

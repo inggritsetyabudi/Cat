@@ -106,6 +106,7 @@ run_air_fail() {
 
 echo "[check/pass] test_frontend/revise_surface.cat"
 "$CLAW_EXE" check "$FIXTURE_DIR/revise_surface.cat"
+run_check_pass "top-level documentation comments and unchanged nested comments" "$FIXTURE_DIR/revise_doc_comments.cat"
 run_check_warning "implicit block-tail return" "$SCRIPT_DIR/../native/fixtures/revise_implicit_return.cat" "only the final expression in a block returns implicitly"
 run_check_fail "middle expression is not an implicit return" "$FIXTURE_DIR/revise_bad_implicit_return.cat" "must end with a value of type Int32 or use explicit return."
 run_check_pass "Int32 ranges, membership, Float64 literals, and tuple projections" "$SCRIPT_DIR/../native/fixtures/revise_int32_range.cat"
