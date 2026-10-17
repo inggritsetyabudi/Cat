@@ -48,3 +48,4 @@ Folder ini menyimpan log perubahan compiler dan dokumentasi, termasuk rincian hi
 - [`2026-10-14-v0.3-fixed-array-uint8-partial.md`](./2026-10-14-v0.3-fixed-array-uint8-partial.md) mencatat ekstensi parsial fixed `Array[UInt8, N]`, layout/ABI `[N x i8]`, scan dan bounds-checked indexing, output native unsigned, serta batas dukungan yang tetap parsial.
 - [`2026-10-14-v0.3-fixed-array-size-overflow.md`](./2026-10-14-v0.3-fixed-array-size-overflow.md) mencatat penolakan overflow `N * sizeof(Int32)` pada resolusi tipe, layout, dan LLVM lowering beserta validasi regression.
 - [`2026-10-16-ci-release-gates.md`](./2026-10-16-ci-release-gates.md) mencatat CI Release Linux/Windows UCRT64, dependensi doc-test, validasi yang benar-benar dijalankan, serta batas klaim rilis.
+- [`2026-10-16-win64-span-by-value-abi.md`](./2026-10-16-win64-span-by-value-abi.md) mencatat penyelarasan parameter borrowed `Span` dengan ABI Win64 by-value, pemetaan direct-call, serta regresi C↔C@.
