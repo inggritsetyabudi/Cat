@@ -324,6 +324,22 @@ run_check_fail "test_frontend/revise_bad_result_choice_resolution.cat" "$FIXTURE
 run_check_fail "test_frontend/revise_bad_choice_variant_case.cat" "$FIXTURE_DIR/revise_bad_choice_variant_case.cat" "must start with a lowercase letter"
 run_check_fail "test_frontend/revise_bad_choice_case_mismatch.cat" "$FIXTURE_DIR/revise_bad_choice_case_mismatch.cat" "Unknown choice variant 'Circle' for type 'Shape'."
 run_check_pass "test_frontend/revise_name_case.cat" "$FIXTURE_DIR/revise_name_case.cat"
+run_check_pass "builtin scalar type names accept ASCII case variants" "$FIXTURE_DIR/revise_builtin_type_name_case.cat"
+run_check_fail "user-defined Point type remains case-sensitive" "$FIXTURE_DIR/revise_bad_builtin_user_type_case.cat" "Unknown type: point"
+run_check_fail "lowercase array constructor remains unsupported" "$FIXTURE_DIR/revise_bad_builtin_array_constructor_case.cat" "Unknown type: array"
+run_check_fail "lowercase range constructor remains unsupported" "$FIXTURE_DIR/revise_bad_builtin_range_constructor_case.cat" "Unknown type: range"
+run_check_fail "lowercase Vec constructor remains unsupported" "$FIXTURE_DIR/revise_bad_builtin_vec_constructor_case.cat" "Unknown type: vec"
+echo "[air/check] canonical scalar builtin names and aliases"
+builtin_type_names_air_output="$($CLAW_EXE air "$FIXTURE_DIR/revise_builtin_type_name_case.cat")"
+if [[ "$builtin_type_names_air_output" != *"bool_value: Bool"* ||
+      "$builtin_type_names_air_output" != *"i32: Int32"* ||
+      "$builtin_type_names_air_output" != *"u128: UInt128"* ||
+      "$builtin_type_names_air_output" != *"f128: Float128"* ||
+      "$builtin_type_names_air_output" != *"builtin_aliases(integer: Int64, unsigned: UInt64, real: Float64)"* ]]; then
+  echo "builtin scalar annotations or Int/UInt/Float aliases were not rendered with canonical internal spellings" >&2
+  echo "$builtin_type_names_air_output" >&2
+  exit 1
+fi
 run_check_fail "test_frontend/revise_bad_case_type.cat" "$FIXTURE_DIR/revise_bad_case_type.cat" "Type name 'point' must start with an uppercase letter."
 run_check_fail "test_frontend/revise_bad_case_function.cat" "$FIXTURE_DIR/revise_bad_case_function.cat" "Function name 'UpperFunction' must start with a lowercase letter."
 run_check_fail "test_frontend/revise_bad_case_parameter.cat" "$FIXTURE_DIR/revise_bad_case_parameter.cat" "Parameter name 'UpperParameter' must start with a lowercase letter."
@@ -638,6 +654,16 @@ run_check_fail "separator immediately after radix prefix" "$FIXTURE_DIR/revise_b
 run_check_fail "repeated decimal separators" "$FIXTURE_DIR/revise_bad_integer_repeated_separator.cat" "Malformed integer literal"
 run_check_fail "trailing decimal separator" "$FIXTURE_DIR/revise_bad_integer_trailing_separator.cat" "Malformed integer literal"
 run_check_fail "unknown suffix-like radix tail is not accepted" "$FIXTURE_DIR/revise_bad_integer_unknown_suffix.cat" "Malformed integer literal"
+run_check_pass "case-insensitive numeric suffixes and hex separator disambiguation" "$SCRIPT_DIR/../native/fixtures/revise_builtin_type_case.cat"
+case_numeric_air_output="$($CLAW_EXE air "$SCRIPT_DIR/../native/fixtures/revise_builtin_type_case.cat")"
+if [[ "$case_numeric_air_output" != *"alias_int: Int64 = 64_iNt : Int64"* ||
+      "$case_numeric_air_output" != *"alias_uint: UInt64 = 99_uInT : UInt64"* ||
+      "$case_numeric_air_output" != *"alias_float: Float64 = 4.5_fLoAt : Float64"* ||
+      "$case_numeric_air_output" != *"contextual_array: Array[Int32, 2]"* ]]; then
+  echo "numeric suffixes, aliases, or context-typed Array elements lost canonical internal types" >&2
+  echo "$case_numeric_air_output" >&2
+  exit 1
+fi
 run_check_fail "inferred integer exceeding Int32 default" "$FIXTURE_DIR/revise_bad_integer_inferred_int32_overflow.cat" "does not fit target type Int32"
 run_check_fail "positive Int8 radix overflow" "$FIXTURE_DIR/revise_bad_integer_int8_overflow.cat" "does not fit target type Int8"
 run_check_fail "negative Int8 radix underflow" "$FIXTURE_DIR/revise_bad_integer_int8_underflow.cat" "does not fit target type Int8"

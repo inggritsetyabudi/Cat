@@ -1,0 +1,5 @@
+fn use_lowercase_array(value: array[Int32]) {
+}
+
+fn main() {
+}
