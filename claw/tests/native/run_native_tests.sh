@@ -1264,12 +1264,21 @@ echo "[build/pass] test_native/revise_string_escapes.cat"
 "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_string_escapes.cat" "$string_escape_output" >/dev/null
 expect_generated_ll "$string_escape_output"
 "$string_escape_output" > "$CWD_TEST_DIR/revise_string_escapes.out"
-python3 - "$CWD_TEST_DIR/revise_string_escapes.out" <<'PY'
+python3 - "$CWD_TEST_DIR/revise_string_escapes.out" "$string_escape_ll" <<'PY'
 from pathlib import Path
 import sys
 
 actual = Path(sys.argv[1]).read_bytes()
 expected = bytes([65, 34, 39, 92, 10, 9, 13, 0]) + "😀😀!\n".encode("utf-8")
+llvm = Path(sys.argv[2]).read_text(encoding="utf-8")
+# UCRT stdout is text-mode: each LF is transported as CRLF. Do not normalize
+# actual bytes: a literal CR, embedded NUL, and every UTF-8 byte must survive.
+if 'target triple = "x86_64-w64-windows-gnu"' in llvm:
+    expected = expected.replace(b"\n", b"\r\n")
+# Independently verify decoding before any platform stdout translation.
+if r'''c"\22'\5C\0A\09\0D\00\00"''' not in llvm:
+    print("ordinary string control escapes differed in LLVM IR", file=sys.stderr)
+    raise SystemExit(1)
 if actual != expected:
     print(f"ordinary string escape output differed: {actual!r}", file=sys.stderr)
     raise SystemExit(1)
