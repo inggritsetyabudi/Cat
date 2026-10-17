@@ -1,0 +1,20 @@
+/// Public function summary
+// ordinary comments do not break doc attachment
+
+/// second line
+share fn documented() -> Int32 {
+    /// Inside a body this remains an ordinary line comment.
+    /* block comment remains unchanged */
+    return 7
+}
+
+/// Public shape summary
+share shape DocumentedShape {
+    value: Int32
+}
+
+/// Public choice summary
+share choice DocumentedChoice {
+    ready
+    pending
+}

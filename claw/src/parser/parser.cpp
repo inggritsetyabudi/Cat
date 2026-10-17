@@ -251,10 +251,27 @@ std::vector<std::unique_ptr<TypeNode>> Parser::parseBracketTypeArguments() {
 std::unique_ptr<RealmDecl> Parser::parseFile() {
     auto realm = std::make_unique<RealmDecl>();
     realm->span = spanFromToken(peek());
-
-
+    bool hasPendingDocumentation = false;
+    std::string pendingDocumentation;
+    SourceSpan pendingDocumentationSpan;
 
     while (!isAtEnd()) {
+        if (match(TokenKind::DocComment)) {
+            const Token& token = previous();
+            if (!hasPendingDocumentation) {
+                pendingDocumentationSpan = spanFromToken(token);
+                hasPendingDocumentation = true;
+            } else {
+                pendingDocumentation += '\n';
+            }
+            std::string line = token.text;
+            if (!line.empty() && line.front() == ' ') {
+                line.erase(line.begin());
+            }
+            pendingDocumentation += line;
+            continue;
+        }
+
         try {
             if (match(TokenKind::KwImport)) {
                 realm->imports.push_back(parseImportDeclaration());
@@ -263,12 +280,51 @@ std::unique_ptr<RealmDecl> Parser::parseFile() {
 
             auto decl = parseDeclaration();
             if (decl) {
+                if (hasPendingDocumentation) {
+                    decl->documentation = pendingDocumentation;
+                    decl->documentationSpan = pendingDocumentationSpan;
+                    if (!decl->isShared) {
+                        std::string name = "declaration";
+                        if (const auto* fn = dynamic_cast<const FnDecl*>(decl.get())) {
+                            name = fn->name;
+                        } else if (const auto* shape = dynamic_cast<const ShapeDecl*>(decl.get())) {
+                            name = shape->name;
+                        } else if (const auto* choice = dynamic_cast<const ChoiceDecl*>(decl.get())) {
+                            name = choice->name;
+                        } else if (const auto* impl = dynamic_cast<const ImplementsDecl*>(decl.get())) {
+                            name = impl->typeName;
+                        } else if (const auto* contract = dynamic_cast<const ContractDecl*>(decl.get())) {
+                            name = contract->name;
+                        } else if (const auto* stat = dynamic_cast<const StaticDecl*>(decl.get())) {
+                            name = stat->name;
+                        }
+                        Diagnostic warning{
+                            "doc",
+                            "Documentation comment on non-share declaration '" + name +
+                                "' will not be included by `claw doc`.",
+                            pendingDocumentationSpan};
+                        warning.severity = DiagnosticSeverity::Warning;
+                        realm->warnings.push_back(std::move(warning));
+                    }
+                    pendingDocumentation.clear();
+                    pendingDocumentationSpan = {};
+                    hasPendingDocumentation = false;
+                }
                 realm->declarations.push_back(std::move(decl));
             }
         } catch (const DiagnosticError& error) {
             recordDiagnostic(error);
             synchronizeTopLevel();
         }
+    }
+
+    if (hasPendingDocumentation) {
+        Diagnostic warning{
+            "doc",
+            "Documentation comment has no following top-level declaration.",
+            pendingDocumentationSpan};
+        warning.severity = DiagnosticSeverity::Warning;
+        realm->warnings.push_back(std::move(warning));
     }
 
     if (!diagnostics.empty()) {
@@ -1113,6 +1169,9 @@ std::unique_ptr<ShapeInitExpr> Parser::parseShapeInitExpr(std::string name, std:
 
 std::unique_ptr<Expr> Parser::parsePrimary() {
     if (check(TokenKind::CharError)) {
+        failAtCurrent(peek().text);
+    }
+    if (check(TokenKind::StringError)) {
         failAtCurrent(peek().text);
     }
     if (check(TokenKind::Error)) {

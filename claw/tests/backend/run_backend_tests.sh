@@ -454,3 +454,29 @@ if [[ "$uint8_fixed_array_output" != *'define internal i8 @"revise_fixed_array_u
   echo "UInt8 fixed-array LLVM output did not preserve [N x i8] layout/ABI, zeroext printing, one-time rvalue evaluation, or guard-before-GEP/load" >&2
   exit 1
 fi
+
+fixed_array_assignment_ll="$ARTIFACT_DIR/revise_fixed_array_index_assignment.ll"
+run_llvm "test_native/revise_fixed_array_index_assignment.cat" \
+  "$SCRIPT_DIR/../native/fixtures/revise_fixed_array_index_assignment.cat" \
+  "$fixed_array_assignment_ll"
+fixed_array_assignment_main="$(sed -n '/define internal i32 @"revise_fixed_array_index_assignment::main"/,/^}/p' "$fixed_array_assignment_ll")"
+if [[ -z "$fixed_array_assignment_main" ]] || ! printf '%s\n' "$fixed_array_assignment_main" | awk '
+  /array\.index\.in_bounds.* = icmp ult i64/ { guard = NR; branch = 0; trap = 0 }
+  /br i1 %array\.index\.in_bounds/ && guard && NR > guard { branch = NR }
+  /call void @llvm\.trap\(\)/ && guard && NR > guard { trap = NR }
+  /getelementptr inbounds \[2 x i32\], ptr %values\.addr/ { int_gep = NR }
+  /getelementptr inbounds \[2 x i8\], ptr %bytes\.addr/ { uint8_gep = NR }
+  /store i32 .*ptr %array\.index\.element_ptr/ {
+    if (!guard || !branch || !trap || !int_gep || guard >= branch || branch >= trap || trap >= int_gep || int_gep >= NR) failed = 1
+    int_stores++
+  }
+  /store i8 .*ptr %array\.index\.element_ptr/ {
+    if (!guard || !branch || !trap || !uint8_gep || guard >= branch || branch >= trap || trap >= uint8_gep || uint8_gep >= NR) failed = 1
+    uint8_stores++
+  }
+  END { if (failed || int_stores != 1 || uint8_stores != 1) exit 1 }
+'; then
+  echo "fixed Array indexed stores must be preceded by a dynamic bounds guard/trap and bounds-checked GEP for both i32 and i8" >&2
+  echo "$fixed_array_assignment_main" >&2
+  exit 1
+fi

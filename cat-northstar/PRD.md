@@ -188,12 +188,16 @@ val code = pick res {
 
 | Kategori | Huruf | Contoh |
 | --- | --- | --- |
-| Nama tipe: shape, choice, contract, tipe bawaan | Kapital di awal | `Point`, `Shape`, `Int32`, `Vec` |
+| Nama tipe buatan pengguna: shape, choice, contract | Kapital di awal | `Point`, `Shape` |
+| Nama builtin scalar dari daftar tertutup di bawah | Ejaan canonical; pencocokan ASCII case-insensitive | `Int32`, `int32`, `INT32` |
+| Konstruktor tipe generic dan builtin non-scalar | Kapital di awal | `Array`, `Range`, `Vec`, `Result` |
 | Varian `Result` dan `Maybe` | Kapital (pengecualian tertutup) | `Ok`, `Fail`, `Some`, `None` |
 | Varian choice buatan pengguna | huruf kecil | `circle`, `rect`, `none` |
 | Lainnya: variabel, fungsi, field, modul | huruf kecil | `count`, `read_file` |
 
-Compiler memaksanya: nama tipe harus diawali kapital, nama lain diawali huruf kecil, dan pelanggaran adalah error dengan saran perbaikan. Pengecualian hanya daftar tertutup `Ok, Fail, Some, None`. Penulisan dibaca persis (case-sensitive) di semua konteks.
+Daftar scalar yang case-insensitive hanya `Bool`, `Char`, `Unit`, `Int8`/`Int16`/`Int32`/`Int64`/`Int128`, `UInt8`/`UInt16`/`UInt32`/`UInt64`/`UInt128`, `USize`, `Float32`/`Float64`/`Float128`, serta alias `Int`, `UInt`, dan `Float`. Pencocokan hanya melipat ASCII `A`–`Z`; ejaan internal tetap canonical, dengan alias `Int` → `Int64`, `UInt` → `UInt64`, dan `Float` → `Float64`. Ini tidak mengubah case sensitivity nama tipe buatan pengguna, parameter generic, constructor container, varian, field, fungsi, maupun identifier lain.
+
+Compiler tetap memaksakan kapital di awal untuk deklarasi nama tipe dan huruf kecil di awal untuk kategori nama lain; pelanggaran adalah error dengan saran perbaikan. Pengecualian huruf kapital untuk varian tetap terbatas pada `Ok`, `Fail`, `Some`, dan `None`. Di luar daftar scalar builtin tertutup di atas, penulisan nama tetap case-sensitive.
 
 **Grammar pattern**
 
@@ -446,7 +450,7 @@ Nilai default eksplisit lewat kontrak `Default` dengan `Tipe.default()` dicatat 
 | --- | --- |
 | Desimal | `1_000_000`: `_` di antara digit adalah pemisah |
 | Radix | `0xFF`, `0b1010`, `0o755` |
-| Suffix tipe | `32767_Int16`, `1.25_Float32`. Suffix dikenali **hanya bila teks setelah `_` persis nama tipe numerik yang dikenal**; selain itu `_` adalah pemisah |
+| Suffix tipe | `32767_Int16`, `1.25_Float32`. Suffix numeric dikenali bila seluruh teks setelah `_` cocok secara ASCII case-insensitive dengan nama scalar numeric builtin (`Char`, tipe `Int*`/`UInt*`, `USize`, tipe `Float*`, atau alias `Int`/`UInt`/`Float`); tipe hasil tetap canonical. Selain itu `_` tetap pemisah, dan tail yang bukan digit/separator valid menghasilkan error literal |
 | `Char` | Satu Unicode scalar value (U+0000–U+10FFFF tanpa surrogate), bertipe 32-bit; lexer men-decode UTF-8 |
 | Escape | `\n \t \r \\ \' \" \0 \u{1F600}` |
 | `Float128` | Literal diparse dengan `llvm::APFloat`, tipe LLVM `fp128` |
@@ -462,7 +466,7 @@ val heart = '\u{2764}'
 
 | Risiko | Penutup |
 | --- | --- |
-| Bentrok `_` pemisah vs suffix, terutama di hex (`F`, `D` adalah digit hex) | Aturan "nama tipe persis" menyelesaikan semua kasus; tes tabel: `0xFF_Float32`, `0xAB_CD`, `1_Int8`, `1_0` |
+| Bentrok `_` pemisah vs suffix, terutama di hex (`F`, `D` adalah digit hex) | Cocokkan seluruh suffix pada daftar tertutup secara ASCII case-insensitive; selain itu validasi digit/separator tetap menurut radix. Tes tabel: `0xFF_fLoAt32` (suffix), `0xFF_F` dan `0xAB_cD` (pemisah hex), `1_iNt8`, `1_0`, serta tail tak dikenal yang tetap error |
 | Literal di luar rentang tipe | Error kompilasi: "32768 di luar rentang Int16" |
 
 ---

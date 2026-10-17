@@ -1,0 +1,9 @@
+fn write_at(index: USize) {
+    var values: Array[Int32, 2] = [1, 2]
+    values[index] = 99
+}
+
+fn main() -> Int32 {
+    write_at(2_USize)
+    return 0
+}
