@@ -1,6 +1,7 @@
 #pragma once
 #include "analysis/numeric_literals.h"
 #include "codegen/llvm.h"
+#include "lexer/literal_escapes.h"
 
 #include <algorithm>
 #include <charconv>
@@ -130,31 +131,12 @@ inline std::string decodeStringLiteral(std::string_view text) {
     if (!isStringLiteral(text)) {
         return std::string(text);
     }
-
-    std::string decoded;
-    decoded.reserve(text.size() - 2);
-    for (size_t i = 1; i + 1 < text.size(); ++i) {
-        const char c = text[i];
-        if (c != '\\') {
-            decoded.push_back(c);
-            continue;
-        }
-        if (i + 1 >= text.size() - 1) {
-            decoded.push_back('\\');
-            break;
-        }
-        const char next = text[++i];
-        switch (next) {
-        case 'n': decoded.push_back('\n'); break;
-        case 'r': decoded.push_back('\r'); break;
-        case 't': decoded.push_back('\t'); break;
-        case '"': decoded.push_back('"'); break;
-        case '\\': decoded.push_back('\\'); break;
-        case '0': decoded.push_back('\0'); break;
-        default: decoded.push_back(next); break;
-        }
+    const auto decoded = literal_escapes::decodeStringContent(text.substr(1, text.size() - 2));
+    if (!decoded.valid()) {
+        throw std::runtime_error(literal_escapes::errorMessage(
+            decoded.error, literal_escapes::LiteralKind::String));
     }
-    return decoded;
+    return decoded.value;
 }
 
 inline std::string escapeLlvmBytes(const std::string& text) {

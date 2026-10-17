@@ -1,0 +1,6 @@
+fn main() {
+    val ascii: Str = "\u{41}"
+    val controls: Str = "\n\t\r\\\"\'\0"
+    val emoji: Str = "\u{1F600}😀"
+    val empty: Str = ""
+}
