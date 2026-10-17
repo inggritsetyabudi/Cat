@@ -1,12 +1,12 @@
 choice StableText {
-    some(value: Anchor[Str])
+    some(value: Anchor[String])
     none
 }
 
 fn print_value(value: StableText) {
     pick value {
         some(stable) {
-            println(stable.get())
+            println(stable.get().as_str())
         }
         none {
             println("none")
@@ -15,6 +15,6 @@ fn print_value(value: StableText) {
 }
 
 fn main() {
-    print_value(some(Anchor.new("choice")))
+    print_value(some(Anchor.new(String.from("choice"))))
     print_value(none)
 }

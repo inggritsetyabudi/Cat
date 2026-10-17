@@ -1,0 +1,13 @@
+fn use_owner_after_branch(flag: Bool) {
+    val owner = String.from("branch")
+    if flag {
+        val view = owner.as_str()
+        println(view)
+    }
+    val moved = owner
+    println(moved.as_str())
+}
+
+fn main() {
+    use_owner_after_branch(true)
+}

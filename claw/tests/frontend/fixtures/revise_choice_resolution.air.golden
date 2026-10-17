@@ -14,10 +14,10 @@ air.fn packet_value(packet: Packet[Int32]) -> Int32
       return value : Int32
     empty
       return 0 : Int32
-air.fn step() -> Result[Int32, Str]
-  return Ok(41 : Int32) : Result[Int32, Str]
+air.fn step() -> Result[Int32, String]
+  return Ok(41 : Int32) : Result[Int32, String]
 air.fn result_value() -> Int32
-  val value = try step() : Result[Int32, Str] else err
+  val value = try step() : Result[Int32, String] else err
     return 0 : Int32
   return (value + 1) : Int32
 air.fn main() -> Unit

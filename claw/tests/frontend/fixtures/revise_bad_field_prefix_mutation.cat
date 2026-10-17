@@ -1,5 +1,5 @@
 shape Db {
-    host: Str
+    host: String
     port: Int32
 }
 
@@ -9,6 +9,6 @@ shape Config {
 
 fn bad(cfg: Config) {
     var local = cfg
-    val host: ref Str = ref local.db.host
+    val host: ref String = ref local.db.host
     val db: ref mut Db = ref mut local.db
 }

@@ -1,5 +1,5 @@
 fn expose() -> ref Str {
-    val stable = Anchor.new("hello")
+    val stable = Anchor.new(String.from("hello"))
     stable.get()
 }
 

@@ -1,0 +1,9 @@
+fn main() {
+    val owner = String.from("outer")
+    if true {
+        val owner = String.from("inner")
+        val inner_view = owner.as_str()
+        println(inner_view)
+    }
+    println(owner.as_str())
+}

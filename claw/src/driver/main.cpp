@@ -45,6 +45,28 @@ bool standardErrorIsTerminal() {
 #endif
 }
 
+bool diagnosticColorEnabled() {
+    if (!standardErrorIsTerminal() || std::getenv("NO_COLOR") != nullptr) {
+        return false;
+    }
+#if defined(_WIN32)
+    return false;
+#else
+    const char* term = std::getenv("TERM");
+    return term == nullptr || std::string_view(term) != "dumb";
+#endif
+}
+
+std::string colorizeDiagnosticToken(std::string text, std::string_view token, std::string_view color) {
+    size_t position = 0;
+    while ((position = text.find(token, position)) != std::string::npos) {
+        const std::string replacement = std::string(color) + std::string(token) + "\033[0m";
+        text.replace(position, token.size(), replacement);
+        position += replacement.size();
+    }
+    return text;
+}
+
 class BuildProgress {
 public:
     explicit BuildProgress(bool enabled)
@@ -428,7 +450,18 @@ std::string formatDiagnosticsWithSources(
         }
         out << claw::frontend::formatDiagnostic(diagnostic, fallbackPath, sourceCache[effectivePath]);
     }
-    return out.str();
+    std::string formatted = out.str();
+    if (!diagnosticColorEnabled()) {
+        return formatted;
+    }
+
+    formatted = colorizeDiagnosticToken(std::move(formatted), "error[", "\033[1;31m");
+    formatted = colorizeDiagnosticToken(std::move(formatted), "error:", "\033[1;31m");
+    formatted = colorizeDiagnosticToken(std::move(formatted), "warning[", "\033[1;33m");
+    formatted = colorizeDiagnosticToken(std::move(formatted), "warning:", "\033[1;33m");
+    formatted = colorizeDiagnosticToken(std::move(formatted), "Hint:", "\033[1;36m");
+    formatted = colorizeDiagnosticToken(std::move(formatted), "hint:", "\033[1;36m");
+    return formatted;
 }
 
 std::vector<claw::frontend::Diagnostic> attachPath(

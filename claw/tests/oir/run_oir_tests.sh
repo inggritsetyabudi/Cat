@@ -148,26 +148,38 @@ run_oir_fail "owned tuple pick patterns remain unsupported" "$FIXTURE_DIR/fronte
 run_oir_fail "pick cannot leak a temporary owned tuple through wildcard" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_owned_pick_temporary.cat" "Pick over a temporary owned tuple is unsupported"
 run_oir_fail "owned-field tuple cannot be embedded in a shape" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_owned_shape_field.cat" "Shape fields cannot contain tuples with owned fields"
 run_oir_fail "owned-field tuple cannot be embedded in a generic container" "$FIXTURE_DIR/frontend/fixtures/revise_bad_tuple_owned_container.cat" "Tuples with owned fields are supported only as direct tuple values"
-run_oir_fail "owned temporary without destructor is rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_discarded_owned_temporary.cat" 'Cannot discard owned temporary of type `Str` because no safe destructor is available.'
+if ! "$CLAW_EXE" oir "$FIXTURE_DIR/frontend/fixtures/revise_static_str_return.cat" >/dev/null; then
+  echo "static Str literal return did not pass OIR emission" >&2
+  exit 1
+fi
 run_oir_fail "nested Anchor payload requires recursive destruction" "$FIXTURE_DIR/frontend/fixtures/revise_bad_anchor_nested_payload.cat" 'Anchor.new(...) cannot store payload type `Anchor[Int32]` because it contains a nested Anchor'
 run_oir_fail "nested Anchor payload type is unsupported" "$FIXTURE_DIR/frontend/fixtures/revise_bad_anchor_nested_type.cat" "is unsupported because an Anchor payload cannot contain another Anchor"
 run_oir_fail "generic Shape specialization cannot nest Anchor payloads" "$FIXTURE_DIR/frontend/fixtures/revise_bad_anchor_nested_shape_specialization.cat" 'is unsupported because an Anchor payload cannot contain another Anchor'
 run_oir_fail "Anchor.new cannot wrap a Shape with an Anchor field" "$FIXTURE_DIR/frontend/fixtures/revise_bad_anchor_nested_shape_payload.cat" 'is unsupported because an Anchor payload cannot contain another Anchor'
 run_oir_fail "discarded ShapeInit without destructor is rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_discarded_shape_init.cat" 'Cannot discard owned temporary of type `Record` because no safe destructor is available.'
 run_oir_fail "member projection from owned temporary is rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_discarded_member_temporary.cat" "Cannot discard an expression projected from an owned temporary"
-run_oir_fail "index projection from owned temporary is rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_discarded_index_temporary.cat" "Cannot discard an expression projected from an owned temporary"
-run_oir_fail "borrowing method on owned temporary is rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_discarded_borrowed_receiver.cat" "Cannot discard a call on an owned temporary receiver"
+if ! "$CLAW_EXE" oir "$FIXTURE_DIR/frontend/fixtures/revise_index_from_string_temporary.cat" >/dev/null; then
+  echo "String temporary could not be indexed while its expression was live" >&2
+  exit 1
+fi
+run_oir_fail "discarding a borrowed view from a temporary owner is rejected" "$FIXTURE_DIR/frontend/fixtures/revise_bad_discarded_borrowed_receiver.cat" "Cannot discard a borrowed view whose owner is a temporary"
+run_oir_fail "borrowed String view cannot escape a temporary owner" "$FIXTURE_DIR/frontend/fixtures/revise_bad_temporary_string_view.cat" "Borrowed view cannot escape a temporary owner"
+run_oir_fail "borrowed temporary cannot cross an if-expression branch join" "$FIXTURE_DIR/frontend/fixtures/revise_bad_temporary_string_view_if.cat" 'Borrowed view from a temporary owner cannot cross an `if` expression branch'
+run_oir_fail "member assignment cannot store a borrowed temporary view" "$FIXTURE_DIR/frontend/fixtures/revise_bad_temporary_string_member_assignment.cat" "Borrowed view cannot escape a temporary owner"
 run_oir_fail "missing else in if value" "$FIXTURE_DIR/frontend/fixtures/revise_bad_if_value_missing_else.cat" "'if' as a value requires an 'else' branch."
 run_oir_fail "incompatible if branch values" "$FIXTURE_DIR/frontend/fixtures/revise_bad_if_value_incompatible.cat" "Incompatible branch types in if expression"
-run_oir_fail "incompatible pick branch values" "$FIXTURE_DIR/frontend/fixtures/revise_bad_pick_value_incompatible.cat" "Branch type mismatch in pick expression: expected Int32, got Str."
+run_oir_fail "incompatible pick branch values" "$FIXTURE_DIR/frontend/fixtures/revise_bad_pick_value_incompatible.cat" "Branch type mismatch in pick expression: expected Int32, got ref Str."
 run_oir_fail "non-exhaustive pick value" "$FIXTURE_DIR/frontend/fixtures/revise_bad_pick_value_non_exhaustive.cat" "Non-exhaustive pick for choice type 'Route'."
 run_oir_fail "wildcard must be last in pick value" "$FIXTURE_DIR/frontend/fixtures/revise_bad_pick_value_wildcard_nonfinal.cat" "The '_' catch-all branch must be the last branch in a pick."
 run_oir_fail "branch after wildcard is unreachable" "$FIXTURE_DIR/frontend/fixtures/revise_bad_pick_value_wildcard_nonfinal.cat" "Unreachable pick branch after the '_' catch-all branch."
 run_oir_fail "try in return expression" "$FIXTURE_DIR/frontend/fixtures/revise_bad_try_return_expr.cat" "Expected expression."
-run_oir_fail "shorthand try error-type mismatch" "$FIXTURE_DIR/frontend/fixtures/revise_bad_try_error_type.cat" '`try` shorthand error type mismatch: expected Int32, got Str'
+run_oir_fail "shorthand try error-type mismatch" "$FIXTURE_DIR/frontend/fixtures/revise_bad_try_error_type.cat" '`try` shorthand error type mismatch: expected Int32, got String'
 run_oir_fail "nonterminal try else block" "$FIXTURE_DIR/frontend/fixtures/revise_bad_try_else_nonterminal.cat" '`try ... else` failure block must terminate the current control path.'
 run_oir_fail "owned Result reuse after try" "$FIXTURE_DIR/frontend/fixtures/revise_bad_try_owned_reuse.cat" 'Use of moved value -> result'
 run_oir_fail "try error alias generic mismatch" "$FIXTURE_DIR/frontend/fixtures/revise_bad_try_alias_generic_mismatch" '`try` shorthand error type mismatch'
 run_oir_fail "same nominal spelling in different modules" "$FIXTURE_DIR/frontend/fixtures/revise_bad_try_alias_cross_module" '`try` shorthand error type mismatch'
 
 echo "All OIR golden tests passed."
+
+run_oir_fail "owned choice payload cannot be picked from a projection" "$FIXTURE_DIR/frontend/fixtures/revise_bad_str_owned_choice_projection.cat" "Cannot pick an owned choice payload from a temporary or projected value. Hint: move the choice into a local variable first."
+run_oir_fail "mixed static and parameter Str returns retain caller borrow" "$FIXTURE_DIR/frontend/fixtures/revise_bad_string_mixed_static_borrow_return.cat" 'Cannot move `owner` while `owner` is still borrowed. Hint:'

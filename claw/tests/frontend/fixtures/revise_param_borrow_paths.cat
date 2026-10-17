@@ -1,5 +1,5 @@
 shape Db {
-    host: Str
+    host: String
     port: Int32
 }
 
@@ -8,7 +8,7 @@ shape Config {
 }
 
 fn allow(cfg: ref mut Config) {
-    val host: ref Str = ref cfg.db.host
+    val host: ref String = ref cfg.db.host
     val port: ref mut Int32 = ref mut cfg.db.port
     println(host.len())
 }

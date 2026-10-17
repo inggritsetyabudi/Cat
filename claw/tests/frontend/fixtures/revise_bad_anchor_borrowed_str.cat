@@ -1,0 +1,5 @@
+fn main() {
+    val owner = String.from("borrowed")
+    val view = owner.as_str()
+    val stored = Anchor.new(view)
+}

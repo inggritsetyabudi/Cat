@@ -1,4 +1,4 @@
-fn step() -> Result[Int32, Str] {
+fn step() -> Result[Int32, String] {
     return Ok(1)
 }
 

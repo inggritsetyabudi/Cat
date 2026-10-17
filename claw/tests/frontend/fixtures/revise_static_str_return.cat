@@ -1,0 +1,7 @@
+fn payload() -> Str {
+    "static-view"
+}
+
+fn main() {
+    println(payload())
+}

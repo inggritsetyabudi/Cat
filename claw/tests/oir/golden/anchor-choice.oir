@@ -9,7 +9,7 @@ oir.choice Maybe of T [abi=claw link=internal symbol=revise_anchor_choice::Maybe
   case Some(T)
 oir.choice StableText [abi=claw link=internal symbol=revise_anchor_choice::StableText ffi=false]
   layout repr=claw-internal kind=tagged size=16 align=8 pass=direct ffi=false tag=4 payload_offset=8 payload_size=8
-  case some(Anchor[Str]) @payload_offset=8 size=8 align=8
+  case some(Anchor[String]) @payload_offset=8 size=8 align=8
   case none @payload_offset=8 size=0 align=1
 oir.fn print_value(value: StableText [direct]) -> Unit [void] [abi=claw link=internal symbol=revise_anchor_choice::print_value ffi=false]
   block entry:
@@ -17,20 +17,21 @@ oir.fn print_value(value: StableText [direct]) -> Unit [void] [abi=claw link=int
     case some(stable) -> pick_some_1
     case none -> pick_none_2
   block pick_some_1:
-    %t0 = call stable.get() : ref Str
-    call println(%t0) : Unit
-    drop stable : Anchor[Str]
+    %t0 = call stable.get() : ref String
+    %t1 = call %t0.as_str() : ref Str
+    call println(%t1) : Unit
+    drop stable : Anchor[String]
     goto pick_join_0
   block pick_none_2:
     call println("none") : Unit
     goto pick_join_0
   block pick_join_0:
-    drop value : StableText
 oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_anchor_choice::main ffi=false]
   block entry:
-    %t0 = call Anchor.new("choice") : Anchor[Str]
-    %t1 = some(%t0) : StableText
-    call print_value(%t1) : Unit
-    %t2 = none() : StableText
+    %t0 = call String.from("choice") : String
+    %t1 = call Anchor.new(%t0) : Anchor[String]
+    %t2 = some(%t1) : StableText
     call print_value(%t2) : Unit
+    %t3 = none() : StableText
+    call print_value(%t3) : Unit
     return unit : Unit

@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val owned = String.from(42)
+    println(owned.as_str())
+    return 0
+}

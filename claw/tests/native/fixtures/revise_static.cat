@@ -1,19 +1,20 @@
 shape Config {
-    host: Str
+    host: String
     port: Int32
 }
 
 static version: Str = "1.0.0"
+static edition: Str = "stable"
 static max_conn: Int32 = 1024
 static enabled: Bool = true
 
 implements Config {
-    fn new(host: Str, port: Int32) -> Config {
+    fn new(host: String, port: Int32) -> Config {
         return Config { host: host, port: port }
     }
 
-    fn describe(self: ref) -> ref Str {
-        return self.host
+    fn describe(self: ref) -> Str {
+        return self.host.as_str()
     }
 }
 
@@ -21,9 +22,15 @@ fn get_version() -> ref Str {
     return ref version
 }
 
+fn get_edition() -> ref Str {
+    return ref edition
+}
+
 fn main() -> Int32 {
-    val cfg = Config.new(version, max_conn)
+    val cfg = Config.new(String.from(version), max_conn)
     println(cfg.describe())
+    println(get_version())
+    println(get_edition())
     println(enabled)
     return 0
 }

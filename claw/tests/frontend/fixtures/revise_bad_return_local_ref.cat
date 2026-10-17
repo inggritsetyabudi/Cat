@@ -1,6 +1,6 @@
 fn bad() -> ref Str {
-    val local = "hello"
-    return ref local
+    val local = String.from("hello")
+    return local.as_str()
 }
 
 fn main() {

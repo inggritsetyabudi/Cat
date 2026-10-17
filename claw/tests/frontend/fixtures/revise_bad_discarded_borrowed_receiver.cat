@@ -1,4 +1,4 @@
 fn main() -> Int32 {
-    Anchor.new("borrowed-temporary").get()
+    Anchor.new(String.from("borrowed-temporary")).get()
     0
 }

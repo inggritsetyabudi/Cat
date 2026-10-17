@@ -11,3 +11,11 @@ share fn update(values: ref mut Span[Int32]) -> Int32 {
 share fn forward_update(values: ref mut Span[Int32]) -> Int32 {
     return update(values)
 }
+
+share fn text_length(text: Str) -> USize {
+    return text.len()
+}
+
+share fn forward_text_length(text: Str) -> USize {
+    return text_length(text)
+}

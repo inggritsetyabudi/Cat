@@ -69,7 +69,7 @@ std::string LlvmEmitter::llvmType(const std::string& typeText) const {
     if (base == "Float32") return "float";
     if (base == "Float64") return "double";
     if (base == "Str" || base == "Span") return "%claw.slice";
-    if (base == "Vec") return "%claw.buffer";
+    if (base == "String" || base == "Vec") return "%claw.buffer";
     if (base == "Addr" || base == "RawPtr" || base == "RawMut" || base == "Fn" || base == "CStr" ||
         base == "OwnedCStr" || base == "Arena" || base == "Anchor" || base == "Map" ||
         base == "Set" || base == "Queue") {
@@ -211,11 +211,12 @@ std::string LlvmEmitter::emitStaticGlobals() {
                 first = false;
                 
                 std::string llvmVal;
-                if (stat->type == "Int32" || stat->type == "Char") {
+                const std::string storageType = stripViewPrefix(stat->type);
+                if (storageType == "Int32" || storageType == "Char") {
                     llvmVal = stat->value;
-                } else if (stat->type == "Bool") {
+                } else if (storageType == "Bool") {
                     llvmVal = stat->value == "true" ? "1" : "0";
-                } else if (stat->type == "Str") {
+                } else if (storageType == "Str") {
                     const auto& info = internString(stat->value);
                     llvmVal = "{ ptr " + info.globalName + ", i64 " + std::to_string(info.length) + " }";
                 } else {
@@ -469,7 +470,7 @@ std::optional<AbiLayout> LlvmEmitter::abiLayoutForType(std::string_view typeText
     }
     if (base == "Int128" || base == "UInt128") return AbiLayout{16, 16};
     if (base == "Str" || base == "Span") return AbiLayout{16, 8};
-    if (base == "Vec") return AbiLayout{24, 8};
+    if (base == "String" || base == "Vec") return AbiLayout{24, 8};
     if (base == "Array") {
         const auto length = fixedArrayLengthFromType(stripped);
         const size_t elementSize = fixedArrayElementSizeFromType(stripped);
@@ -703,21 +704,22 @@ bool LlvmEmitter::usesIndirectAbi(std::string_view, AbiPassKind passKind) const 
 }
 
 bool LlvmEmitter::usesBorrowPointerAbi(std::string_view typeText, AbiPassKind passKind) const {
+    const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(typeText)));
+#if defined(_WIN32)
+    // The emitter selects its native Windows target with this same platform macro.
+    // Win64 passes a 16-byte C aggregate by address, so borrowed Span and Str
+    // parameters use that ABI form even when their slice layout classifies Direct.
+    if (baseType == "Span" || baseType == "Str") {
+        return true;
+    }
+#endif
     if (passKind != AbiPassKind::Borrow) {
         return false;
     }
-    const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(typeText)));
     if (shapesByName.contains(baseType) || choicesByName.contains(baseType)) {
         return true;
     }
-#if defined(_WIN32)
-    // The emitter selects its native Windows target with this same platform macro.
-    // Win64 passes a 16-byte C aggregate by address, so borrowed Span parameters
-    // must use that ABI form in both definitions and direct calls.
-    return baseType == "Span";
-#else
     return false;
-#endif
 }
 
 bool LlvmEmitter::usesPointerAbi(std::string_view typeText, AbiPassKind passKind) const {

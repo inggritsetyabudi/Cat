@@ -1,0 +1,5 @@
+fn main() -> Int32 {
+    val text = String.from("AéB")
+    println(text.as_str()[0..2])
+    return 0
+}

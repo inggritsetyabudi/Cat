@@ -1,0 +1,13 @@
+fn choose(flag: Bool, borrowed: ref Str) -> Str {
+    if flag {
+        return "constant"
+    }
+    return borrowed
+}
+
+fn main() {
+    val owner = String.from("borrowed")
+    val view = choose(false, owner.as_str())
+    val moved = owner
+    println(view)
+}

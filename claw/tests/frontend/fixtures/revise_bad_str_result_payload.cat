@@ -1,0 +1,2 @@
+fn accepts_borrowed_result(value: Result[Int32, Str]) {
+}

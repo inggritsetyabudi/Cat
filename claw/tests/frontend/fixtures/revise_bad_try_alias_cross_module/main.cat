@@ -1,12 +1,12 @@
 import src.problems.{ Problem as LeftProblem }
 import support.problems.{ Problem as RightProblem, produce }
 
-fn same_spelling_is_not_same_nominal_type() -> Result[Int32, LeftProblem[Str]] {
+fn same_spelling_is_not_same_nominal_type() -> Result[Int32, LeftProblem[String]] {
     val value = try produce()
     return Ok(value)
 }
 
-fn right_identity() -> Result[Int32, RightProblem[Str]] {
+fn right_identity() -> Result[Int32, RightProblem[String]] {
     val value = try produce()
     return Ok(value)
 }

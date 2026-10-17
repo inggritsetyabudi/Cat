@@ -1,12 +1,12 @@
 
-fn step(flag: Bool) -> Result[Int32, Str] {
+fn step(flag: Bool) -> Result[Int32, String] {
     if flag {
         return Ok(7)
     }
-    return Fail("bad")
+    return Fail(String.from("bad"))
 }
 
-fn bad(flag: Bool) -> Result[Int32, Str] {
+fn bad(flag: Bool) -> Result[Int32, String] {
     var value = try step(flag)
     return Ok(value)
 }

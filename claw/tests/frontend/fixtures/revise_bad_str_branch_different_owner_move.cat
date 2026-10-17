@@ -1,0 +1,12 @@
+fn main() -> Int32 {
+    val first = String.from("first")
+    val second = String.from("second")
+    val view: Str = if true {
+        first.as_str()
+    } else {
+        second.as_str()
+    }
+    val moved = first
+    println(view)
+    return 0
+}

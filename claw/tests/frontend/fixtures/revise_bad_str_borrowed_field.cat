@@ -1,0 +1,6 @@
+shape Bad {
+    text: Str
+}
+
+fn main() {
+}

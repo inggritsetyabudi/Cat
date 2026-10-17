@@ -1,8 +1,8 @@
-fn step() -> Result[Int32, Str] {
+fn step() -> Result[Int32, String] {
     return Ok(1)
 }
 
-fn bad() -> Result[Int32, Str] {
+fn bad() -> Result[Int32, String] {
     return try step()
 }
 

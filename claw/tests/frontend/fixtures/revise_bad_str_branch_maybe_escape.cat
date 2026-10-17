@@ -1,0 +1,10 @@
+fn main() -> Int32 {
+    val carrier: Maybe[Str] = if true {
+        val owner = String.from("branch local")
+        Some(owner.as_str())
+    } else {
+        Some("static")
+    }
+    println(carrier)
+    return 0
+}

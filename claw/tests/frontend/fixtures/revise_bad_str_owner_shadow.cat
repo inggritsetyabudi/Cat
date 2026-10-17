@@ -1,0 +1,10 @@
+fn main() -> Int32 {
+    val owner = String.from("outer")
+    val view = owner.as_str()
+    if true {
+        val owner = String.from("inner")
+        println(owner.as_str())
+    }
+    println(view)
+    return 0
+}

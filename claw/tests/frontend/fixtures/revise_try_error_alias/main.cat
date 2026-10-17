@@ -1,6 +1,6 @@
 import src.problems.{ Problem as LocalProblem, produce }
 
-fn propagate() -> Result[Int32, LocalProblem[Str]] {
+fn propagate() -> Result[Int32, LocalProblem[String]] {
     val value = try produce()
     return Ok(value)
 }

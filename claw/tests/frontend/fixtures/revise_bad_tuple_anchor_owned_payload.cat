@@ -1,5 +1,5 @@
 fn main() {
-    val pair = (Anchor.new("text"), 1)
+    val pair = (Anchor.new(String.from("text")), 1)
     val (anchor, value) = pair
     println(value)
 }

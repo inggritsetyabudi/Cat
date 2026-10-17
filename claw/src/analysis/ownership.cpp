@@ -33,7 +33,7 @@ StorageState mergeStorageState(StorageState left, StorageState right) {
 
 std::string unavailableValueMessage(StorageState state, const std::string& name) {
     if (state == StorageState::Moved) {
-        return "Use of moved value -> " + name;
+        return "Use of moved value -> " + name + ". Hint: use the value before moving it, or call `clone()` when a separate owned copy is required.";
     }
     return "Use of uninitialized value -> " + name;
 }
@@ -55,7 +55,8 @@ std::string formatBorrowTarget(const BorrowToken& token) {
 }
 
 bool borrowPathsOverlap(const BorrowToken& left, const BorrowToken& right) {
-    if (left.rootName != right.rootName) {
+    if (left.rootBindingIdentity.empty() || right.rootBindingIdentity.empty() ||
+        left.rootBindingIdentity != right.rootBindingIdentity) {
         return false;
     }
 
@@ -73,7 +74,9 @@ bool borrowPathsOverlap(const BorrowToken& left, const BorrowToken& right) {
 }
 
 bool borrowPathIsPrefix(const BorrowToken& prefix, const BorrowToken& value) {
-    if (prefix.rootName != value.rootName || prefix.accessPath.size() > value.accessPath.size()) {
+    if (prefix.rootBindingIdentity.empty() || value.rootBindingIdentity.empty() ||
+        prefix.rootBindingIdentity != value.rootBindingIdentity ||
+        prefix.accessPath.size() > value.accessPath.size()) {
         return false;
     }
 
@@ -113,7 +116,7 @@ std::string borrowConflictMessage(const BorrowToken& requested, const BorrowToke
 
 std::string ownerMutationConflictMessage(std::string_view ownerName, const BorrowToken& existing, std::string_view action) {
     return "Cannot " + std::string(action) + " `" + std::string(ownerName) +
-        "` while `" + formatBorrowTarget(existing) + "` is still borrowed.";
+        "` while `" + formatBorrowTarget(existing) + "` is still borrowed. Hint: end the view's scope before moving or replacing its owner.";
 }
 
 std::string pathMutationConflictMessage(std::string_view target, const BorrowToken& existing) {
@@ -142,7 +145,8 @@ void releaseBorrowTokenInStateMap(
     std::unordered_map<std::string, TrackedVar>& stateMap,
     const BorrowToken& token) {
     const auto it = stateMap.find(token.rootName);
-    if (it == stateMap.end() || !isBorrowRootType(it->second.type)) {
+    if (token.rootBindingIdentity.empty() || it == stateMap.end() || !isBorrowRootType(it->second.type) ||
+        it->second.bindingIdentity != token.rootBindingIdentity) {
         return;
     }
 
@@ -177,6 +181,8 @@ void OwnershipChecker::check(RealmDecl* realm, const SemanticAnalyzer& semanticA
     varStates.clear();
     pathReachable = true;
     scopeStack.clear();
+    borrowProvenance.clear();
+    nextBindingIdentity = 0;
     ownershipResult = OwnershipResult{};
 
     for (auto& decl : realm->declarations) {
@@ -215,11 +221,10 @@ void OwnershipChecker::checkFnDecl(FnDecl* fn) {
     if (fn->body) {
         for (size_t i = 0; i < fn->body->statements.size(); ++i) {
             Stmt* stmt = fn->body->statements[i].get();
-            if (signature && i + 1 == fn->body->statements.size() &&
-                signature->returnType.name == "Tuple" && signature->returnType.isOwned()) {
+            if (signature && i + 1 == fn->body->statements.size() && signature->returnType.isOwned()) {
                 if (auto* tail = dynamic_cast<ExprStmt*>(stmt); tail && tail->expr) {
                     const ResolvedType tailType = typeOfExpr(tail->expr.get());
-                    if (tailType.name == "Tuple" && tailType.isOwned()) {
+                    if (tailType.isOwned()) {
                         checkExpr(tail->expr.get(), true);
                         continue;
                     }
@@ -232,7 +237,7 @@ void OwnershipChecker::checkFnDecl(FnDecl* fn) {
     exitScope();
 }
 
-void OwnershipChecker::consumeTuplePatternSource(const Expr* expr) {
+void OwnershipChecker::consumePatternSource(const Expr* expr) {
     const auto* source = dynamic_cast<const IdentExpr*>(expr);
     if (!source) {
         return;
@@ -324,7 +329,7 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
             return;
         }
 
-        const auto bindingTypeIt = semantic->result().bindingTypes.find(bind);
+const auto bindingTypeIt = semantic->result().bindingTypes.find(bind);
         const ResolvedType bindingType = bindingTypeIt != semantic->result().bindingTypes.end()
             ? bindingTypeIt->second
             : makeUnknownType();
@@ -342,11 +347,30 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         state.isMutableStorage = bind->isMutable;
         state.storageState = bind->value ? StorageState::Initialized : StorageState::Uninitialized;
         state.backendBindingKey = bind->backendBindingKey;
+        state.isStaticBorrow = bind->value && isStaticBorrowExpr(bind->value.get());
         if (isBorrowCarrierType(bindingType) && bind->value) {
             if (const auto token = resolveBorrowToken(bind->value.get(), bindingType)) {
-                if (acquireBorrowToken(*token, bind->value.get())) {
+                std::optional<std::pair<size_t, size_t>> targetPosition;
+                if (!scopeStack.empty()) {
+                    targetPosition = std::make_pair(scopeStack.size() - 1, scopeStack.back().bindings.size());
+                }
+                if (!targetPosition.has_value() || !borrowFitsBindingScope(*token, *targetPosition)) {
+                    reportError(
+                        bind,
+                        "Borrowed view `" + bindingType.describe() + "` would outlive the value it refers to. Hint: keep the view in the same or a narrower scope than its owner, or return a view only from a ref parameter.");
+                } else if (acquireBorrowToken(*token, bind->value.get())) {
                     state.lexicalBorrow = token;
                 }
+            }
+        }
+
+        const auto priorBinding = varStates.find(bind->name);
+        if (priorBinding != varStates.end() && hasActiveBorrow(priorBinding->second)) {
+            if (const auto* borrow = firstActiveBorrow(priorBinding->second)) {
+                reportError(
+                    bind,
+                    "Cannot shadow `" + bind->name + "` while a view of `" + formatBorrowTarget(*borrow) +
+                        "` is still live. Hint: use a different variable name or end the view's scope first.");
             }
         }
 
@@ -393,7 +417,12 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
                     state.lexicalBorrow.reset();
                     if (assign->value) {
                         if (const auto token = resolveBorrowToken(assign->value.get(), state.type)) {
-                            if (acquireBorrowToken(*token, assign->value.get())) {
+                            const auto targetPosition = findBindingPosition(state.bindingIdentity);
+                            if (!targetPosition.has_value() || !borrowFitsBindingScope(*token, *targetPosition)) {
+                                reportError(
+                                    assign,
+                                    "Borrowed view `" + state.type.describe() + "` would outlive the value it refers to. Hint: keep the view in the same or a narrower scope than its owner, or return a view only from a ref parameter.");
+                            } else if (acquireBorrowToken(*token, assign->value.get())) {
                                 state.lexicalBorrow = token;
                             }
                         }
@@ -405,6 +434,7 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
                     state.activeBorrows.clear();
                 }
                 state.storageState = StorageState::Initialized;
+                state.isStaticBorrow = isStaticBorrowExpr(assign->value.get());
             }
             return;
         }
@@ -637,14 +667,33 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
         if (pickedType.name == "Tuple" && std::any_of(pick->branches.begin(), pick->branches.end(), [](const PickBranch& branch) {
                 return static_cast<bool>(branch.tuplePattern);
             })) {
-            consumeTuplePatternSource(pick->value.get());
+            consumePatternSource(pick->value.get());
         }
-        const auto baseline = varStates;
-        const bool baselineReachable = pathReachable;
         const ChoiceInfo* choiceInfo = pickedType.isUnknown() ? nullptr : semantic->lookupChoice(pickedType.name);
         const auto choiceBindings = choiceInfo
             ? buildTypeBindings(choiceInfo->typeParams, pickedType.params)
             : std::unordered_map<std::string, ResolvedType>{};
+        if (choiceInfo) {
+            const bool hasOwnedPayload = std::any_of(
+                choiceInfo->variants.begin(),
+                choiceInfo->variants.end(),
+                [&](const auto& entry) {
+                    return std::any_of(entry.second.payloadTypes.begin(), entry.second.payloadTypes.end(), [&](const ResolvedType& payloadType) {
+                        return substituteType(payloadType, choiceBindings).isOwned();
+                    });
+                });
+            if (hasOwnedPayload) {
+                if (!dynamic_cast<IdentExpr*>(pick->value.get())) {
+                    reportError(
+                        pick->value.get(),
+                        "Cannot pick an owned choice payload from a temporary or projected value. Hint: move the choice into a local variable first.");
+                } else {
+                    consumePatternSource(pick->value.get());
+                }
+            }
+        }
+        const auto baseline = varStates;
+        const bool baselineReachable = pathReachable;
 
         std::optional<std::unordered_map<std::string, TrackedVar>> mergedState;
         for (const auto& branch : pick->branches) {
@@ -789,6 +838,16 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
                         if (auto* tail = dynamic_cast<ExprStmt*>(stmt); tail && tail->expr) {
                             const ResolvedType resultType = typeOfExpr(tail->expr.get());
                             checkExpr(tail->expr.get(), isConsume && resultType.isOwned());
+                            if (branchLocalViewEscapes(tail->expr.get(), resultType, scopeStack.size() - 1)) {
+                                reportError(
+                                    tail->expr.get(),
+                                    "Cannot return a borrowed view from this branch because its owner is destroyed when the branch ends. Hint: keep the owner outside the `if`/`pick` block, or return an owned `String` copy.");
+                            }
+                            if (isBorrowCarrierType(resultType)) {
+                                borrowProvenance[tail->expr.get()] = BorrowProvenance{
+                                    resolveBorrowPath(tail->expr.get()),
+                                    isStaticBorrowExpr(tail->expr.get())};
+                            }
                             continue;
                         }
                     }
@@ -805,6 +864,32 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
             ? checkBranch(ifExpr->elseBlock.get())
             : std::pair{baseline, baselineReachable};
 
+        const auto branchTail = [](const BlockStmt* block) -> Expr* {
+            if (!block || block->statements.empty()) return nullptr;
+            auto* tail = dynamic_cast<ExprStmt*>(block->statements.back().get());
+            return tail ? tail->expr.get() : nullptr;
+        };
+        const auto thenExpr = branchTail(ifExpr->thenBlock.get());
+        const auto elseExpr = branchTail(ifExpr->elseBlock.get());
+        const auto thenToken = resolveBorrowPath(thenExpr);
+        const auto elseToken = resolveBorrowPath(elseExpr);
+        const bool thenStatic = isStaticBorrowExpr(thenExpr);
+        const bool elseStatic = isStaticBorrowExpr(elseExpr);
+        const ResolvedType resultType = typeOfExpr(ifExpr);
+        if (isBorrowCarrierType(resultType) && thenResult.second && elseResult.second &&
+            ((thenToken.has_value() != elseToken.has_value()) ||
+             (thenToken.has_value() && thenToken != elseToken) ||
+             (thenStatic != elseStatic))) {
+            reportError(ifExpr, "Cannot merge borrowed views from different branch owners. Hint: keep one owner alive across all branches, or return an owned `String` copy.");
+        }
+        if (isBorrowCarrierType(resultType)) {
+            const auto& selectedToken = thenResult.second ? thenToken : elseToken;
+            const bool selectedStatic = thenResult.second ? thenStatic : elseStatic;
+            if ((thenResult.second && elseResult.second && thenToken == elseToken && thenStatic == elseStatic) ||
+                (!thenResult.second && elseResult.second) || (thenResult.second && !elseResult.second)) {
+                borrowProvenance[ifExpr] = BorrowProvenance{selectedToken, selectedStatic};
+            }
+        }
         if (thenResult.second && elseResult.second) {
             auto merged = thenResult.first;
             for (auto& [name, state] : merged) {
@@ -828,14 +913,33 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
         if (pickedType.name == "Tuple" && std::any_of(pickExpr->branches.begin(), pickExpr->branches.end(), [](const PickBranch& branch) {
                 return static_cast<bool>(branch.tuplePattern);
             })) {
-            consumeTuplePatternSource(pickExpr->value.get());
+            consumePatternSource(pickExpr->value.get());
         }
-        const auto baseline = varStates;
-        const bool baselineReachable = pathReachable;
         const ChoiceInfo* choiceInfo = pickedType.isUnknown() ? nullptr : semantic->lookupChoice(pickedType.name);
         const auto choiceBindings = choiceInfo
             ? buildTypeBindings(choiceInfo->typeParams, pickedType.params)
             : std::unordered_map<std::string, ResolvedType>{};
+        if (choiceInfo) {
+            const bool hasOwnedPayload = std::any_of(
+                choiceInfo->variants.begin(),
+                choiceInfo->variants.end(),
+                [&](const auto& entry) {
+                    return std::any_of(entry.second.payloadTypes.begin(), entry.second.payloadTypes.end(), [&](const ResolvedType& payloadType) {
+                        return substituteType(payloadType, choiceBindings).isOwned();
+                    });
+                });
+            if (hasOwnedPayload) {
+                if (!dynamic_cast<IdentExpr*>(pickExpr->value.get())) {
+                    reportError(
+                        pickExpr->value.get(),
+                        "Cannot pick an owned choice payload from a temporary or projected value. Hint: move the choice into a local variable first.");
+                } else {
+                    consumePatternSource(pickExpr->value.get());
+                }
+            }
+        }
+        const auto baseline = varStates;
+        const bool baselineReachable = pathReachable;
 
         std::optional<std::unordered_map<std::string, TrackedVar>> mergedState;
         for (const auto& branch : pickExpr->branches) {
@@ -873,6 +977,16 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
                         if (auto* tail = dynamic_cast<ExprStmt*>(stmt); tail && tail->expr) {
                             const ResolvedType resultType = typeOfExpr(tail->expr.get());
                             checkExpr(tail->expr.get(), isConsume && resultType.isOwned());
+                            if (branchLocalViewEscapes(tail->expr.get(), resultType, scopeStack.size() - 1)) {
+                                reportError(
+                                    tail->expr.get(),
+                                    "Cannot return a borrowed view from this branch because its owner is destroyed when the branch ends. Hint: keep the owner outside the `if`/`pick` block, or return an owned `String` copy.");
+                            }
+                            if (isBorrowCarrierType(resultType)) {
+                                borrowProvenance[tail->expr.get()] = BorrowProvenance{
+                                    resolveBorrowPath(tail->expr.get()),
+                                    isStaticBorrowExpr(tail->expr.get())};
+                            }
                             continue;
                         }
                     }
@@ -892,6 +1006,44 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
                     mergeTrackedState(state, branchState.at(name));
                 }
             }
+        }
+        if (mergedState.has_value() && pickExpr->branches.size() > 1) {
+            const ResolvedType resultType = typeOfExpr(pickExpr);
+            std::optional<BorrowToken> commonToken;
+            bool commonStatic = false;
+            bool tokenMismatch = false;
+            bool sawBorrow = false;
+            bool sawNonBorrow = false;
+            for (const auto& branch : pickExpr->branches) {
+                Expr* tail = nullptr;
+                if (branch.body && !branch.body->statements.empty()) {
+                    auto* tailStmt = dynamic_cast<ExprStmt*>(branch.body->statements.back().get());
+                    tail = tailStmt ? tailStmt->expr.get() : nullptr;
+                }
+                if (!tail) continue;
+                const auto provenanceIt = borrowProvenance.find(tail);
+                if (provenanceIt == borrowProvenance.end()) continue;
+                const auto token = provenanceIt->second.token;
+                const bool isStatic = provenanceIt->second.isStaticBorrow;
+                if (token.has_value()) {
+                    sawBorrow = true;
+                    if (commonStatic) tokenMismatch = true;
+                    if (!commonToken.has_value()) commonToken = token;
+                    else if (*commonToken != *token) tokenMismatch = true;
+                } else if (isStatic) {
+                    if (sawBorrow) tokenMismatch = true;
+                    commonStatic = true;
+                } else {
+                    sawNonBorrow = true;
+                }
+            }
+            if (isBorrowCarrierType(resultType) &&
+                ((sawBorrow && sawNonBorrow) || (sawBorrow && tokenMismatch))) {
+                reportError(pickExpr, "Cannot merge borrowed views from different branch owners. Hint: keep one owner alive across all branches, or return an owned `String` copy.");
+            }
+            if (isBorrowCarrierType(resultType) && !sawNonBorrow && !tokenMismatch &&
+                (commonToken.has_value() || commonStatic))
+                borrowProvenance[pickExpr] = BorrowProvenance{commonToken, commonStatic};
         }
         pathReachable = mergedState.has_value() || (pickExpr->branches.empty() && baselineReachable);
         varStates = mergedState.has_value() ? std::move(*mergedState) : baseline;
@@ -1123,16 +1275,47 @@ void OwnershipChecker::exitScope() {
 }
 
 void OwnershipChecker::defineTrackedVar(const std::string& name, const TrackedVar& state) {
+    TrackedVar storedState = state;
+    if (storedState.bindingIdentity.empty()) {
+        storedState.bindingIdentity = "ownership-binding-" + std::to_string(nextBindingIdentity++);
+    }
     if (!scopeStack.empty()) {
         ScopeBinding binding;
         binding.name = name;
+        binding.bindingIdentity = storedState.bindingIdentity;
         const auto existing = varStates.find(name);
         if (existing != varStates.end()) {
             binding.previousState = existing->second;
         }
         scopeStack.back().bindings.push_back(std::move(binding));
     }
-    varStates[name] = state;
+    varStates[name] = std::move(storedState);
+}
+
+std::optional<std::pair<size_t, size_t>> OwnershipChecker::findBindingPosition(std::string_view identity) const {
+    if (identity.empty()) {
+        return std::nullopt;
+    }
+    for (size_t depth = scopeStack.size(); depth > 0; --depth) {
+        const auto& bindings = scopeStack[depth - 1].bindings;
+        for (size_t index = bindings.size(); index > 0; --index) {
+            if (bindings[index - 1].bindingIdentity == identity) {
+                return std::pair<size_t, size_t>{depth - 1, index - 1};
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+bool OwnershipChecker::borrowFitsBindingScope(
+    const BorrowToken& token,
+    const std::pair<size_t, size_t>& target) const {
+    const auto owner = findBindingPosition(token.rootBindingIdentity);
+    if (!owner.has_value()) {
+        return false;
+    }
+    return owner->first < target.first ||
+        (owner->first == target.first && owner->second < target.second);
 }
 
 void OwnershipChecker::recordDropBeforeStmt(
@@ -1190,6 +1373,59 @@ void OwnershipChecker::releaseView(Expr* expr, const ResolvedType& viewType) {
     }
 }
 
+bool OwnershipChecker::isStaticBorrowExpr(Expr* expr) const {
+    if (!expr) return false;
+    const auto cached = borrowProvenance.find(expr);
+    if (cached != borrowProvenance.end()) return cached->second.isStaticBorrow;
+    if (dynamic_cast<StringExpr*>(expr)) return true;
+    if (auto* ident = dynamic_cast<IdentExpr*>(expr)) {
+        const auto it = varStates.find(ident->name);
+        return it != varStates.end() && it->second.isStaticBorrow;
+    }
+    if (auto* borrow = dynamic_cast<BorrowExpr*>(expr))
+        return isStaticBorrowExpr(borrow->target.get());
+    if (auto* ifExpr = dynamic_cast<IfExpr*>(expr)) {
+        const auto tail = [](const BlockStmt* block) -> Expr* {
+            if (!block || block->statements.empty()) return nullptr;
+            auto* stmt = dynamic_cast<ExprStmt*>(block->statements.back().get());
+            return stmt ? stmt->expr.get() : nullptr;
+        };
+        return isStaticBorrowExpr(tail(ifExpr->thenBlock.get())) &&
+            isStaticBorrowExpr(tail(ifExpr->elseBlock.get()));
+    }
+    if (auto* pick = dynamic_cast<PickExpr*>(expr)) {
+        return !pick->branches.empty() && std::all_of(pick->branches.begin(), pick->branches.end(),
+            [&](const PickBranch& branch) {
+                if (!branch.body || branch.body->statements.empty()) return false;
+                auto* stmt = dynamic_cast<ExprStmt*>(branch.body->statements.back().get());
+                return stmt && isStaticBorrowExpr(stmt->expr.get());
+            });
+    }
+    return false;
+}
+
+bool OwnershipChecker::branchLocalViewEscapes(
+    Expr* expr,
+    const ResolvedType& viewType,
+    size_t branchScopeDepth) const {
+    if (!isBorrowCarrierType(viewType) || scopeStack.empty() || branchScopeDepth >= scopeStack.size()) {
+        return false;
+    }
+    if (isStaticBorrowExpr(expr)) {
+        return false;
+    }
+
+    const auto token = resolveBorrowToken(expr, viewType);
+    if (!token.has_value() || token->rootBindingIdentity.empty()) {
+        return false;
+    }
+
+    const auto ownerPosition = findBindingPosition(token->rootBindingIdentity);
+    // A view whose owner was introduced in this branch (or a nested block) is
+    // invalid once the branch result is used by the enclosing expression.
+    return ownerPosition.has_value() && ownerPosition->first >= branchScopeDepth;
+}
+
 const FunctionSignature* OwnershipChecker::resolveCallSignature(const Expr* callee) const {
     return semantic->lookupCallableSignature(callee);
 }
@@ -1202,17 +1438,23 @@ std::optional<BorrowToken> OwnershipChecker::resolveBorrowPath(Expr* expr) const
     if (!expr) {
         return std::nullopt;
     }
+    if (const auto cached = borrowProvenance.find(expr); cached != borrowProvenance.end()) {
+        return cached->second.token;
+    }
 
     if (auto* ident = dynamic_cast<IdentExpr*>(expr)) {
         const auto it = varStates.find(ident->name);
         if (it == varStates.end()) {
             return std::nullopt;
         }
+        if (it->second.isStaticBorrow) {
+            return std::nullopt;
+        }
         if (it->second.lexicalBorrow.has_value()) {
             return it->second.lexicalBorrow;
         }
         if (isBorrowRootType(it->second.type)) {
-            return BorrowToken{ident->name, {}, {}};
+            return BorrowToken{ident->name, {}, {}, it->second.bindingIdentity};
         }
         return std::nullopt;
     }
@@ -1239,6 +1481,30 @@ std::optional<BorrowToken> OwnershipChecker::resolveBorrowPath(Expr* expr) const
         return resolveBorrowPath(borrow->target.get());
     }
 
+    if (auto* ifExpr = dynamic_cast<IfExpr*>(expr)) {
+        auto tail = [](const BlockStmt* block) -> Expr* {
+            if (!block || block->statements.empty()) return nullptr;
+            auto* stmt = dynamic_cast<ExprStmt*>(block->statements.back().get());
+            return stmt ? stmt->expr.get() : nullptr;
+        };
+        const auto thenToken = resolveBorrowPath(tail(ifExpr->thenBlock.get()));
+        const auto elseToken = resolveBorrowPath(tail(ifExpr->elseBlock.get()));
+        if (thenToken.has_value() && elseToken.has_value() && thenToken == elseToken) return thenToken;
+        return std::nullopt;
+    }
+    if (auto* pickExpr = dynamic_cast<PickExpr*>(expr)) {
+        std::optional<BorrowToken> common;
+        for (const auto& branch : pickExpr->branches) {
+            if (!branch.body || branch.body->statements.empty()) return std::nullopt;
+            auto* stmt = dynamic_cast<ExprStmt*>(branch.body->statements.back().get());
+            if (!stmt) return std::nullopt;
+            const auto token = resolveBorrowPath(stmt->expr.get());
+            if (!token.has_value()) return std::nullopt;
+            if (!common.has_value()) common = token;
+            else if (*common != *token) return std::nullopt;
+        }
+        return common;
+    }
     if (auto* call = dynamic_cast<CallExpr*>(expr)) {
         if (semantic != nullptr) {
             const auto constructorIt = semantic->result().choiceConstructors.find(call);
@@ -1308,8 +1574,15 @@ std::optional<BorrowToken> OwnershipChecker::resolveBorrowToken(Expr* expr, cons
 }
 
 bool OwnershipChecker::acquireBorrowToken(const BorrowToken& token, const AstNode* node) {
+    if (token.rootBindingIdentity.empty()) {
+        reportError(
+            node,
+            "Cannot safely track the owner of this borrowed view. Hint: bind the owner to a local variable before creating the view.");
+        return false;
+    }
     const auto it = varStates.find(token.rootName);
-    if (it == varStates.end() || !isBorrowRootType(it->second.type)) {
+    if (it == varStates.end() || !isBorrowRootType(it->second.type) ||
+        it->second.bindingIdentity != token.rootBindingIdentity) {
         return false;
     }
 
@@ -1332,7 +1605,8 @@ bool OwnershipChecker::acquireBorrowToken(const BorrowToken& token, const AstNod
 
 void OwnershipChecker::releaseBorrowToken(const BorrowToken& token) {
     const auto it = varStates.find(token.rootName);
-    if (it == varStates.end() || !isBorrowRootType(it->second.type)) {
+    if (token.rootBindingIdentity.empty() || it == varStates.end() || !isBorrowRootType(it->second.type) ||
+        it->second.bindingIdentity != token.rootBindingIdentity) {
         return;
     }
 
@@ -1365,6 +1639,7 @@ bool OwnershipChecker::shouldScheduleDrop(const TrackedVar& state) const {
 
 void OwnershipChecker::mergeTrackedState(TrackedVar& target, const TrackedVar& source) const {
     target.storageState = mergeStorageState(target.storageState, source.storageState);
+    target.isStaticBorrow = target.isStaticBorrow && source.isStaticBorrow;
     for (const auto& borrow : source.activeBorrows) {
         if (std::find(target.activeBorrows.begin(), target.activeBorrows.end(), borrow) == target.activeBorrows.end()) {
             target.activeBorrows.push_back(borrow);

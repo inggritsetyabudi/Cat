@@ -22,12 +22,19 @@ struct ChoiceDecl;
 struct StaticDecl;
 struct BlockStmt;
 
+struct OirTemporaryDrop {
+    std::string name;
+    std::string type;
+    std::string bindingKey;
+};
+
 struct OirValue {
     std::string text;
     std::string type;
     bool isUnit = false;
     bool terminates = false;
     std::string bindingKey;
+    std::vector<OirTemporaryDrop> borrowedOwners;
 };
 
 struct OirParam {

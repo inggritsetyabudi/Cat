@@ -1,0 +1,13 @@
+view shape Holder[s] {
+    text: ref[s] Str,
+}
+
+fn main() {
+    val source = "source"
+    val other = "other"
+    scope s {
+        var holder = Holder { text: ref[s] source }
+        holder.text = String.from(other).as_str()
+        println(holder.text)
+    }
+}

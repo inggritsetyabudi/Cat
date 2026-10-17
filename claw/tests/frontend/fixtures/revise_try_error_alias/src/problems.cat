@@ -2,6 +2,6 @@ share choice Problem[T] {
     issue(value: T)
 }
 
-share fn produce() -> Result[Int32, Problem[Str]] {
-    return Fail(issue("problem"))
+share fn produce() -> Result[Int32, Problem[String]] {
+    return Fail(issue(String.from("problem")))
 }
