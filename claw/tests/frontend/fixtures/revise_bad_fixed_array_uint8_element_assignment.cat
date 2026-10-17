@@ -1,4 +1,4 @@
 fn main() {
     var values = [0_UInt8, 128_UInt8, 255_UInt8]
-    values[0_USize] = 1_UInt8
+    values[0_USize] += 1_UInt8
 }

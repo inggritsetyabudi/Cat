@@ -792,11 +792,32 @@ run_check_fail "global fixed arrays remain out of scope" "$FIXTURE_DIR/revise_ba
 run_check_fail "global UInt8 fixed arrays remain out of scope" \
   "$FIXTURE_DIR/revise_bad_fixed_array_uint8_global.cat" \
   "Global fixed Array values are out of scope"
-run_check_fail "fixed-array element assignment remains out of scope" "$FIXTURE_DIR/revise_bad_fixed_array_element_assignment.cat" \
-  "Fixed Array element assignment is out of scope"
-run_check_fail "UInt8 fixed-array element assignment remains out of scope" \
+run_check_pass "plain indexed assignment mutates local fixed Array[Int32,N] and Array[UInt8,N]" \
+  "$SCRIPT_DIR/../native/fixtures/revise_fixed_array_index_assignment.cat"
+run_check_fail "fixed-array element assignment through val remains rejected" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_index_assignment_immutable.cat" \
+  'Fixed Array element assignment requires a local mutable `var` binding.'
+run_check_fail "fixed-array element assignment through a function parameter remains rejected" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_index_assignment_parameter.cat" \
+  'Fixed Array element assignment requires a local mutable `var` binding.'
+run_check_fail "fixed-array assignment still requires a USize index" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_index_assignment_index_type.cat" \
+  "Index expression must have type USize, got Int32"
+run_check_fail "fixed-array assignment rejects a mismatched element value type" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_index_assignment_value_type.cat" \
+  "Assigned value type mismatch for index access: expected Int32, got UInt8"
+run_check_fail "UInt8 indexed assignment rejects out-of-range unsuffixed value" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_index_assignment_uint8_overflow.cat" \
+  "Integer literal '256' does not fit target type UInt8"
+run_check_fail "UInt8 indexed assignment rejects out-of-range suffixed value" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_index_assignment_uint8_suffix_overflow.cat" \
+  "Integer literal '256' does not fit target type UInt8"
+run_check_fail "fixed-array compound assignment remains out of scope" \
+  "$FIXTURE_DIR/revise_bad_fixed_array_element_assignment.cat" \
+  "Compound assignment to fixed Array elements is out of scope"
+run_check_fail "UInt8 fixed-array compound assignment remains out of scope" \
   "$FIXTURE_DIR/revise_bad_fixed_array_uint8_element_assignment.cat" \
-  "Fixed Array element assignment is out of scope"
+  "Compound assignment to fixed Array elements is out of scope"
 
 run_check_pass "fixed Array[Int32,5] aggregate return and parameter" \
   "$SCRIPT_DIR/../native/fixtures/revise_fixed_array_large.cat"

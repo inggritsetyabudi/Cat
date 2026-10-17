@@ -2732,7 +2732,18 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             if (indexObjectType && indexObjectType->name == "Str") {
                 reportError(assign, "Indexed assignment is not supported for Str; string indexing is read-only.");
             } else if (indexObjectType && indexObjectType->name == "Array") {
-                reportError(assign, "Fixed Array element assignment is out of scope; fixed-array indexing is read-only.");
+                if (assign->op != "=") {
+                    reportError(assign, "Compound assignment to fixed Array elements is out of scope; use plain indexed assignment.");
+                } else if (!isSupportedFixedArrayType(*indexObjectType)) {
+                    reportError(assign, "Indexed assignment is supported only for fixed Array[Int32, N] and Array[UInt8, N].");
+                } else {
+                    const auto* arrayIdent = dynamic_cast<const IdentExpr*>(index->object.get());
+                    const auto arraySymbol = arrayIdent ? lookupSymbol(arrayIdent->name) : nullptr;
+                    if (!arraySymbol || arraySymbol->kind != SymbolKind::Variable || !arraySymbol->isMutable ||
+                        arraySymbol->isStatic || arraySymbol->bindingDecl == nullptr) {
+                        reportError(assign, "Fixed Array element assignment requires a local mutable `var` binding.");
+                    }
+                }
             } else if (!canBorrowExprAsEdit(index)) {
                 reportError(assign, "Index assignment requires mutable storage or a ref mut view.");
             }
