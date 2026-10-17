@@ -1,0 +1,37 @@
+fn scalar_names(
+    bool_value: bOoL,
+    char_value: cHaR,
+    unit_value: UNIT,
+    i8: int8,
+    i16: INT16,
+    i32: InT32,
+    i64: INT64,
+    i128: int128,
+    u8: uInT8,
+    u16: UINT16,
+    u32: uint32,
+    u64: UINT64,
+    u128: uInT128,
+    size: uSiZe,
+    f32: float32,
+    f64: FLOAT64,
+    f128: flOaT128
+) -> uNiT {
+    return ()
+}
+
+fn builtin_aliases(integer: iNt, unsigned: UINT, real: fLoAt) -> Unit {
+    return ()
+}
+
+fn user_type_case_remains_explicit(value: UserPoint) -> UserPoint {
+    return value
+}
+
+shape UserPoint {
+    x: Int32,
+}
+
+fn main() -> Int32 {
+    0
+}

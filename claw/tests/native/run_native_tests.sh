@@ -83,6 +83,7 @@ range_reject_output="$ARTIFACT_DIR/revise_int32_range_reject.exe"
 indexed_scan_reject_output="$ARTIFACT_DIR/revise_indexed_scan_reject.exe"
 numeric_literals_output="$ARTIFACT_DIR/revise_numeric_literals.exe"
 radix_literals_output="$ARTIFACT_DIR/revise_integer_radix_literals.exe"
+builtin_type_case_output="$ARTIFACT_DIR/revise_builtin_type_case.exe"
 choice_resolution_output="$ARTIFACT_DIR/revise_choice_resolution.exe"
 workspace_output="$ARTIFACT_DIR/revise_workspace.exe"
 maybe_output="$ARTIFACT_DIR/revise_maybe.exe"
@@ -128,6 +129,7 @@ rm -f "$single_output" "${single_output%.exe}.ll" \
       "$indexed_scan_reject_output" "${indexed_scan_reject_output%.exe}.ll" \
       "$numeric_literals_output" "${numeric_literals_output%.exe}.ll" \
       "$radix_literals_output" "${radix_literals_output%.exe}.ll" \
+      "$builtin_type_case_output" "${builtin_type_case_output%.exe}.ll" \
       "$choice_resolution_output" "${choice_resolution_output%.exe}.ll" \
       "$workspace_output" "${workspace_output%.exe}.ll" \
       "$maybe_output" "${maybe_output%.exe}.ll" \
@@ -637,6 +639,17 @@ expected_radix_literals_stdout=$'grouped-ok\nhex-separator-ok\nhex-suffix-ok\nbi
 if [[ "$radix_literals_stdout" != "$expected_radix_literals_stdout" ]]; then
   echo "radix integer native output did not match normalized values/types:" >&2
   echo "$radix_literals_stdout" >&2
+  exit 1
+fi
+
+echo "[build/pass] test_native/revise_builtin_type_case.cat"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_builtin_type_case.cat" "$builtin_type_case_output" >/dev/null
+expect_generated_ll "$builtin_type_case_output"
+builtin_type_case_stdout="$(normalize_stdout "$builtin_type_case_output")"
+expected_builtin_type_case_stdout=$'hex-f-separator-ok\nhex-alpha-separator-ok\nint-lower-suffix-ok\nint-mixed-suffix-ok\nint-upper-suffix-ok\nint-alias-ok\nuint-alias-ok\nfloat-lower-suffix-ok\nfloat-mixed-suffix-ok\nfloat-upper-suffix-ok\nfloat-alias-ok\nhex-float-suffix-ok\narray-context-ok'
+if [[ "$builtin_type_case_stdout" != "$expected_builtin_type_case_stdout" ]]; then
+  echo "builtin type case-insensitivity native output was unexpected:" >&2
+  printf '%s\n' "$builtin_type_case_stdout" >&2
   exit 1
 fi
 
@@ -1402,4 +1415,46 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
   fi
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for UInt8 fixed arrays"
+fi
+
+fixed_array_assignment_output="$ARTIFACT_DIR/revise_fixed_array_index_assignment.exe"
+fixed_array_assignment_ll="${fixed_array_assignment_output%.exe}.ll"
+rm -f "$fixed_array_assignment_output" "$fixed_array_assignment_ll"
+echo "[build/pass] fixed Array indexed assignment, readback, and index-before-RHS order"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_fixed_array_index_assignment.cat" "$fixed_array_assignment_output" >/dev/null
+expect_generated_ll "$fixed_array_assignment_output"
+fixed_array_assignment_stdout="$(normalize_stdout "$fixed_array_assignment_output")"
+expected_fixed_array_assignment_stdout=$'index-int\nrhs-int\n41\nindex-u8\nrhs-u8\n254'
+if [[ "$fixed_array_assignment_stdout" != "$expected_fixed_array_assignment_stdout" ]]; then
+  echo "fixed-array indexed-assignment output/order was unexpected:" >&2
+  printf '%s\n' "$fixed_array_assignment_stdout" >&2
+  exit 1
+fi
+
+fixed_array_assignment_oob_output="$ARTIFACT_DIR/revise_fixed_array_index_assignment_oob.exe"
+rm -f "$fixed_array_assignment_oob_output" "${fixed_array_assignment_oob_output%.exe}.ll"
+echo "[defect/pass] dynamic fixed Array indexed store traps before GEP/store when index equals length"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_fixed_array_index_assignment_oob.cat" "$fixed_array_assignment_oob_output" >/dev/null
+expect_generated_ll "$fixed_array_assignment_oob_output"
+if "$fixed_array_assignment_oob_output" >/dev/null 2>&1; then
+  echo "expected dynamic fixed-array store index==len defect, but execution succeeded" >&2
+  exit 1
+fi
+
+fixed_array_assignment_sanitized="$CWD_TEST_DIR/revise_fixed_array_index_assignment_sanitized"
+if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,leak -x c - -o "$CWD_TEST_DIR/fixed_array_index_assignment_sanitizer_probe" >/dev/null 2>&1; then
+  echo "[asan/ubsan/lsan/pass] fixed Array Int32/UInt8 mutation, readback, and evaluation order"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+    "$fixed_array_assignment_ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$fixed_array_assignment_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$fixed_array_assignment_sanitized" > "$CWD_TEST_DIR/revise_fixed_array_index_assignment_sanitized.out"
+  fixed_array_assignment_sanitized_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_fixed_array_index_assignment_sanitized.out")"
+  if [[ "$fixed_array_assignment_sanitized_stdout" != "$expected_fixed_array_assignment_stdout" ]]; then
+    echo "sanitized fixed-array indexed-assignment output was unexpected" >&2
+    exit 1
+  fi
+else
+  echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for fixed-array indexed assignment"
 fi

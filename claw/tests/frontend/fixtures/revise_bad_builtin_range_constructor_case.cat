@@ -1,0 +1,5 @@
+fn use_lowercase_range(value: range[Int32]) {
+}
+
+fn main() {
+}

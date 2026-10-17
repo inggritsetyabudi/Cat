@@ -75,6 +75,7 @@ run_oir_golden "int32-range" "$FIXTURE_DIR/native/fixtures/revise_int32_range.ca
 run_oir_golden "int32-range-scan" "$FIXTURE_DIR/native/fixtures/revise_int32_range_scan.cat"
 run_oir_golden "fixed-array" "$OIR_FIXTURE_DIR/fixed-array.cat"
 run_oir_golden "fixed-array-uint8" "$OIR_FIXTURE_DIR/fixed-array-uint8.cat"
+run_oir_golden "fixed-array-index-assignment" "$FIXTURE_DIR/native/fixtures/revise_fixed_array_index_assignment.cat"
 run_oir_fail "fixed-array byte-size overflow is rejected before OIR emission" \
   "$FIXTURE_DIR/frontend/fixtures/revise_bad_fixed_array_size_overflow.cat" \
   "Fixed Array byte size overflows the target size limit"
