@@ -707,7 +707,17 @@ bool LlvmEmitter::usesBorrowPointerAbi(std::string_view typeText, AbiPassKind pa
         return false;
     }
     const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(typeText)));
-    return shapesByName.contains(baseType) || choicesByName.contains(baseType);
+    if (shapesByName.contains(baseType) || choicesByName.contains(baseType)) {
+        return true;
+    }
+#if defined(_WIN32)
+    // The emitter selects its native Windows target with this same platform macro.
+    // Win64 passes a 16-byte C aggregate by address, so borrowed Span parameters
+    // must use that ABI form in both definitions and direct calls.
+    return baseType == "Span";
+#else
+    return false;
+#endif
 }
 
 bool LlvmEmitter::usesPointerAbi(std::string_view typeText, AbiPassKind passKind) const {

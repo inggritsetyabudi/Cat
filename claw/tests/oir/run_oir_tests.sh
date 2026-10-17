@@ -32,7 +32,7 @@ run_oir_golden() {
   local actual="$TEMP_DIR/$label.oir"
 
   echo "[oir/pass] $label"
-  if ! "$CLAW_EXE" oir "$fixture" > "$actual"; then
+  if ! "$CLAW_EXE" oir "$fixture" | tr -d '\r' > "$actual"; then
     echo "OIR emission failed for $fixture" >&2
     exit 1
   fi

@@ -228,7 +228,8 @@ if [[ "$tuple_pick_air_output" != *"((left, _), right)"* ]] ||
 fi
 
 echo "[air/golden] tuple expression values and nested arity"
-tuple_expr_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_tuples.cat")"
+# Keep these text goldens platform-independent when the Windows CRT emits CRLF.
+tuple_expr_air_output="$("$CLAW_EXE" air "$SCRIPT_DIR/../native/fixtures/revise_tuples.cat" | tr -d '\r')"
 if ! diff -u "$FIXTURE_DIR/revise_tuples.air.golden" <(printf '%s\n' "$tuple_expr_air_output"); then
   echo "tuple-expression AIR output differs from the golden" >&2
   exit 1
@@ -299,7 +300,7 @@ run_check_fail "Queue.truncate is rejected before LLVM lowering" "$FIXTURE_DIR/r
 run_check_pass "test_frontend/revise_str_search_methods.cat" "$FIXTURE_DIR/revise_str_search_methods.cat"
 run_check_pass "test_frontend/revise_choice_resolution.cat" "$FIXTURE_DIR/revise_choice_resolution.cat"
 echo "[air/golden] test_frontend/revise_choice_resolution.cat"
-choice_resolution_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_choice_resolution.cat")"
+choice_resolution_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_choice_resolution.cat" | tr -d '\r')"
 if ! diff -u "$FIXTURE_DIR/revise_choice_resolution.air.golden" <(printf '%s\n' "$choice_resolution_air_output"); then
   echo "Choice-resolution AIR output differs from the golden" >&2
   exit 1
@@ -349,7 +350,7 @@ run_check_fail "test_frontend/revise_bad_case_field.cat" "$FIXTURE_DIR/revise_ba
 run_check_fail "test_frontend/revise_bad_case_custom_variant.cat" "$FIXTURE_DIR/revise_bad_case_custom_variant.cat" "Choice variant 'Ok' must start with a lowercase letter"
 run_check_pass "test_frontend/revise_numeric_literals.cat" "$FIXTURE_DIR/revise_numeric_literals.cat"
 echo "[air/golden] test_frontend/revise_numeric_literals.cat"
-numeric_literals_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_numeric_literals.cat")"
+numeric_literals_air_output="$("$CLAW_EXE" air "$FIXTURE_DIR/revise_numeric_literals.cat" | tr -d '\r')"
 if ! diff -u "$FIXTURE_DIR/revise_numeric_literals.air.golden" <(printf '%s\n' "$numeric_literals_air_output"); then
   echo "numeric-literal AIR output differs from the baseline golden" >&2
   exit 1
@@ -532,8 +533,17 @@ fi
 run_check_fail "test_frontend/revise_bad_contract.cat" "$FIXTURE_DIR/revise_bad_contract.cat" "receiver type does not match contract"
 
 
-TEMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TEMP_DIR"' EXIT
+TEMP_DIR="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/claw-frontend.XXXXXX" 2>/dev/null || true)"
+trap 'if [[ -n "$TEMP_DIR" ]]; then rm -rf -- "$TEMP_DIR"; fi' EXIT
+
+if [[ ! -d "$TEMP_DIR" ]]; then
+  printf 'MSYS mktemp returned a missing directory %q; retrying under %q\n' "$TEMP_DIR" "$SCRIPT_DIR" >&2
+  TEMP_DIR="$(/usr/bin/mktemp -d "$SCRIPT_DIR/.frontend.XXXXXX")"
+fi
+if [[ ! -d "$TEMP_DIR" ]]; then
+  printf 'frontend test temporary directory does not exist: %q\n' "$TEMP_DIR" >&2
+  exit 1
+fi
 
 cat > "$TEMP_DIR/legacy_hold.cat" <<'EOF'
 fn main() {

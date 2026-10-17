@@ -28,8 +28,12 @@ CLAW_EXE="$CLAW_EXE_DIR/$(basename -- "$CLAW_EXE")"
 
 ARTIFACT_DIR="$SCRIPT_DIR/artifacts"
 mkdir -p "$ARTIFACT_DIR"
-CWD_TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claw-native-cwd.XXXXXX")"
-trap 'rm -rf "$CWD_TEST_DIR"' EXIT
+CWD_TEST_DIR="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/claw-native-cwd.XXXXXX")"
+trap 'rm -rf -- "$CWD_TEST_DIR"' EXIT
+if [[ ! -d "$CWD_TEST_DIR" ]]; then
+  printf 'native test temporary directory does not exist: %q\n' "$CWD_TEST_DIR" >&2
+  exit 1
+fi
 
 normalize_stdout() {
   "$1" | tr -d '\r'
@@ -401,7 +405,7 @@ assert_stored_nested_range_layout nested_u64 '{ { i64, i64, i1 }, i16 }' 8
 wide_range_tuple_stdout="$CWD_TEST_DIR/revise_wide_range_tuple_layout.stdout"
 wide_range_tuple_expected="$CWD_TEST_DIR/revise_wide_range_tuple_layout.expected"
 printf '5\n7\n' > "$wide_range_tuple_expected"
-"$wide_range_tuple_output" > "$wide_range_tuple_stdout"
+normalize_stdout "$wide_range_tuple_output" > "$wide_range_tuple_stdout"
 if ! cmp -s "$wide_range_tuple_expected" "$wide_range_tuple_stdout"; then
   echo "nested Range tuple field extraction did not match its exact expected output" >&2
   od -An -tx1c "$wide_range_tuple_stdout" >&2
@@ -414,7 +418,7 @@ expect_generated_ll "$wide_unsigned_print_output"
 wide_unsigned_print_stdout="$CWD_TEST_DIR/revise_wide_unsigned_print.stdout"
 wide_unsigned_print_expected="$CWD_TEST_DIR/revise_wide_unsigned_print.expected"
 printf '32768|65535\n2147483648|4294967295\n9223372036854775808|18446744073709551615\n9223372036854775808|18446744073709551615\n-9223372036854775807|9223372036854775807\n' > "$wide_unsigned_print_expected"
-"$wide_unsigned_print_output" > "$wide_unsigned_print_stdout"
+normalize_stdout "$wide_unsigned_print_output" > "$wide_unsigned_print_stdout"
 if ! cmp -s "$wide_unsigned_print_expected" "$wide_unsigned_print_stdout"; then
   echo "wide unsigned and signed Int64 print output did not match the exact boundary bytes" >&2
   od -An -tx1c "$wide_unsigned_print_stdout" >&2
@@ -427,7 +431,7 @@ expect_generated_ll "$uint8_print_output"
 uint8_print_stdout="$CWD_TEST_DIR/revise_uint8_print.stdout"
 uint8_print_expected="$CWD_TEST_DIR/revise_uint8_print.expected"
 printf '254255' > "$uint8_print_expected"
-"$uint8_print_output" > "$uint8_print_stdout"
+normalize_stdout "$uint8_print_output" > "$uint8_print_stdout"
 if ! cmp -s "$uint8_print_expected" "$uint8_print_stdout"; then
   echo "UInt8 print native output did not match the exact no-newline bytes '254255'" >&2
   od -An -tx1c "$uint8_print_stdout" >&2
@@ -440,7 +444,7 @@ expect_generated_ll "$int8_print_output"
 int8_print_stdout="$CWD_TEST_DIR/revise_int8_print.stdout"
 int8_print_expected="$CWD_TEST_DIR/revise_int8_print.expected"
 printf '%s\n' '-128,-1,0,127' > "$int8_print_expected"
-"$int8_print_output" > "$int8_print_stdout"
+normalize_stdout "$int8_print_output" > "$int8_print_stdout"
 if ! cmp -s "$int8_print_expected" "$int8_print_stdout"; then
   echo "Int8 print/println output did not match the exact signed edge bytes" >&2
   od -An -tx1c "$int8_print_stdout" >&2
@@ -453,7 +457,7 @@ expect_generated_ll "$int16_print_output"
 int16_print_stdout="$CWD_TEST_DIR/revise_int16_print.stdout"
 int16_print_expected="$CWD_TEST_DIR/revise_int16_print.expected"
 printf '%s\n' '-32768' '-1' '0' '1' '32767' > "$int16_print_expected"
-"$int16_print_output" > "$int16_print_stdout"
+normalize_stdout "$int16_print_output" > "$int16_print_stdout"
 if ! cmp -s "$int16_print_expected" "$int16_print_stdout"; then
   echo "Int16 println native output did not match the exact signed boundary bytes" >&2
   od -An -tx1c "$int16_print_stdout" >&2
@@ -596,15 +600,14 @@ fi
 
 echo "[build/fail] fixed-array byte-size overflow is rejected before native or LLVM output"
 fixed_array_overflow_output="$CWD_TEST_DIR/revise_bad_fixed_array_size_overflow.exe"
-fixed_array_overflow_log="$CWD_TEST_DIR/revise_bad_fixed_array_size_overflow.log"
-if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_fixed_array_size_overflow.cat" \
-  "$fixed_array_overflow_output" >"$fixed_array_overflow_log" 2>&1; then
+if fixed_array_overflow_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_fixed_array_size_overflow.cat" \
+  "$fixed_array_overflow_output" 2>&1)"; then
   echo "overflowing fixed array unexpectedly built a native executable" >&2
   exit 1
 fi
-if ! grep -Fq 'Fixed Array byte size overflows the target size limit' "$fixed_array_overflow_log"; then
+if [[ "$fixed_array_overflow_diagnostic" != *'Fixed Array byte size overflows the target size limit'* ]]; then
   echo "overflowing fixed-array build failed without the expected size diagnostic:" >&2
-  cat "$fixed_array_overflow_log" >&2
+  printf '%s\n' "$fixed_array_overflow_diagnostic" >&2
   exit 1
 fi
 if [[ -e "$fixed_array_overflow_output" || -e "${fixed_array_overflow_output%.exe}.ll" ]]; then
@@ -702,8 +705,7 @@ fi
 
 echo "[build/fail] nested Anchor payload is rejected before native output"
 nested_anchor_payload_output="$CWD_TEST_DIR/revise_bad_anchor_nested_payload.exe"
-nested_anchor_payload_log="$CWD_TEST_DIR/revise_bad_anchor_nested_payload.log"
-if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_payload.cat" "$nested_anchor_payload_output" >"$nested_anchor_payload_log" 2>&1; then
+if nested_anchor_payload_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_payload.cat" "$nested_anchor_payload_output" 2>&1)"; then
   echo "nested Anchor payload unexpectedly built successfully" >&2
   exit 1
 fi
@@ -711,16 +713,15 @@ if [[ -e "$nested_anchor_payload_output" ]]; then
   echo "nested Anchor payload rejection left a native binary behind: $nested_anchor_payload_output" >&2
   exit 1
 fi
-if ! grep -Fq 'Anchor.new(...) cannot store payload type `Anchor[Int32]` because it contains a nested Anchor' "$nested_anchor_payload_log"; then
+if [[ "$nested_anchor_payload_diagnostic" != *'Anchor.new(...) cannot store payload type `Anchor[Int32]` because it contains a nested Anchor'* ]]; then
   echo "nested Anchor payload build did not report the expected sema diagnostic:" >&2
-  cat "$nested_anchor_payload_log" >&2
+  printf '%s\n' "$nested_anchor_payload_diagnostic" >&2
   exit 1
 fi
 
 echo "[build/fail] generic Shape specialization rejects nested Anchor without native output"
 nested_anchor_shape_output="$CWD_TEST_DIR/revise_bad_anchor_nested_shape_specialization.exe"
-nested_anchor_shape_log="$CWD_TEST_DIR/revise_bad_anchor_nested_shape_specialization.log"
-if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_shape_specialization.cat" "$nested_anchor_shape_output" >"$nested_anchor_shape_log" 2>&1; then
+if nested_anchor_shape_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_shape_specialization.cat" "$nested_anchor_shape_output" 2>&1)"; then
   echo "nested AnchorBox specialization unexpectedly built successfully" >&2
   exit 1
 fi
@@ -728,16 +729,15 @@ if [[ -e "$nested_anchor_shape_output" ]]; then
   echo "nested AnchorBox specialization rejection left a native binary behind: $nested_anchor_shape_output" >&2
   exit 1
 fi
-if ! grep -Fq 'AnchorBox[Anchor[Int32]]` is unsupported because an Anchor payload cannot contain another Anchor' "$nested_anchor_shape_log"; then
+if [[ "$nested_anchor_shape_diagnostic" != *'AnchorBox[Anchor[Int32]]` is unsupported because an Anchor payload cannot contain another Anchor'* ]]; then
   echo "nested AnchorBox specialization build did not report the expected sema diagnostic:" >&2
-  cat "$nested_anchor_shape_log" >&2
+  printf '%s\n' "$nested_anchor_shape_diagnostic" >&2
   exit 1
 fi
 
 echo "[build/fail] Anchor.new rejects nested Anchor inside inferred Shape payload"
 nested_anchor_shape_payload_output="$CWD_TEST_DIR/revise_bad_anchor_nested_shape_payload.exe"
-nested_anchor_shape_payload_log="$CWD_TEST_DIR/revise_bad_anchor_nested_shape_payload.log"
-if "$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_shape_payload.cat" "$nested_anchor_shape_payload_output" >"$nested_anchor_shape_payload_log" 2>&1; then
+if nested_anchor_shape_payload_diagnostic="$("$CLAW_EXE" build "$FRONTEND_FIXTURE_DIR/revise_bad_anchor_nested_shape_payload.cat" "$nested_anchor_shape_payload_output" 2>&1)"; then
   echo "Anchor.new with nested Anchor inside a Shape payload unexpectedly built successfully" >&2
   exit 1
 fi
@@ -745,9 +745,9 @@ if [[ -e "$nested_anchor_shape_payload_output" ]]; then
   echo "nested Anchor Shape payload rejection left a native binary behind: $nested_anchor_shape_payload_output" >&2
   exit 1
 fi
-if ! grep -Fq 'is unsupported because an Anchor payload cannot contain another Anchor' "$nested_anchor_shape_payload_log"; then
+if [[ "$nested_anchor_shape_payload_diagnostic" != *'is unsupported because an Anchor payload cannot contain another Anchor'* ]]; then
   echo "nested Anchor Shape payload build did not report the expected sema diagnostic:" >&2
-  cat "$nested_anchor_shape_payload_log" >&2
+  printf '%s\n' "$nested_anchor_shape_payload_diagnostic" >&2
   exit 1
 fi
 
@@ -946,7 +946,8 @@ fi
 echo "[build/pass] compiler locates bundled runtime outside repository working directory"
 (
   cd -- "$CWD_TEST_DIR"
-  cwd_independent_output="$CWD_TEST_DIR/revise_cwd_independent.exe"
+  # Keep the working directory outside the repo; keep output paths on the stable artifact tree.
+  cwd_independent_output="$ARTIFACT_DIR/revise_cwd_independent.exe"
   "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_single_file.cat" "$cwd_independent_output" >/dev/null
   expect_generated_ll "$cwd_independent_output"
   cwd_independent_stdout="$(normalize_stdout "$cwd_independent_output")"
@@ -980,6 +981,23 @@ index_call_count="$(grep -c 'call i64 @"revise_operator_index_compound::next_ind
 if [[ "$index_call_count" != "1" ]]; then
   echo "compound index expression should call next_index exactly once; found $index_call_count calls" >&2
   exit 1
+fi
+if grep -Fq 'target triple = "x86_64-w64-windows-gnu"' "$index_compound_ll"; then
+  if ! grep -Fq 'define i32 @"revise_operator_index_compound::update"(ptr %arg.values.addr)' "$index_compound_ll" ||
+     ! grep -Fq 'define i32 @"revise_operator_index_compound::forward_update"(ptr %arg.values.addr)' "$index_compound_ll" ||
+     ! grep -Fq 'call i32 @"revise_operator_index_compound::update"(ptr %arg.values.addr)' "$index_compound_ll"; then
+    echo "Win64 borrowed Span ABI must use pointer parameters for both callee definitions and direct calls" >&2
+    exit 1
+  fi
+elif grep -Fq 'target triple = "x86_64-unknown-linux-gnu"' "$index_compound_ll"; then
+  if ! grep -Fq 'define i32 @"revise_operator_index_compound::update"(%claw.slice %arg.values)' "$index_compound_ll" ||
+     ! grep -Fq 'call i32 @"revise_operator_index_compound::update"(%claw.slice %arg.values)' "$index_compound_ll"; then
+    echo "SysV x64 Span ABI must retain the direct aggregate parameter and call" >&2
+    exit 1
+  fi
+else
+  target_triple="$(sed -n 's/^target triple = "\(.*\)"$/\1/p' "$index_compound_ll")"
+  printf '[abi/skip] no explicit borrowed Span signature assertion for target %s\n' "${target_triple:-unknown}"
 fi
 clang -Wno-override-module \
   "$index_compound_ll" \
@@ -1195,7 +1213,7 @@ if [[ -x "$CWD_TEST_DIR/asan_ubsan_lsan_probe" ]]; then
   ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
   UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
   LSAN_OPTIONS=exitcode=23 \
-    "$nested_range_tuple_sanitized" > "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out"
+    "$nested_range_tuple_sanitized" | tr -d '\r' > "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out"
   if ! cmp -s "$wide_range_tuple_expected" "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out"; then
     echo "nested Range tuple sanitizer output differed from the native regression" >&2
     od -An -tx1c "$CWD_TEST_DIR/revise_wide_range_tuple_layout_sanitized.out" >&2
@@ -1246,12 +1264,21 @@ echo "[build/pass] test_native/revise_string_escapes.cat"
 "$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_string_escapes.cat" "$string_escape_output" >/dev/null
 expect_generated_ll "$string_escape_output"
 "$string_escape_output" > "$CWD_TEST_DIR/revise_string_escapes.out"
-python3 - "$CWD_TEST_DIR/revise_string_escapes.out" <<'PY'
+python3 - "$CWD_TEST_DIR/revise_string_escapes.out" "$string_escape_ll" <<'PY'
 from pathlib import Path
 import sys
 
 actual = Path(sys.argv[1]).read_bytes()
 expected = bytes([65, 34, 39, 92, 10, 9, 13, 0]) + "😀😀!\n".encode("utf-8")
+llvm = Path(sys.argv[2]).read_text(encoding="utf-8")
+# UCRT stdout is text-mode: each LF is transported as CRLF. Do not normalize
+# actual bytes: a literal CR, embedded NUL, and every UTF-8 byte must survive.
+if 'target triple = "x86_64-w64-windows-gnu"' in llvm:
+    expected = expected.replace(b"\n", b"\r\n")
+# Independently verify decoding before any platform stdout translation.
+if r'''c"\22'\5C\0A\09\0D\00\00"''' not in llvm:
+    print("ordinary string control escapes differed in LLVM IR", file=sys.stderr)
+    raise SystemExit(1)
 if actual != expected:
     print(f"ordinary string escape output differed: {actual!r}", file=sys.stderr)
     raise SystemExit(1)

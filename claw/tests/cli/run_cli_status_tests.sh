@@ -37,6 +37,28 @@ assert_no_clang_diagnostics() {
     fail "temporary clang diagnostics were not removed from $directory"
   fi
 }
+has_ansi_color() {
+  grep -Eq $'\033\\[[0-9;]*m' "$1"
+}
+assert_ansi_color_policy() {
+  local output_file="$1"
+  local context="$2"
+  if [[ "$IS_POSIX" -eq 1 ]]; then
+    has_ansi_color "$output_file" || fail "$context did not contain ANSI color on POSIX"
+  elif has_ansi_color "$output_file"; then
+    fail "$context emitted ANSI color despite the Windows plain-text fallback"
+  fi
+}
+native_output_path_for_comparison() {
+  if [[ "$IS_POSIX" -eq 1 ]]; then
+    printf '%s\n' "$1"
+  else
+    cygpath -m "$1"
+  fi
+}
+normalized_cli_stdout() {
+  tr -d '\r' <"$1" | sed 's#\\#/#g'
+}
 
 success_output="$TEST_DIR/success.exe"
 success_stdout="$TEST_DIR/success.stdout"
@@ -48,7 +70,10 @@ if ! env TMPDIR="$success_tmp" "$CLAW_EXE" build "$FIXTURE_DIR/revise_maybe.cat"
   cat "$success_stderr" >&2
   fail "valid Cat program did not build"
 fi
-[[ "$(cat "$success_stdout")" == "Built native executable: $success_output" ]] || fail "success stdout changed"
+expected_success_output="$(native_output_path_for_comparison "$success_output")"
+actual_success_stdout="$(normalized_cli_stdout "$success_stdout")"
+[[ "$actual_success_stdout" == "Built native executable: $expected_success_output" ]] || \
+  fail "success stdout changed (expected 'Built native executable: $expected_success_output', got '$actual_success_stdout')"
 grep -Fq 'C@ Forge | Native optimized (-O2)' "$success_stderr" || fail "missing Cat Forge profile label"
 grep -Fq 'Key: = complete, > active, . waiting' "$success_stderr" || fail "phase-state legend missing"
 grep -Fq '[>.....] | Resolve input path' "$success_stderr" || fail "initial phase status missing"
@@ -93,10 +118,11 @@ grep -Fq '[!.....] | FORGE HALTED | input path unresolved; see details' "$missin
 # A slow fake linker gives the PTY test enough time to observe multiple spinner frames.
 FAKE_CLANG_DIR="$TEST_DIR/fake-bin"
 mkdir -p "$FAKE_CLANG_DIR"
-cat >"$FAKE_CLANG_DIR/clang" <<'SH'
+if [[ "$IS_POSIX" -eq 1 ]]; then
+  cat >"$FAKE_CLANG_DIR/clang" <<'SH'
 #!/bin/sh
 sleep 0.36
-  case "${CLAW_TEST_CLANG_MODE:-success}" in
+case "${CLAW_TEST_CLANG_MODE:-success}" in
   fail)
     printf '%s\n' 'simulated clang failure: exit 23' >&2
     exit 23
@@ -132,7 +158,46 @@ sleep 0.36
     ;;
 esac
 SH
-chmod +x "$FAKE_CLANG_DIR/clang"
+  chmod +x "$FAKE_CLANG_DIR/clang"
+else
+  real_clang="$(command -v clang || true)"
+  [[ -n "$real_clang" && -x "$real_clang" ]] || fail "native Clang compiler needed to build the Windows fake linker"
+  cat >"$TEST_DIR/fake-clang.c" <<'C'
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char **argv) {
+    const char *mode = getenv("CLAW_TEST_CLANG_MODE");
+    if (mode == NULL) mode = "success";
+    Sleep(360);
+    if (strcmp(mode, "fail") == 0) {
+        fputs("simulated clang failure: exit 23\n", stderr);
+        return 23;
+    }
+    if (strcmp(mode, "success") == 0) {
+        for (int i = 1; i + 1 < argc; ++i) {
+            if (strcmp(argv[i], "-o") == 0) {
+                FILE *output = fopen(argv[i + 1], "wb");
+                if (output == NULL) {
+                    fputs("could not create fake linker output\n", stderr);
+                    return 91;
+                }
+                return fclose(output) == 0 ? 0 : 92;
+            }
+        }
+        fputs("fake linker did not receive an -o output path\n", stderr);
+        return 93;
+    }
+    fprintf(stderr, "unknown fake clang mode: %s\n", mode);
+    return 2;
+}
+C
+  "$real_clang" -std=c11 -O2 "$TEST_DIR/fake-clang.c" -o "$FAKE_CLANG_DIR/clang.exe" || \
+    fail "could not compile native Windows fake linker"
+fi
 
 if [[ "$IS_POSIX" -eq 1 ]]; then
   fake_failure_tmp="$TEST_DIR/fake-failure-tmp"
@@ -256,7 +321,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
   pty_success_stdout="$TEST_DIR/pty-success.stdout"
   pty_success_tmp="$TEST_DIR/pty-success-tmp"
   mkdir -p "$pty_success_tmp"
-  printf '%s\n' '[cli-status/pass] PTY success uses ANSI color and an animated indeterminate phase'
+    printf '%s\n' '[cli-status/pass] PTY success honors platform color policy and an animated indeterminate phase'
   set +e
   env -u NO_COLOR TMPDIR="$pty_success_tmp" PATH="$FAKE_CLANG_DIR:$PATH" TERM=xterm-256color CLAW_TEST_CLANG_MODE=success \
     python3 "$SCRIPT_DIR/capture_pty.py" "$pty_success_stderr" "$pty_success_stdout" color -- \
@@ -268,7 +333,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
   else
     [[ "$pty_rc" -eq 0 ]] || fail "PTY success build failed: $pty_rc"
     grep -Fq 'FORGE READY | native artifact ready' "$pty_success_stderr" || fail "PTY success status missing"
-    grep -q $'\033\[' "$pty_success_stderr" || fail "interactive PTY output did not contain ANSI color"
+    assert_ansi_color_policy "$pty_success_stderr" "interactive PTY success status"
     [[ "$(tr -cd '\r' <"$pty_success_stderr" | wc -c)" -ge 7 ]] || fail "spinner did not visibly animate during the slow linker phase"
     if grep -Eq '[0-9]+%' "$pty_success_stderr"; then
       fail "PTY output contains an estimated percentage"
@@ -279,7 +344,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
 
     pty_plain_stderr="$TEST_DIR/pty-no-color.stderr"
     pty_plain_stdout="$TEST_DIR/pty-no-color.stdout"
-    printf '%s\n' '[cli-status/pass] NO_COLOR suppresses ANSI in a capable PTY'
+    printf '%s\n' '[cli-status/pass] NO_COLOR suppresses ANSI color SGR in a capable PTY'
     set +e
     PATH="$FAKE_CLANG_DIR:$PATH" TERM=xterm-256color CLAW_TEST_CLANG_MODE=success \
       python3 "$SCRIPT_DIR/capture_pty.py" "$pty_plain_stderr" "$pty_plain_stdout" no-color -- \
@@ -287,8 +352,9 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     pty_plain_rc=$?
     set -e
     [[ "$pty_plain_rc" -eq 0 ]] || fail "NO_COLOR PTY build failed: $pty_plain_rc"
-    if grep -q $'\033' "$pty_plain_stderr"; then
-      fail "NO_COLOR did not suppress ANSI sequences in a PTY"
+    if has_ansi_color "$pty_plain_stderr"; then
+      python3 -c 'import pathlib, sys; print("NO_COLOR PTY stderr bytes:", repr(pathlib.Path(sys.argv[1]).read_bytes()[:256]))' "$pty_plain_stderr" >&2
+      fail "NO_COLOR did not suppress ANSI color codes in a PTY"
     fi
     grep -Fq 'FORGE READY | native artifact ready' "$pty_plain_stderr" || fail "NO_COLOR PTY success status missing"
 
@@ -302,14 +368,14 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     pty_dumb_rc=$?
     set -e
     [[ "$pty_dumb_rc" -eq 0 ]] || fail "TERM=dumb PTY build failed: $pty_dumb_rc"
-    if grep -q $'\033' "$pty_dumb_stderr"; then
-      fail "TERM=dumb did not suppress ANSI sequences in a PTY"
+    if has_ansi_color "$pty_dumb_stderr"; then
+      fail "TERM=dumb did not suppress ANSI color codes in a PTY"
     fi
     grep -Fq 'FORGE READY | native artifact ready' "$pty_dumb_stderr" || fail "TERM=dumb PTY success status missing"
 
     pty_compile_failure_stderr="$TEST_DIR/pty-compile-failure.stderr"
     pty_compile_failure_stdout="$TEST_DIR/pty-compile-failure.stdout"
-    printf '%s\n' '[cli-status/pass] PTY compile error keeps diagnostics and colors the failure status'
+    printf '%s\n' '[cli-status/pass] PTY compile error keeps diagnostics and honors platform color policy'
     set +e
     env -u NO_COLOR TERM=xterm-256color \
       python3 "$SCRIPT_DIR/capture_pty.py" "$pty_compile_failure_stderr" "$pty_compile_failure_stdout" color -- \
@@ -318,7 +384,12 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     set -e
     [[ "$pty_compile_failure_rc" -eq 1 ]] || fail "PTY compile failure exit code changed: $pty_compile_failure_rc"
     grep -Fq 'error[parse]: Character literal must contain exactly one Unicode scalar value.' "$pty_compile_failure_stderr" || fail "PTY compile diagnostic missing"
-    grep -Fq $'\033[31;1mFORGE HALTED | compile rejected; see diagnostics\033[0m' "$pty_compile_failure_stderr" || fail "PTY compile failure summary is not red"
+    if [[ "$IS_POSIX" -eq 1 ]]; then
+      grep -Fq $'\033[31;1mFORGE HALTED | compile rejected; see diagnostics\033[0m' "$pty_compile_failure_stderr" || fail "PTY compile failure summary is not red"
+    else
+      grep -Fq 'FORGE HALTED | compile rejected; see diagnostics' "$pty_compile_failure_stderr" || fail "Windows plain-text compile failure summary missing"
+    fi
+    assert_ansi_color_policy "$pty_compile_failure_stderr" "PTY compile failure summary"
     python3 - "$pty_compile_failure_stderr" <<'PY'
 import re
 import sys
@@ -337,7 +408,7 @@ PY
     pty_failure_stdout="$TEST_DIR/pty-link-failure.stdout"
     pty_failure_tmp="$TEST_DIR/pty-failure-tmp"
     mkdir -p "$pty_failure_tmp"
-    printf '%s\n' '[cli-status/pass] PTY linker failure stops spinner, classifies exit 23, and cleans diagnostics'
+    printf '%s\n' '[cli-status/pass] PTY linker failure stops spinner, classifies exit 23, and honors platform color policy'
     set +e
     env -u NO_COLOR TMPDIR="$pty_failure_tmp" PATH="$FAKE_CLANG_DIR:$PATH" TERM=xterm-256color CLAW_TEST_CLANG_MODE=fail \
       python3 "$SCRIPT_DIR/capture_pty.py" "$pty_failure_stderr" "$pty_failure_stdout" color -- \
@@ -347,8 +418,8 @@ PY
     [[ "$pty_failure_rc" -eq 1 ]] || fail "PTY linker failure exit code changed: $pty_failure_rc"
     grep -Fq 'simulated clang failure: exit 23' "$pty_failure_stderr" || fail "simulated linker diagnostic missing"
     grep -Fq '`clang` exited with status 23' "$pty_failure_stderr" || fail "PTY linker failure omitted exit 23 classification"
-    grep -q $'\033\[' "$pty_failure_stderr" || fail "interactive failure status did not use ANSI color"
-    python3 - "$pty_failure_stderr" <<'PY'
+    assert_ansi_color_policy "$pty_failure_stderr" "interactive failure status"
+    python3 - "$pty_failure_stderr" "$IS_POSIX" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -362,8 +433,11 @@ if "[=====!" not in visible:
 diagnostic_at = text.find("simulated clang failure: exit 23")
 if diagnostic_at < 0 or not text[:diagnostic_at].endswith("\n"):
     raise SystemExit("linker diagnostic was interleaved with the active spinner line")
-if not raw.rstrip().endswith(b"\x1b[0m"):
-    raise SystemExit("failure status did not reset its ANSI styling")
+if sys.argv[2] == "1":
+    if not raw.rstrip().endswith(b"\x1b[0m"):
+        raise SystemExit("POSIX failure status did not reset its ANSI styling")
+elif raw.rstrip().endswith(b"\x1b[0m"):
+    raise SystemExit("Windows plain-text fallback unexpectedly emitted ANSI styling")
 PY
     if [[ "$IS_POSIX" -eq 1 ]]; then
       assert_no_clang_diagnostics "$pty_failure_tmp"
