@@ -34,8 +34,10 @@ enum class TokenKind {
     IntLiteral,
     FloatLiteral,
     StringLiteral,
+    StringError,
     CharLiteral,
     CharError,
+    DocComment,
 
     // Special
     Eof,
@@ -60,6 +62,7 @@ private:
     size_t pos = 0;
     size_t line = 1;
     size_t column = 1;
+    size_t braceDepth = 0;
 
     char peek() const;
     char peekAhead(size_t offset) const;
@@ -67,6 +70,7 @@ private:
     bool isAtEnd() const;
     void skipWhitespace();
     bool skipBlockComment();
+    Token readDocComment();
 
     Token readIdentifierOrKeyword();
     Token readNumber(bool allowFraction);

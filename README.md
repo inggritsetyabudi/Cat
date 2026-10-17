@@ -1,335 +1,152 @@
-# C@
+# C@ — Cat
 
-C@ is an in-progress systems programming language and compiler built around one design promise:
+**Fast, Safe, Simple.**
 
-**Fast, Safe, Simple**
+C@ (Cat) is an in-development systems programming language with explicit ownership, borrowing, and native code generation. **Claw** is its compiler, implemented in C++20. Source files use the `.cat` extension.
 
-- **Fast**: native code generation, explicit costs, no hidden GC, and predictable control over data layout and ownership.
-- **Safe**: ownership, borrowing, typed error handling, explicit unsafe boundaries, and a compiler that aims to prevent memory misuse in safe code.
-- **Simple**: a smaller, clearer surface than traditional systems languages, with familiar syntax and fewer user-facing rules.
+Cat aims to make systems code predictable without hiding allocation, ownership, or unsafe operations. The compiler already checks real programs and produces native executables for a tested subset of the language. It is **not a completed v1.0 language or a production-readiness claim**.
 
-This repository contains the language project at the workspace root and the compiler implementation in [`claw/`](./claw).
+## Principles
 
-## Project Status
+| Principle | Direction | Current boundary |
+| --- | --- | --- |
+| **Fast** | Native code, explicit costs, deterministic ownership, no hidden garbage collector | LLVM IR and native compilation exist; the PRD's performance targets are not established benchmark results. |
+| **Safe** | Ownership, exclusive mutable borrows, initialization checks, typed errors, auditable unsafe regions | The current checker covers tested cases; general dataflow lifetime analysis and concurrency safety are not complete. |
+| **Simple** | Direct syntax, explicit modules, a small set of core concepts | The approved design is ahead of implementation in several areas; supported syntax and planned syntax are documented separately. |
 
-C@ is under active language and compiler development. The current compiler already supports a meaningful revised surface and can:
+## A first program
 
-- parse, type-check, and borrow-check revised C@ source
-- lower to internal AIR, OIR, and LIR stages
-- emit LLVM IR
-- build native `.exe` programs for the currently supported subset
-- run revised frontend, backend, and native test suites
-
-The project is **not feature-complete yet**. The language surface below reflects the intended revised direction, with emphasis on the parts that are already implemented or actively being hardened.
-
-## Design Direction
-
-C@ is targeting production-grade systems programming with these principles:
-
-- default-safe ownership and borrowing
-- explicit escape hatches such as `raw` and `foreign c`
-- strong module boundaries and deterministic workspaces
-- readable, familiar syntax with minimal ceremony
-- an implementation strategy that stays compatible with native code generation and LLVM-backed compilation
-
-## Current Surface Overview
-
-### Bindings
-
-```cat
-val host = "127.0.0.1"
-var total = 0
-```
-
-- `val` creates an immutable binding.
-- `var` creates a mutable binding.
-
-### Functions
+Save this as `hello.cat` outside the compiler repository, or in a separate example directory:
 
 ```cat
 fn add(left: Int32, right: Int32) -> Int32 {
     left + right
 }
 
-fn greet(name: ref Str) {
-    println(name)
+fn main() -> Int32 {
+    val answer = add(20, 22)
+    println("Hello, Cat!")
+    println(answer)
+    return 0
 }
 ```
 
-- `fn` declares a function.
-- The last expression in a block can be used as the return value.
-- `return` is still available when explicit early exit is needed.
-- `fn main()` may return `Unit` implicitly or explicitly, and `fn main() -> Int32` is also allowed for OS exit codes.
+`val` creates an immutable binding; `var` creates a mutable binding. Functions use positional arguments and may return their final expression. `main` takes no parameters and returns `Unit` or `Int32`.
 
-### Borrowing
+## Build and run
 
-```cat
-fn inspect(text: ref Str) {
-    println(text)
-}
+The commands below run from the repository root using a C++20-capable Clang, CMake 3.20 or newer, Ninja, and Bash. Native program compilation also needs `clang` on `PATH` and the bundled C runtime. See [Building Claw](docs/BUILDING.md) for Linux dependencies, Windows MSYS2 UCRT64 setup, and troubleshooting.
 
-fn clear(items: ref mut Vec[Int32]) {
-    items.clear()
-}
+```bash
+cmake -S claw -B claw/build-ci -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
+cmake --build claw/build-ci --target claw --parallel 4
+
+# Linux; use claw.exe instead on Windows UCRT64.
+export CLAW_EXE="$PWD/claw/build-ci/claw"
+"$CLAW_EXE" check /path/to/hello.cat
+"$CLAW_EXE" build /path/to/hello.cat ./hello.exe
+./hello.exe
 ```
 
-- `ref T` is a read-only borrow.
-- `ref mut T` is a mutable borrow.
-- Lifetimes are implicit; diagnostics are intended to teach without exposing lifetime syntax.
+Expected program output:
 
-### Control Flow
-
-```cat
-if total > 0 {
-    println("positive")
-} else {
-    println("zero")
-}
-
-loop {
-    stop
-}
-
-scan item over values {
-    println(item)
-}
+```text
+Hello, Cat!
+42
 ```
 
-- `if` / `else` handle branching.
-- `loop` supports conditional and unconditional looping.
-- `scan` iterates over collections and other iterable values.
-- `stop` and `skip` control loop flow.
+The `.exe` suffix is Claw's default naming convention even on Linux; the actual binary targets the host toolchain. A successful `check` is a frontend result, not a guarantee that every accepted construct has native lowering.
 
-### Data Types
+## Language at a glance
 
-Current revised direction:
+| Area | Current surface |
+| --- | --- |
+| Bindings and functions | `val`, `var`, `fn`, explicit `return`, block-tail returns |
+| Borrowing | `ref T`, `ref mut T`, move checks, path-based overlap checks |
+| Control flow | `if` / `else`, `loop`, `scan`, `stop`, `skip`, exhaustive `pick` in supported patterns |
+| Data | Nominal `shape`, tagged `choice`, generic types with `[]`, tested tuple and fixed-array subsets |
+| Errors and optional values | Must-use `Result[T, E]` and `Maybe[T]`; `try` as a `val` initializer |
+| Modules | One file per module, path-based imports, `share` visibility, root `main.cat` for workspaces |
+| Text | UTF-8 string literals, Unicode scalar `Char`, validated escapes, byte-based string ranges |
+| Ownership helpers | Bounded `Anchor`, scoped references, local `view shape` carriers |
+| Documentation | Top-level `///` comments and single-file Markdown output with `claw doc` |
 
-- Integers: `Int8`, `Int16`, `Int32`, `Int64`, `Int128`
-- Unsigned: `UInt8`, `UInt16`, `UInt32`, `UInt64`, `UInt128`
-- Floating point: `Float32`, `Float64`, `Float128`
-- Aliases: `Int`, `UInt`, `Float`
-- Other core types: `Bool`, `Char`, `Str`, `USize`, `Unit`
+The [language reference](SPEC.md) explains syntax, restrictions, and implementation evidence. In particular, normal shapes cannot store borrowed fields, `Vec` element borrowing requires a `Span`, and general lifetime inference is not implemented.
 
-### Structured Data
+Builtin scalar names such as `Int32` also accept ASCII case variants such as `int32`. This is a closed exception: user-defined names, generic containers, and ordinary identifiers remain case-sensitive under their naming rules.
 
-```cat
-shape Config {
-    share host: Str
-    share port: Int32
-}
+## Workspaces
 
-choice Result[T, E] {
-    Ok(value: T)
-    Fail(cause: E)
-}
-```
-
-- `shape` defines nominal record types.
-- normal `shape` values cannot store borrowed fields such as `ref T`, `ref mut T`, or nested borrowed storage like `Maybe[ref T]`. Use owned fields, `Anchor[T]`, or `view shape[s]` when the aggregate itself is intentionally scope-bound.
-- `choice` defines tagged unions.
-- Generics use `[]`.
-
-### Pattern Dispatch
-
-```cat
-pick result {
-    Ok(value) {
-        println(value)
-    }
-    Fail(err) {
-        println(err)
-    }
-}
-```
-
-`pick` is the primary form for explicit choice dispatch.
-
-### Error Handling
-
-```cat
-val file = try fs.open(path)
-
-val text = try fs.read(path) else err {
-    println(err)
-    return Fail(err)
-}
-```
-
-- `Result[T, E]` models recoverable failure.
-- `Maybe[T]` models optional values.
-- `Result[T, E]` and `Maybe[T]` are must-use in the current compiler. Ignoring them as bare statements is rejected; handle them, bind them, or explicitly discard them.
-- `try expr` propagates failure when the current function also returns `Result`.
-- `try expr else err { ... }` handles failure locally.
-
-### Workspace Model
-
-A workspace maps each `.cat` source file to one module; directories form namespaces. Visibility is controlled by `share`, not by a folder index.
+A standalone `.cat` file is enough to start. For multiple modules, use a separate workspace:
 
 ```text
 my-app/
-  main.cat
   claw.toml
+  main.cat
   src/
     math.cat
     util.cat
 ```
 
-Rules:
+Each file is one module; directories form namespaces. `share` makes declarations importable. Imports are explicit, for example `import src.math as math_ops`; `import super.{ sibling }` addresses a sibling file in the same directory. A workspace must have exactly one `fn main` in root `main.cat`. That file is entry-only: it cannot be imported, and `main` cannot be called like an ordinary function. No `modules.cat` index is required.
 
-- `main.cat` is required at the workspace root.
-- exactly one `fn main` is required inside `main.cat`.
-- `main.cat` is entry-only and cannot be imported as a normal module.
-- `fn main` is not a normal callable function surface for user code.
-- every `.cat` file is one module, and its parent directories form its namespace.
-- `share` is the only way to make a declaration importable; unshared declarations stay private to that file.
-- imports are path-based and explicit; modules with the same final path segment need aliases.
+See [workspace and module rules](SPEC.md#modules-and-workspaces) and the [CLI reference](docs/CLI.md) for validation and build commands.
 
-Example:
+## Compiler tools
 
-```cat
-import src.math as math_ops
+| Command | Purpose |
+| --- | --- |
+| `claw check <input>` | Check parsing, types, ownership, and borrows |
+| `claw validate <input>` | Check a program's entry graph and entry contract |
+| `claw build <input> [output]` | Lower and link a native executable |
+| `claw air <input>` | Inspect analyzed AIR, before ownership checking |
+| `claw oir <input>` | Inspect ownership-aware OIR |
+| `claw lir <input>` | Inspect backend-facing LIR |
+| `claw llvm <input>` | Emit LLVM IR |
+| `claw doc <source.cat>` | Emit Markdown for documented shared top-level declarations |
 
-fn main() {
-    println(math_ops.add(20, 22))
-}
-```
+`<input>` can be a source file, workspace directory, or `claw.toml`, except that `doc` accepts one source file only. The [CLI reference](docs/CLI.md) covers aliases, output paths, diagnostics, and the **C@ Forge** build status display. The compiler currently has one native optimization profile (`-O2`), not selectable debug/release language profiles.
 
-Inside a module, `import super.{ sibling }` refers to a module file in the same directory, one level only.
+## Project status
 
-### Unsafe and Foreign Boundaries
+The active CI matrix builds Release Claw with Clang on **Linux** and **Windows MSYS2 UCRT64**, then runs the complete test runner. These are the automated targets, not a claim of support for every operating system or LLVM target.
 
-```cat
-raw {
-    emit("boot")
-}
+Implemented slices include revised syntax, workspace checks, typed errors, tested ownership and scoped-type paths, LLVM/native compilation, integer and character ranges, selected fixed arrays, string escapes, and documentation comments. The [implementation status](docs/STATUS.md) records the boundaries and points to evidence.
 
-foreign c {
-    fn puts(text: ref Str) -> Int32
-}
-```
+Still incomplete are the full approved collection and builtin surface, general dataflow borrow checking, complete raw/FFI support, broad aggregate lowering, f-strings, and the remaining release gates. **Arena remains pending/experimental**; this documentation does not promote it to a supported feature. The proposed borrowed `Str` / owned `String` split is not part of this `main` baseline.
 
-- safe code is the default.
-- `raw` isolates unsafe operations.
-- `foreign c` is the intended foreign boundary for C interoperability.
+## Documentation
 
-### Stable Reference Helpers
+| Document | Start here when you want to… |
+| --- | --- |
+| [Documentation index](docs/README.md) | Find the right guide and understand source authority |
+| [Language reference](SPEC.md) | Understand the current supported surface and its limits |
+| [Architecture](ARCHITECTURE.md) | Follow the compiler pipeline, runtime, and ABI boundaries |
+| [Building](docs/BUILDING.md) | Configure a local toolchain and compile Claw |
+| [CLI reference](docs/CLI.md) | Use commands and inspect compiler output |
+| [Testing](docs/TESTING.md) | Run suites, reproduce failures, and inspect artifacts |
+| [Contributing](CONTRIBUTING.md) | Propose and validate a focused change |
+| [Implementation status](docs/STATUS.md) | Separate available features from remaining work |
+| [Approved design](cat-northstar/README.md) | Read the PRD and staged acceptance criteria |
+| [Changelog](changelog/README.md) | Trace individual implementation and documentation changes |
 
-The revised model also includes explicit stabilization tools for complex ownership scenarios.
+Existing [compiler notes](claw/README.md), [builtin audit](claw/docs/builtin-methods.md), and [safety notes](claw/docs/frontend-safety-status.md) remain available for deeper context.
 
-```cat
-val stable = Anchor.new("hello")
-println(stable.get())
-```
-
-Current implementation status:
-
-- `Anchor.new(value)` is implemented for owned payloads with stable ownership.
-- `anchor.get()` yields `ref T`.
-- `scope`, `ref[s]`, and local borrowed aggregate carriers via `view shape Name[s] { ... }` are implemented, including scope-bound construction and escape checks.
-- Direct scoped types (`Name[s]`) and nested generic forms such as `Box[Name[s]]` have validated frontend, LLVM, and native paths for the tested cases, including function parameters/returns/calls, field access, and shared/imported workspace use.
-- Generic shape literals in these nested forms require an expected concrete type; the compiler does not perform general lifetime inference.
-- `Arena` is still part of the design direction and is not yet fully implemented.
-- broader lifetime inference and scoped-type patterns beyond the validated cases are still being hardened.
-
-## Example Program
-
-```cat
-import src.demo.{ word_count }
-
-fn main() -> Int32 {
-    val words = Vec[Str]["hello", "world", "hello"]
-    val counts = word_count(ref words)
-    println(counts.len())
-    0
-}
-```
-
-## Compiler Layout
-
-The compiler implementation lives in [`claw/`](./claw).
-
-Key areas:
-
-- `claw/src/parser/` - lexer, parser, AST construction
-- `claw/src/analysis/` - semantic analysis, type resolution, ownership and borrow checking
-- `claw/src/ir/` - AIR, OIR, and LIR lowering
-- `claw/src/codegen/` - LLVM IR emission and native build flow
-- `claw/src/driver/` - CLI entry points and build commands
-- `claw/src/workspace/` - workspace loading, entry discovery, and `claw.toml` handling
-- `claw/runtime/` - native runtime support used by generated programs
-
-## Compiler Commands
-
-From the compiler directory, the main commands are:
-
-- `check` - parse, type-check, and borrow-check source or workspace
-- `validate` - validate workspace graph and entry rules
-- `build` - produce a native executable for the supported subset
-- `air` - print AIR
-- `oir` - print OIR
-- `lir` - print LIR
-- `llvm` - print LLVM IR
-
-## Testing
-
-The active revised test suites are separated by layer:
-
-- `claw/tests/frontend/` - revised frontend and semantic checks
-- `claw/tests/backend/` - LLVM IR regression checks
-- `claw/tests/native/` - native executable integration tests
-- `claw/tests/run_all_tests.sh` - runs every suite above in order
-- `claw/test/` - compatibility wrapper for the frontend suite entry point
-
-On the current MSYS2 UCRT64 setup, the project is typically built and tested with:
+## Development
 
 ```bash
-C:/msys64/ucrt64/bin/cmake.exe --build claw/build-ucrt64-clang --target claw -- -j 4
-bash claw/tests/frontend/run_frontend_tests.sh
-bash claw/tests/backend/run_backend_tests.sh
-bash claw/tests/native/run_native_tests.sh
-```
-
-Or all suites at once:
-
-```bash
+# From the repository root, after the build above.
+export CLAW_EXE="$PWD/claw/build-ci/claw"
 bash claw/tests/run_all_tests.sh
 ```
 
-The backend and native suites intentionally keep generated `.ll` artifacts so they can be inspected after a run.
+On Windows UCRT64, set `CLAW_EXE` to the corresponding `claw.exe`. Tests include PRD examples, frontend/ownership checks, OIR, LLVM/backend regressions, native integration, and CLI behavior. Backend/native suites intentionally keep generated artifacts for inspection. See [Testing](docs/TESTING.md) before changing fixtures or interpreting sanitizer results.
 
-## What Is Already Working
+Contributions should follow the approved design, add positive and negative evidence for their supported slice, and include a separate Markdown file in `changelog/` for every individual repository change. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).
 
-Broadly, the current compiler already covers:
+## Design authority and license
 
-- revised `val` / `var` bindings
-- revised `ref` / `ref mut` borrowing
-- `Result[T, E]`, `Maybe[T]`, `try`, and explicit `pick`
-- workspace entry validation for `main.cat`
-- borrow checking for path-based field overlap and `Vec` to `Span` rules
-- rejection of borrowed fields in normal `shape` declarations
-- must-use enforcement for `Result[T, E]` and `Maybe[T]` statement values
-- direct scoped references and nested scoped generics in the validated subset, plus `Anchor`
-- LLVM IR emission for the supported subset
-- native `.exe` generation for the supported subset
+[PRD.md](cat-northstar/PRD.md), the [v0.1–v1.0 change plan](cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md), and the [post-v1 roadmap](cat-northstar/ROADMAP-v1-plus.md) define approved direction and staging. Approval is not proof that a feature is implemented. The former `revise/` summaries are preserved under [cat-northstar/legacy/](cat-northstar/legacy/); [ideas/](ideas/README.md) is historical background, not current language authority.
 
-## What Is Still In Progress
-
-Major areas still being matured include:
-
-- the remaining type-surface cleanup against the revised PRDs
-- broader builtin method dispatch in receiver-first form
-- `Arena` and other advanced ownership helpers
-- general lifetime inference and scoped-type patterns beyond currently validated direct/nested cases
-- deeper borrow-checker maturity for more complex escape and aggregate scenarios
-- broader native/backend coverage beyond the current supported subset
-- ongoing documentation and ergonomics refinement
-
-## Language Governance In This Repo
-
-This repository is intentionally PRD-driven.
-
-The approved language-design reference is [`cat-northstar/`](./cat-northstar), led by [`PRD.md`](./cat-northstar/PRD.md). Its companion change plan and post-v1 roadmap define sequencing and acceptance boundaries. Archived PRDs and `ideas/` are historical context only; compiler code, tests, and [`changelog/`](./changelog) determine what is implemented today.
-
-## License
-
-This project is licensed under the terms in [`LICENSE`](./LICENSE).
+Cat is licensed under the **Apache License 2.0**. See [LICENSE](LICENSE).

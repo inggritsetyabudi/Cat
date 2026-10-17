@@ -1,0 +1,4 @@
+fn main() {
+    val bad: Str = "first
+second"
+}

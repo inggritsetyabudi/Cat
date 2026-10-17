@@ -1,0 +1,30 @@
+fn main() -> Int32 {
+    val hex_separator: int32 = 0xFF_F
+    val hex_alpha_separator: INT32 = 0xAB_cD
+    val integer_suffix_lower: int32 = 7_int32
+    val integer_suffix_mixed: InT64 = 1000_iNt64
+    val integer_suffix_upper: UINT8 = 255_UINT8
+    val alias_int: iNt = 64_iNt
+    val alias_uint: uInT = 99_uInT
+    val float_suffix_lower: float32 = 1.25_float32
+    val float_suffix_mixed: FlOaT64 = 2.5_fLoAt64
+    val float_suffix_upper: FLOAT32 = 3.5_FLOAT32
+    val alias_float: fLoAt = 4.5_fLoAt
+    val hex_float_suffix: fLoAt32 = 0xFF_fLoAt32
+    val contextual_array: Array[iNt32, 2] = [10, 20]
+
+    if hex_separator == 4095 { println("hex-f-separator-ok") } else { println("hex-f-separator-fail") }
+    if hex_alpha_separator == 43981 { println("hex-alpha-separator-ok") } else { println("hex-alpha-separator-fail") }
+    if integer_suffix_lower == 7 { println("int-lower-suffix-ok") } else { println("int-lower-suffix-fail") }
+    if integer_suffix_mixed == 1000 { println("int-mixed-suffix-ok") } else { println("int-mixed-suffix-fail") }
+    if integer_suffix_upper == 255 { println("int-upper-suffix-ok") } else { println("int-upper-suffix-fail") }
+    if alias_int == 64_iNt { println("int-alias-ok") } else { println("int-alias-fail") }
+    if alias_uint == 99_uInT { println("uint-alias-ok") } else { println("uint-alias-fail") }
+    if float_suffix_lower == 1.25 { println("float-lower-suffix-ok") } else { println("float-lower-suffix-fail") }
+    if float_suffix_mixed == 2.5 { println("float-mixed-suffix-ok") } else { println("float-mixed-suffix-fail") }
+    if float_suffix_upper == 3.5 { println("float-upper-suffix-ok") } else { println("float-upper-suffix-fail") }
+    if alias_float == 4.5 { println("float-alias-ok") } else { println("float-alias-fail") }
+    if hex_float_suffix == 255.0_float32 { println("hex-float-suffix-ok") } else { println("hex-float-suffix-fail") }
+    if contextual_array[0] == 10 and contextual_array[1] == 20 { println("array-context-ok") } else { println("array-context-fail") }
+    0
+}

@@ -1,0 +1,9 @@
+shape Point {
+    x: Int32,
+}
+
+fn use_lowercase_name(value: point) {
+}
+
+fn main() {
+}

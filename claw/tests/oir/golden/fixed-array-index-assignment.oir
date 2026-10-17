@@ -1,0 +1,46 @@
+oir.module revise_fixed_array_index_assignment
+oir.choice Result of T, E [abi=claw link=internal symbol=revise_fixed_array_index_assignment::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=revise_fixed_array_index_assignment::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn next_int_index() -> USize [scalar] [abi=claw link=internal symbol=revise_fixed_array_index_assignment::next_int_index ffi=false]
+  block entry:
+    call println("index-int") : Unit
+    return 1_USize : USize
+oir.fn int_rhs() -> Int32 [scalar] [abi=claw link=internal symbol=revise_fixed_array_index_assignment::int_rhs ffi=false]
+  block entry:
+    call println("rhs-int") : Unit
+    return 41 : Int32
+oir.fn next_byte_index() -> USize [scalar] [abi=claw link=internal symbol=revise_fixed_array_index_assignment::next_byte_index ffi=false]
+  block entry:
+    call println("index-u8") : Unit
+    return 1_USize : USize
+oir.fn byte_rhs() -> UInt8 [scalar] [abi=claw link=internal symbol=revise_fixed_array_index_assignment::byte_rhs ffi=false]
+  block entry:
+    call println("rhs-u8") : Unit
+    return 254_UInt8 : UInt8
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_fixed_array_index_assignment::main ffi=false]
+  block entry:
+    val %t0: Array[Int32, 2]
+    store_field %t0.0 <- 1 : Int32
+    store_field %t0.1 <- 2 : Int32
+    var values: Array[Int32, 2] = %t0
+    %t1 = call next_int_index() : USize
+    %t2 = call int_rhs() : Int32
+    store_index values[%t1] <- %t2 : Int32
+    %t3 = index values[1_USize] : Int32
+    call println(%t3) : Unit
+    val %t4: Array[UInt8, 2]
+    store_field %t4.0 <- 0_UInt8 : UInt8
+    store_field %t4.1 <- 1_UInt8 : UInt8
+    var bytes: Array[UInt8, 2] = %t4
+    %t5 = call next_byte_index() : USize
+    %t6 = call byte_rhs() : UInt8
+    store_index bytes[%t5] <- %t6 : UInt8
+    %t7 = index bytes[1_USize] : UInt8
+    call println(%t7) : Unit
+    return 0 : Int32

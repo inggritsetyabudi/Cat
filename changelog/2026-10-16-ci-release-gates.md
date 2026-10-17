@@ -22,3 +22,9 @@
 ## Batas rilis
 
 Perubahan ini hanya menambah bukti CI lintas-platform; tidak mengubah fitur bahasa/compiler, nomor versi, tag, branch protection, atau menerbitkan release. Ini **bukan** klaim production-ready maupun rilis v1.0. Gerbang PRD berikutnya tetap mencakup borrow checking dataflow v0.7, benchmark/optimasi v0.8 (selisih maksimum 10% terhadap C `clang -O3`), dan fuzzing/pengerasan serta audit Arena v0.9 sebelum gerbang v1.0.
+
+## Integrasi 17 Oktober 2026
+
+- PR #19 digabungkan ke branch CI untuk memperbaiki ABI borrowed `Span` Win64; ekspektasi `9 / 42 / 42` tidak diubah. Branch kemudian mengintegrasikan `main` termasuk PR #15, #16, #17, dan #20, dengan semua entri changelog dipertahankan.
+- Run `39032486586` pada head `433e498` meluluskan Linux Release/full suite dan menunjukkan Windows telah melewati regresi ABI `Span`, tetapi gagal pada tes stdout exact-byte escape string baru. UCRT stdout text-mode mentranslasikan LF menjadi CRLF; byte aktual sesuai translasi tersebut.
+- Koreksi hanya pada harness: ekspektasi transport stdout mengikuti target Win64 yang dinyatakan dalam LLVM, tanpa menormalisasi byte aktual atau menghapus CR/NUL. Assertion konstanta LLVM kontrol ditambahkan untuk membuktikan decoding LF/CR/NUL sebelum translasi stdout. Runtime, compiler, fixture, dan cakupan suite tidak diubah. Hasil CI setelah koreksi harus dilihat pada run head terbaru; catatan ini tidak mendahului hasilnya.

@@ -8,15 +8,32 @@
 #include <limits>
 #include <sstream>
 #include <string_view>
+#include <unordered_map>
 
 namespace claw::frontend {
 
 std::string canonicalTypeName(std::string_view name) {
-    if (name == "Int") return "Int64";
-    if (name == "UInt") return "UInt64";
-    if (name == "Float") return "Float64";
     if (name == "str") return "Str";
     if (name == "string") return "String";
+    std::string folded(name);
+    for (char& character : folded) {
+        if (character >= 'A' && character <= 'Z') {
+            character = static_cast<char>(character - 'A' + 'a');
+        }
+    }
+
+    static const std::unordered_map<std::string, std::string> builtinScalarNames = {
+        {"bool", "Bool"}, {"char", "Char"}, {"unit", "Unit"},
+        {"int", "Int64"}, {"int8", "Int8"}, {"int16", "Int16"}, {"int32", "Int32"},
+        {"int64", "Int64"}, {"int128", "Int128"},
+        {"uint", "UInt64"}, {"uint8", "UInt8"}, {"uint16", "UInt16"}, {"uint32", "UInt32"},
+        {"uint64", "UInt64"}, {"uint128", "UInt128"}, {"usize", "USize"},
+        {"float", "Float64"}, {"float32", "Float32"}, {"float64", "Float64"},
+        {"float128", "Float128"}};
+    const auto builtin = builtinScalarNames.find(folded);
+    if (builtin != builtinScalarNames.end()) {
+        return builtin->second;
+    }
     return std::string(name);
 }
 
@@ -720,7 +737,7 @@ bool isNumericTypeName(const std::string& name) {
         "Char", "Int8", "Int16", "Int32", "Int64", "Int128",
         "UInt8", "UInt16", "UInt32", "UInt64", "UInt128",
         "Float32", "Float64", "Float128", "USize"};
-    return contains(numericTypes, name);
+    return contains(numericTypes, canonicalTypeName(name));
 }
 
 bool isIntegerLikeTypeName(const std::string& name) {
