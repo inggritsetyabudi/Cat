@@ -1,71 +1,11 @@
 #include "lexer/lexer.h"
+#include "lexer/literal_escapes.h"
 
 #include <cctype>
 #include <cstdint>
 #include <unordered_map>
 
 namespace claw::frontend {
-
-namespace {
-struct DecodedScalar {
-    bool valid = false;
-    uint32_t value = 0;
-    size_t length = 1;
-};
-
-DecodedScalar decodeUtf8Scalar(std::string_view source, size_t offset) {
-    const auto byteAt = [&](size_t index) {
-        return static_cast<unsigned char>(source[index]);
-    };
-    if (offset >= source.size()) {
-        return {};
-    }
-
-    const unsigned char first = byteAt(offset);
-    if (first <= 0x7F) {
-        return {true, first, 1};
-    }
-
-    size_t length = 0;
-    uint32_t value = 0;
-    uint32_t minimum = 0;
-    if (first >= 0xC2 && first <= 0xDF) {
-        length = 2;
-        value = first & 0x1F;
-        minimum = 0x80;
-    } else if (first >= 0xE0 && first <= 0xEF) {
-        length = 3;
-        value = first & 0x0F;
-        minimum = 0x800;
-    } else if (first >= 0xF0 && first <= 0xF4) {
-        length = 4;
-        value = first & 0x07;
-        minimum = 0x10000;
-    } else {
-        return {false, 0, 1};
-    }
-
-    if (offset + length > source.size()) {
-        return {false, 0, 1};
-    }
-    for (size_t i = 1; i < length; ++i) {
-        const unsigned char continuation = byteAt(offset + i);
-        if ((continuation & 0xC0) != 0x80) {
-            return {false, 0, 1};
-        }
-        value = (value << 6) | (continuation & 0x3F);
-    }
-
-    if (value < minimum || value > 0x10FFFF || (value >= 0xD800 && value <= 0xDFFF)) {
-        return {false, 0, length};
-    }
-    return {true, value, length};
-}
-
-bool isUnicodeScalar(uint32_t value) {
-    return value <= 0x10FFFF && !(value >= 0xD800 && value <= 0xDFFF);
-}
-} // namespace
 
 Lexer::Lexer(std::string_view source) : source(source) {}
 
@@ -280,14 +220,61 @@ Token Lexer::readString() {
     const size_t startPos = pos;
 
     advance();
-    std::string text;
-    while (!isAtEnd() && peek() != '"') {
-        text += advance();
-    }
-    if (!isAtEnd()) {
+    const size_t contentStart = pos;
+    size_t contentEnd = pos;
+    bool terminated = false;
+    bool rawLineBreak = false;
+    while (!isAtEnd()) {
+        if (peek() == '"') {
+            contentEnd = pos;
+            advance();
+            terminated = true;
+            break;
+        }
+        if (peek() == '\n' || peek() == '\r') {
+            contentEnd = pos;
+            rawLineBreak = true;
+            break;
+        }
+        if (peek() == '\\') {
+            advance();
+            if (isAtEnd()) {
+                contentEnd = pos;
+                break;
+            }
+            if (peek() == '\n' || peek() == '\r') {
+                contentEnd = pos;
+                rawLineBreak = true;
+                break;
+            }
+            advance();
+            continue;
+        }
         advance();
     }
-    return makeToken(TokenKind::StringLiteral, text, startLine, startColumn, pos - startPos);
+    if (!terminated && !rawLineBreak) {
+        contentEnd = pos;
+    }
+
+    const std::string_view content = source.substr(contentStart, contentEnd - contentStart);
+    const auto decoded = literal_escapes::decodeStringContent(content);
+    std::string errorMessage;
+    if (!decoded.valid()) {
+        errorMessage = literal_escapes::errorMessage(decoded.error, literal_escapes::LiteralKind::String);
+    } else if (rawLineBreak) {
+        errorMessage = "Unterminated string literal; raw line breaks are not allowed.";
+    } else if (!terminated) {
+        errorMessage = "Unterminated string literal.";
+    }
+
+    const TokenKind kind = errorMessage.empty() ? TokenKind::StringLiteral : TokenKind::StringError;
+    std::string tokenText = errorMessage.empty() ? std::string(content) : std::move(errorMessage);
+    return makeToken(
+        kind,
+        std::move(tokenText),
+        startLine,
+        startColumn,
+        pos - startPos);
 }
 
 Token Lexer::readChar() {
@@ -307,87 +294,23 @@ Token Lexer::readChar() {
 
     while (!isAtEnd() && peek() != '\'' && peek() != '\n') {
         if (peek() == '\\') {
-            advance();
-            if (isAtEnd() || peek() == '\n') {
-                setError("Malformed escape sequence in character literal.");
-                break;
-            }
-            const char escape = advance();
-            uint32_t escapedValue = 0;
-            bool escapeValid = true;
-            switch (escape) {
-            case 'n': escapedValue = '\n'; break;
-            case 't': escapedValue = '\t'; break;
-            case 'r': escapedValue = '\r'; break;
-            case '\\': escapedValue = '\\'; break;
-            case '\'': escapedValue = '\''; break;
-            case '"': escapedValue = '"'; break;
-            case '0': escapedValue = 0; break;
-            case 'u': {
-                if (isAtEnd() || peek() != '{') {
-                    setError("Malformed Unicode escape in character literal.");
-                    escapeValid = false;
-                    break;
-                }
+            const auto escaped = literal_escapes::decodeEscape(source, pos, true);
+            const size_t consumeLength = escaped.length == 0 ? 1 : escaped.length;
+            for (size_t i = 0; i < consumeLength && !isAtEnd(); ++i) {
                 advance();
-                bool sawDigit = false;
-                bool malformed = false;
-                uint32_t codePoint = 0;
-                bool outOfRange = false;
-                while (!isAtEnd() && peek() != '}' && peek() != '\'' && peek() != '\n') {
-                    const unsigned char digitChar = static_cast<unsigned char>(advance());
-                    uint32_t digit = 0;
-                    if (digitChar >= '0' && digitChar <= '9') {
-                        digit = digitChar - '0';
-                    } else if (digitChar >= 'a' && digitChar <= 'f') {
-                        digit = digitChar - 'a' + 10;
-                    } else if (digitChar >= 'A' && digitChar <= 'F') {
-                        digit = digitChar - 'A' + 10;
-                    } else {
-                        malformed = true;
-                        continue;
-                    }
-                    sawDigit = true;
-                    if (codePoint > 0x10FFFF / 16) {
-                        outOfRange = true;
-                    } else {
-                        codePoint = codePoint * 16 + digit;
-                        if (codePoint > 0x10FFFF) {
-                            outOfRange = true;
-                        }
-                    }
-                }
-                if (!isAtEnd() && peek() == '}') {
-                    advance();
-                } else {
-                    malformed = true;
-                }
-                if (!sawDigit || malformed) {
-                    setError("Malformed Unicode escape in character literal.");
-                    escapeValid = false;
-                } else if (outOfRange || !isUnicodeScalar(codePoint)) {
-                    setError("Unicode escape is not a valid Unicode scalar value.");
-                    escapeValid = false;
-                } else {
-                    escapedValue = codePoint;
-                }
-                break;
             }
-            default:
-                setError("Unknown escape sequence in character literal.");
-                escapeValid = false;
-                break;
-            }
-            if (escapeValid) {
+            if (!escaped.valid()) {
+                setError(literal_escapes::errorMessage(escaped.error, literal_escapes::LiteralKind::Character));
+            } else {
                 if (scalarCount == 0) {
-                    scalarValue = escapedValue;
+                    scalarValue = escaped.value;
                 }
                 ++scalarCount;
             }
             continue;
         }
 
-        const DecodedScalar decoded = decodeUtf8Scalar(source, pos);
+        const literal_escapes::DecodedScalar decoded = literal_escapes::decodeUtf8Scalar(source, pos);
         if (!decoded.valid) {
             setError("Invalid UTF-8 in character literal.");
             const size_t consumeLength = decoded.length == 0 ? 1 : decoded.length;

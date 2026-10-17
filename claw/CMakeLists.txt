@@ -8,6 +8,7 @@ find_package(Threads REQUIRED)
 add_library(claw_frontend
     src/diagnostics/diagnostics.cpp
     src/lexer/lexer.cpp
+    src/lexer/literal_escapes.cpp
     src/parser/parser.cpp
     src/ir/air.cpp
     src/ir/oir.cpp

@@ -195,7 +195,8 @@ bool isNumericLiteralType(const ResolvedType& type) {
 }
 
 bool isFloatTypeName(const std::string& name) {
-    return name == "Float32" || name == "Float64";
+    const std::string canonical = canonicalTypeName(name);
+    return canonical == "Float32" || canonical == "Float64";
 }
 
 NumericLiteralParts splitNumericLiteralText(const std::string& text) {
@@ -299,7 +300,7 @@ std::optional<ResolvedType> resolveNumericLiteralSuffixType(const std::string& s
     if (suffix.empty() || !isNumericTypeName(suffix)) {
         return std::nullopt;
     }
-    return makePlainType(suffix);
+    return makePlainType(canonicalTypeName(suffix));
 }
 
 bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target) {

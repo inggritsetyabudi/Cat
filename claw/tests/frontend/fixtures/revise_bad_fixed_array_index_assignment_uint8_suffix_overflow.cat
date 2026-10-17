@@ -1,0 +1,4 @@
+fn main() {
+    var values: Array[UInt8, 2] = [0_UInt8, 1_UInt8]
+    values[0_USize] = 256_UInt8
+}

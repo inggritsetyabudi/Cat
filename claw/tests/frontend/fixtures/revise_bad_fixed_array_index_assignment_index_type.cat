@@ -1,0 +1,4 @@
+fn main() {
+    var values: Array[Int32, 2] = [1, 2]
+    values[0_Int32] = 7
+}

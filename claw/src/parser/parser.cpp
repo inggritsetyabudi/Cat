@@ -1171,6 +1171,9 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
     if (check(TokenKind::CharError)) {
         failAtCurrent(peek().text);
     }
+    if (check(TokenKind::StringError)) {
+        failAtCurrent(peek().text);
+    }
     if (check(TokenKind::Error)) {
         failAtCurrent("Unexpected token in source.");
     }

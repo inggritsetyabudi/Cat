@@ -49,3 +49,6 @@ Folder ini menyimpan log perubahan compiler dan dokumentasi, termasuk rincian hi
 - [`2026-10-14-v0.3-fixed-array-size-overflow.md`](./2026-10-14-v0.3-fixed-array-size-overflow.md) mencatat penolakan overflow `N * sizeof(Int32)` pada resolusi tipe, layout, dan LLVM lowering beserta validasi regression.
 
 - [`2026-10-16-v0.4-doc-comments.md`](./2026-10-16-v0.4-doc-comments.md) mencatat komentar dokumen top-level `///`, peringatan nonfatal, keluaran Markdown `claw doc`, dan batas slice yang tidak menandai §12/v0.4 selesai.
+- [`2026-10-16-v0.4-string-escapes-partial.md`](./2026-10-16-v0.4-string-escapes-partial.md) mencatat penyelarasan escape string biasa dengan `Char`, hasil baseline aktual, NUL length-aware, regresi native, dan status PRD yang tetap tidak berubah.
+- [`2026-10-16-builtin-scalar-type-case-insensitivity.md`](./2026-10-16-builtin-scalar-type-case-insensitivity.md) mencatat normalisasi ASCII case-insensitive terbatas pada scalar builtin, alias canonical, suffix numeric, batas case-sensitive nama pengguna/container, dan regresi frontend/native.
+- [`2026-10-16-v0.3-fixed-array-index-assignment-partial.md`](./2026-10-16-v0.3-fixed-array-index-assignment-partial.md) mencatat plain indexed assignment terbatas untuk local mutable fixed `Array[Int32, N]`/`Array[UInt8, N]`, bounds-before-store, serta compound/global/nested exclusions.
