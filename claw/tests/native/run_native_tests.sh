@@ -1725,6 +1725,8 @@ else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for fixed-array indexed assignment"
 fi
 
+python3 "$SCRIPT_DIR/run_division_by_zero_tests.py"
+
 owned_shape_missing_compiler="$CWD_TEST_DIR/missing compiler.exe"
 owned_shape_handoff_log="$CWD_TEST_DIR/owned_shape_handoff.log"
 if CLAW_EXE="$CLAW_EXE" "$BASH" "$SCRIPT_DIR/run_owned_shape_safety_tests.sh" "$owned_shape_missing_compiler" >"$owned_shape_handoff_log" 2>&1; then
