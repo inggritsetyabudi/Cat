@@ -2003,7 +2003,7 @@
       "id": "G2-PLAN-G7",
       "source": "PLAN:G7",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
-      "requirement_description": "Normalisasi encoding dokumen ringkas ke UTF-8; dokumen ringkas dibuat otomatis dari baris `Ringkas:`",
+      "requirement_description": "Normalisasi encoding dokumen ringkas ke UTF-8; sumber Ringkas dan provenance generator dinilai terpisah.",
       "source_excerpt": "| G7 | Normalisasi encoding dokumen ringkas ke UTF-8; dokumen ringkas dibuat otomatis dari baris `Ringkas:` | v0.1 |"
     },
     {
@@ -2544,6 +2544,20 @@
       "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
       "requirement_description": "Ekspander hanya memanipulasi AST tanpa logika sembarang; batas kemampuan mesin, bukan sekadar bentuk hasil AST.",
       "source_excerpt": "| Mesin ekspansi menjadi bahasa kedua yang rumit | Ekspander hanya memanipulasi AST; tidak ada logika sembarang |"
+    },
+    {
+      "id": "G2-PLAN-G7-RINGKAS-SOURCE",
+      "source": "PLAN:G7",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+      "requirement_description": "Baris Ringkas: harus menjadi sumber ringkasan otomatis, terpisah dari encoding dan pemeriksaan output.",
+      "source_excerpt": "dokumen ringkas dibuat otomatis dari baris `Ringkas:`"
+    },
+    {
+      "id": "G2-PLAN-G7-GENERATOR-PROVENANCE",
+      "source": "PLAN:G7",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+      "requirement_description": "Dokumen ringkas harus dihasilkan otomatis dari sumber Ringkas:, dengan hubungan output/sumber dapat diperiksa.",
+      "source_excerpt": "dokumen ringkas dibuat otomatis dari baris `Ringkas:`"
     }
   ]
 }

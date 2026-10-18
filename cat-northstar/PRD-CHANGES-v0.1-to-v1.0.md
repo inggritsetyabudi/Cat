@@ -10,7 +10,7 @@ Dokumen ini adalah daftar kerja: bagian PRD mana yang diubah, apa isinya, kapan,
 
 | Kategori fence | Jumlah | Perilaku |
 | --- | ---: | --- |
-| `cat` | 1 | Wajib lolos `claw check` |
+| `cat` | 3 | Wajib lolos `claw check` |
 | `cat error: <potongan pesan>` | 1 | Wajib ditolak dan keluaran compiler wajib memuat potongan diagnostik |
 | `cat proposal` | 13 | Sintaks belum didukung compiler saat ini; dilewati dan dilaporkan dengan nomor baris |
 | `text` | 2 | Diagnostik target dan grammar ilustratif, bukan program C@; dilewati dan dilaporkan |
@@ -20,7 +20,7 @@ Tag fence menyatakan **cakupan test terhadap compiler**, bukan apakah keputusan 
 
 Runner berada di `claw/tests/docs/run_doc_tests.py`, dipanggil melalui `claw/tests/docs/run_doc_tests.sh` dan suite penuh. Ia mengekstrak fence Markdown, menjalankan blok `cat`/`cat error:` dengan `claw check`, memeriksa kode keluar serta potongan diagnostik, dan mencetak jumlah serta baris semua blok yang dilewati. Fence tanpa label atau dengan label yang tak dikenal adalah kegagalan, bukan pengecualian diam-diam.
 
-**Validasi irisan ini:** dua blok executable diperiksa (satu lolos dan satu ditolak dengan diagnostik yang diharapkan); 13 contoh sintaks proposal dan dua blok non-program tercatat terlewati. Ini bukan bukti bahwa seluruh fitur v0.1 atau PRD sudah terimplementasi.
+**Validasi irisan ini:** empat blok executable diperiksa (tiga lolos dan satu ditolak dengan diagnostik yang diharapkan); 13 contoh sintaks proposal dan dua blok non-program tercatat terlewati. Ini bukan bukti bahwa seluruh fitur v0.1 atau PRD sudah terimplementasi.
 
 ---
 

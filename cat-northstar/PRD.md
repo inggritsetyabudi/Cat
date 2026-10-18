@@ -104,7 +104,7 @@ error: shape 'Config' tidak boleh dibuat dengan literal di luar modulnya
 | Boilerplate `new` di v0.x | Dicatat sebagai utang; `@constructor` adalah syarat v1 (bagian 15) |
 | Fungsi dengan banyak parameter sulit dibaca tanpa label | (a) lint peringatan jika parameter > 4; (b) language server menampilkan nama parameter sebagai inlay hint; (c) tipe berbeda untuk nilai berbeda, misalnya `Port` bukan `Int32` |
 | Idiom "struct opsi" terhalang aturan literal | Dicatat di daftar tertunda: bila (a)–(c) tidak cukup, pertimbangkan modifier `open shape` untuk shape data murni (semua field `share`, tanpa invariant) |
-| Contoh PRD lama (`Buffer(data: ...)`, `Circle(x: ...)`, `Vector2(...)`, `Config(host: ...)`, dan `Node(data: 1, next: None)` di bagian Arena) | Ditulis ulang ke `Tipe.new(...)`; doc-test menangkap yang terlewat |
+| Contoh PRD lama (`Buffer(data: ...)`, `Circle(x: ...)`, `Vector2(...)`, `Config(host: ...)`, dan `Node(data: 1, next: None)` di bagian Arena) | Arah migrasi ke `Tipe.new(...)`; cuplikan pengganti parsial ada di [GLOBAL-EXAMPLES.md](GLOBAL-EXAMPLES.md). Validator leksikal bukan bukti migrasi penuh atau acceptance compiler |
 
 ---
 
@@ -672,3 +672,19 @@ shape Point {
 4. **Batas Fast untuk gerbang v1**: selisih waktu ≤ 10% dari C setara (dikompilasi dengan clang -O3) pada benchmark inti.
 5. **Closure**: capture default meminjam (`ref`), `move` untuk mengambil kepemilikan; `return` di dalam closure keluar dari closure.
 6. **Penulisan konstanta `static`**: huruf kecil, mengikuti aturan huruf umum.
+
+### Contoh entrypoint kanonis dan varian sah (G6)
+
+Contoh kanonis berikut mengembalikan kode keluar `Int32` dengan `return 0` eksplisit. Fence ini diuji sendiri oleh doc-test.
+
+```cat
+fn main() -> Int32 { return 0 }
+```
+
+**Varian sah — Unit:** return type yang dihilangkan berarti `Unit`. Contoh ini berada dalam fence terpisah dan juga diuji sendiri; kelulusan contoh Int32 tidak dipakai sebagai bukti varian Unit.
+
+```cat
+fn main() {}
+```
+
+Bukti ini hanya `claw check` untuk dua signature di atas, bukan matriks exit-code native atau semua aturan entrypoint. [Contoh migrasi bernama](GLOBAL-EXAMPLES.md) merupakan pendamping dokumentasi, bukan acceptance compiler.
