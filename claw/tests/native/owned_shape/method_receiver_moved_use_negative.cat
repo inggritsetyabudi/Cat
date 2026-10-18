@@ -1,0 +1,13 @@
+shape Inner { left: String, right: String }
+implements Inner {
+    fn take(self) -> String {
+        val moved = self
+        println(self.left.as_str())
+        return moved.left.clone()
+    }
+}
+fn main() -> Int32 {
+    val source = Inner { left: String.from("left"), right: String.from("right") }
+    println(source.take().as_str())
+    return 0
+}

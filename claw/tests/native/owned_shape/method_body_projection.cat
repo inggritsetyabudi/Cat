@@ -1,0 +1,12 @@
+shape Inner { left: String, right: String }
+implements Inner {
+    fn consume(self) -> String {
+        val taken = self.left
+        taken
+    }
+}
+fn main() -> Int32 {
+    val value = Inner { left: String.from("left"), right: String.from("right") }
+    println(value.consume().as_str())
+    return 0
+}

@@ -1,0 +1,7 @@
+shape One { text: String }
+fn main() -> Int32 {
+    val one = One { text: String.from("one") }
+    val x = one.text
+    println(x.as_str())
+    return 0
+}

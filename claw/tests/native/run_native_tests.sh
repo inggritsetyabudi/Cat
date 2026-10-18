@@ -16,7 +16,11 @@ if [[ -z "${CLAW_EXE:-}" ]]; then
   fi
 fi
 
-export PATH="/c/msys64/ucrt64/bin:/c/msys64/usr/bin:$PATH"
+# Keep tools in the active MSYS2 installation. A different installation can
+# resolve the same /tmp path to a different Windows directory.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) export PATH="/ucrt64/bin:/usr/bin:$PATH" ;;
+esac
 
 if [[ ! -x "$CLAW_EXE" ]]; then
   echo "missing compiler executable: $CLAW_EXE" >&2
@@ -1763,3 +1767,19 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for fixed-array indexed assignment"
 fi
+
+python3 "$SCRIPT_DIR/run_division_by_zero_tests.py"
+
+owned_shape_missing_compiler="$CWD_TEST_DIR/missing compiler.exe"
+owned_shape_handoff_log="$CWD_TEST_DIR/owned_shape_handoff.log"
+if CLAW_EXE="$CLAW_EXE" "$BASH" "$SCRIPT_DIR/run_owned_shape_safety_tests.sh" "$owned_shape_missing_compiler" >"$owned_shape_handoff_log" 2>&1; then
+  echo "owned-shape runner ignored an invalid explicit compiler argument" >&2
+  exit 1
+fi
+grep -Fq "missing compiler executable: $owned_shape_missing_compiler" "$owned_shape_handoff_log" || {
+  echo "owned-shape runner did not preserve the explicit compiler path" >&2
+  cat "$owned_shape_handoff_log" >&2
+  exit 1
+}
+echo "[runner/pass] owned-shape explicit compiler path overrides environment fallback"
+"$BASH" "$SCRIPT_DIR/run_owned_shape_safety_tests.sh" "$CLAW_EXE"

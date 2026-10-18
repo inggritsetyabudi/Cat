@@ -1,0 +1,9 @@
+shape S { left: String, right: String }
+shape N { inner: S }
+fn make() -> S { S { left: String.from("left"), right: String.from("right") } }
+fn main() -> Int32 {
+    val n = N { inner: make() }
+    val x = n.inner.left
+    println(x.as_str())
+    return 0
+}
