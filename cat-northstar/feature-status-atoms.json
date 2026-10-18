@@ -932,22 +932,6 @@
       }
     ]
   },
-  "G2-PRD-11-FLOAT": {
-    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
-    "fixtures": [
-      "claw/tests/native/fixtures/revise_float64_unary_negation.cat"
-    ],
-    "assertions": [
-      {
-        "path": "claw/tests/native/run_native_tests.sh",
-        "text": "if ! grep -q 'fneg double' \"${float_unary_output%.exe}.ll\" || ! grep -q 'fneg float' \"${float_unary_output%.exe}.ll\"; then"
-      },
-      {
-        "path": "claw/tests/native/run_native_tests.sh",
-        "text": "if [[ \"$float_unary_stdout\" != $'1\\n-0\\n0\\n-0\\n0' ]]; then"
-      }
-    ]
-  },
   "G2-PRD-11-FLOAT-MATERIALIZE": {
     "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
     "fixtures": [],
@@ -973,6 +957,66 @@
         "text": "if ! grep -Fq 'store i32 43981,' \"$radix_literals_ll\" ||"
       }
     ]
+  },
+  "G2-PRD-11-CHAR-WIDTH": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-CHAR-UTF8": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-CHAR-ESCAPE": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-FLOAT128-LLVM": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-RADIX-BINARY": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-RADIX-OCTAL": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-DECIMAL-SEPARATOR": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-SUFFIX": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-SUFFIX-CANONICAL": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-SUFFIX-FALLBACK": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-SUFFIX-INVALID": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-LITERAL-RANGE": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
   },
   "G2-PRD-12-CONTAINER-STORAGE": {
     "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
@@ -1012,7 +1056,7 @@
       },
       {
         "path": "claw/tests/frontend/run_frontend_tests.sh",
-        "text": "run_check_fail \"unknown ordinary string escape\" \\"
+        "text": "run_check_fail \"unknown ordinary string escape\" \\\n  \"$FIXTURE_DIR/revise_bad_string_unknown_escape.cat\" \\\n  \"Unknown escape sequence in string literal.\""
       }
     ]
   },
@@ -1025,18 +1069,6 @@
     "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
     "fixtures": [],
     "assertions": []
-  },
-  "G2-PRD-12-STR-INDEX": {
-    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
-    "fixtures": [
-      "claw/tests/native/fixtures/revise_operator_str_index_read.cat"
-    ],
-    "assertions": [
-      {
-        "path": "claw/tests/native/run_native_tests.sh",
-        "text": "if [[ \"$str_index_stdout\" != \"66\" ]]; then"
-      }
-    ]
   },
   "G2-PRD-12-STR-OWN": {
     "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
@@ -1093,17 +1125,200 @@
     "fixtures": [],
     "assertions": []
   },
-  "G2-PRD-13-CONTRACT": {
-    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
-    "fixtures": [
-      "claw/tests/native/fixtures/revise_implements.cat"
-    ],
-    "assertions": [
-      {
-        "path": "claw/tests/native/run_native_tests.sh",
-        "text": "if [[ \"$implements_stdout\" != \"localhost\" ]]"
-      }
-    ]
+  "G2-PRD-12-STR-ALIAS": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STR-LAYOUT": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-ALIAS": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-IMMUTABLE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-MOVE-ONLY": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-LAYOUT": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-SIZE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-ALIGN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-LITERAL-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-LITERAL-NOALLOC": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-LITERAL-NOCOPY": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-NO-IMPLICIT-OWNED": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-FROM": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-PARAM": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-RETURN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STR-NO-DESTRUCTOR": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STR-NO-FREE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-BORROW-INFER": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-VIEW-ESCAPE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-VIEW-AFTER-MOVE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-VIEW-AFTER-MUTATE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-TEMP-NO-STORE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-TEMP-NO-RETURN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-TEMP-NO-JOIN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-CONTAINER-OWNED": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-CHOICE-STRING": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-SHAPE-STRING": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-MAYBE-VIEW": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STATIC-NODISPATCH": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-EXPLICIT-ALLOC": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-LOCATION": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-REASON": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-HINT": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-COLOR": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-NO-COLOR": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-WINDOWS": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-NO-RAW": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-BUILDER": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-FSTRING-MODES": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
   },
   "G2-PRD-13-CONTRACT-LOCALITY": {
     "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
@@ -1117,8 +1332,15 @@
   },
   "G2-PRD-13-METHOD-LOCALITY": {
     "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
-    "fixtures": [],
-    "assertions": []
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_implements.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$implements_stdout\" != \"localhost\" ]]"
+      }
+    ]
   },
   "G2-PRD-13-OPERATOR": {
     "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
@@ -1131,6 +1353,26 @@
     "assertions": []
   },
   "G2-PRD-13-WITH": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-WITH-AND": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-WITH-OPTIONAL": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-WITH-KEYWORD": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-ORPHAN-GRAPH": {
     "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
     "fixtures": [],
     "assertions": []
@@ -1231,6 +1473,36 @@
       }
     ]
   },
+  "G2-PRD-14-BYTE-INDEX": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-NO-STR-FROM": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-NO-TO-OWNED": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-LOWERING": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-SPAN-EXAMPLE": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-UTF8-CHECK": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
   "G2-PRD-15-ANNOTATION-CONSTRUCTOR": {
     "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
     "fixtures": [],
@@ -1266,8 +1538,43 @@
     "fixtures": [],
     "assertions": []
   },
-  "G2-PRD-16-RATIFY": {
-    "source_anchor": "cat-northstar/PRD.md#16-sinkronisasi-dua-prd",
+  "G2-PRD-15-FFI-CONTRACT": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-FFI-RAW": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-FFI-SAFE-WRAPPER": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-TOKEN": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-CLOSED": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-GOVERNANCE": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-CONSTRUCTOR-LOCALITY": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-REWRITE-POSTFIX": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
     "fixtures": [],
     "assertions": []
   },
@@ -1275,18 +1582,6 @@
     "source_anchor": "cat-northstar/PRD.md#16-sinkronisasi-dua-prd",
     "fixtures": [],
     "assertions": []
-  },
-  "G2-PRD-17-CASE": {
-    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
-    "fixtures": [
-      "claw/tests/frontend/fixtures/revise_bad_duplicate_module_aliases/main.cat"
-    ],
-    "assertions": [
-      {
-        "path": "claw/tests/frontend/run_frontend_tests.sh",
-        "text": "run_check_fail \"test_frontend/revise_bad_duplicate_module_aliases\" \"$FIXTURE_DIR/revise_bad_duplicate_module_aliases\" \"Duplicate imported name: math\""
-      }
-    ]
   },
   "G2-PRD-17-CYCLE": {
     "source_anchor": "cat-northstar/PRD.md#17-modularitas",
@@ -1302,15 +1597,8 @@
   },
   "G2-PRD-17-MODULE": {
     "source_anchor": "cat-northstar/PRD.md#17-modularitas",
-    "fixtures": [
-      "claw/tests/frontend/fixtures/revise_bad_case_module_path/main.cat"
-    ],
-    "assertions": [
-      {
-        "path": "claw/tests/frontend/run_frontend_tests.sh",
-        "text": "run_check_fail \"test_frontend/revise_bad_case_module_path\" \"$FIXTURE_DIR/revise_bad_case_module_path\" \"Module name segment 'UpperMath' must start with a lowercase letter.\""
-      }
-    ]
+    "fixtures": [],
+    "assertions": []
   },
   "G2-PRD-17-PRIVATE": {
     "source_anchor": "cat-northstar/PRD.md#17-modularitas",
@@ -1368,21 +1656,91 @@
   "G2-PRD-17-BASENAME-ALIAS": {
     "source_anchor": "cat-northstar/PRD.md#17-modularitas",
     "fixtures": [
-      "claw/tests/frontend/fixtures/revise_module_aliases/main.cat"
+      "claw/tests/frontend/fixtures/revise_module_aliases/main.cat",
+      "claw/tests/frontend/fixtures/revise_bad_duplicate_module_aliases/main.cat"
     ],
     "assertions": [
       {
         "path": "claw/tests/frontend/run_frontend_tests.sh",
         "text": "run_check_pass \"test_frontend/revise_module_aliases\" \"$FIXTURE_DIR/revise_module_aliases\""
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_duplicate_module_aliases\" \"$FIXTURE_DIR/revise_bad_duplicate_module_aliases\" \"Duplicate imported name: math\""
       }
     ]
   },
-  "G2-PRD-18-V01": {
+  "G2-PRD-17-FOLDER": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-NO-MODULES-FILE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-NO-PUB": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-SRC-OTHER": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-LLVM-SYMBOL": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-LLVM-SHARE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-LLVM-PRIVATE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-LLVM-MERGE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-BOUNDS-ELISION": {
     "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
     "fixtures": [],
     "assertions": []
   },
-  "G2-PRD-18-V10": {
+  "G2-PRD-18-SAFE": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-SIMPLE": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-NO-BOILERPLATE": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-FAST": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-NO-HIDDEN-COST": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-SELFHOST-PREREQS": {
     "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
     "fixtures": [],
     "assertions": []
@@ -1418,6 +1776,11 @@
     "assertions": []
   },
   "G2-PRD-19-WRAPPING": {
+    "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-19-DEBUG": {
     "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
     "fixtures": [],
     "assertions": []
@@ -1489,7 +1852,32 @@
     "fixtures": [],
     "assertions": []
   },
-  "G2-PRD-20-THREAD": {
+  "G2-PRD-20-MAYBE-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-MAYBE-SOME": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-MAYBE-NONE": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-INT-RELEASE": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-FLOAT-NAN": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-FLOAT-LLVM": {
     "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
     "fixtures": [],
     "assertions": []
