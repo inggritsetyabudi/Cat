@@ -21,6 +21,8 @@
 
 ## 0. Pengaman lintas masalah (menutup risiko di semua bagian)
 
+Ringkas: Doc-test, pemisahan keputusan dari implementasi, tes negatif, tabel normatif, daftar keputusan tertunda, dan milestone bertahap menjadi pengaman lintas bagian.
+
 Enam mekanisme ini dipakai berulang. Karena itu risiko tiap bagian di bawah bisa dibilang kecil.
 
 1. **Doc-test.** Fence `cat` wajib lolos `claw check`; `cat error: ...` wajib ditolak dengan diagnostik yang dicantumkan. Fence `cat proposal` dan `text` dilewati serta dihitung secara eksplisit; fence tanpa label atau dengan label tak dikenal menggagalkan gerbang.
@@ -33,6 +35,8 @@ Enam mekanisme ini dipakai berulang. Karena itu risiko tiap bagian di bawah bisa
 ---
 
 ## Ringkasan: 19 keputusan terbuka dan jawabannya
+
+Ringkas: Tabel ini merangkum jawaban atas 19 keputusan proposal beserta keputusan tambahan tentang penulisan huruf, import super, dan mode release.
 
 | # | Pertanyaan proposal | Jawaban | Status |
 | --- | --- | --- | --- |
@@ -62,6 +66,8 @@ Enam mekanisme ini dipakai berulang. Karena itu risiko tiap bagian di bawah bisa
 ---
 
 ## 1. Konstruksi shape dan named arguments ✅
+
+Ringkas: Argumen fungsi tetap posisional; literal shape hanya sah di modul pendefinisi, sedangkan pemanggil luar memakai konstruktor, dengan @constructor sebagai syarat v1.
 
 **Aturan**
 
@@ -110,6 +116,8 @@ error: shape 'Config' tidak boleh dibuat dengan literal di luar modulnya
 
 ## 2. Literal koleksi dan panjang `Array` ✅
 
+Ringkas: Array bertipe panjang tetap dan koleksi memakai literal vec, set, serta map; literal kosong memerlukan konteks tipe dan panjang generik tahap awal harus literal.
+
 **Aturan**
 
 - **Tipe** (huruf kapital): `Array[T, N]` (panjang tetap, N bagian dari tipe), `Span[T]` (view tanpa kepemilikan), `Vec[T]`, `Set[T]`, `Map[K, V]`.
@@ -155,6 +163,8 @@ val first = v[0]                        // indexing: ada operan kiri
 
 ## 3. `if` dan `pick` sebagai expression 🟦
 
+Ringkas: if dan pick dapat menghasilkan nilai dengan else, tipe cabang seragam, dan pick exhaustive, sementara implementasinya bertahap bersama Never dan operator.
+
 **Aturan**
 
 - Boleh jadi nilai di posisi: initializer, argumen, operan, operan `return`, dan ekor blok.
@@ -188,6 +198,8 @@ val code = pick res {
 ---
 
 ## 4. Aturan huruf dan grammar pattern `pick` ✅
+
+Ringkas: Nama mengikuti aturan casing yang ketat dan pattern pick membedakan tag dari binding berdasarkan tipe, dengan exhaustiveness serta tuple dan nesting bertahap.
 
 **Aturan huruf**
 
@@ -251,6 +263,8 @@ Karena tidak ada fallback ke binding, menambah varian baru ke sebuah `choice` ti
 
 ## 5. Bentuk `try` [parsial — menunggu acceptance]
 
+Ringkas: try dibatasi sebagai initializer val pada Result, dengan shorthand yang mensyaratkan error identik dan form penuh yang berakhir Never; implementasi tetap parsial menunggu acceptance.
+
 **Aturan**
 
 - `try` hanya sebagai initializer `val`: `val x = try <ekspresi bertipe Result>`.
@@ -282,6 +296,8 @@ fn load(p: Str) -> Result[Config, String] {
 ---
 
 ## 6. Operator, presedensi, asosiativitas 🟦
+
+Ringkas: Tabel tunggal menetapkan presedensi dan asosiativitas operator dalam empat grup bertahap, dengan perbedaan overflow debug defect dan release wrapping.
 
 **Tabel normatif** (tinggi ke rendah)
 
@@ -342,6 +358,8 @@ Operasi floating-point tetap mengikuti IEEE-754; aturan defect integer ini tidak
 
 ## 7. Range dan `scan item, i` 🟦
 
+Ringkas: Range eksklusif atau inklusif dipakai seragam untuk iterasi, in, dan slicing; scan dapat mengikat indeks USize mulai nol dengan lexer dan batas inklusif yang aman.
+
 **Aturan**
 
 - `a..b` eksklusif di ujung; `a..=b` inklusif. Keduanya bertipe `Range[T]`, `T` integer atau `Char`.
@@ -371,6 +389,8 @@ if x in 10..20 { ... }
 ---
 
 ## 8. Tuple 🟦
+
+Ringkas: Tuple mendukung tipe, literal, proyeksi, destructuring, dan pattern pick; nested binding plain sudah didukung, tetapi owned/view/generic, partial move, dan assignment masih belum.
 
 **Aturan**
 
@@ -403,6 +423,8 @@ println(pair.1)
 
 ## 9. Lifetime: klaim yang akurat dan dataflow ✅
 
+Ringkas: Borrow checking dirumuskan dengan dataflow dan liveness serta elision untuk kasus umum; ref mut bernama ditolak di v1 dan kriteria Safe memakai suite tes negatif.
+
 **Rumusan PRD yang diusulkan** (menggantikan "full inference"):
 
 > C@ tidak memakai anotasi lifetime bergaya `'a`. Compiler memeriksa pinjaman dengan **analisis aliran data (dataflow)**: sebuah pinjaman hidup sampai pemakaian terakhirnya di alur kontrol, bukan sampai akhir blok. Kasus umum disimpulkan otomatis, dan nama scope `[s]` hanya diminta ketika hubungannya ambigu.
@@ -432,6 +454,8 @@ fn pick_longer[s](a: ref[s] Str, b: ref[s] Str) -> ref[s] Str { ... }   // dua p
 
 ## 10. Inisialisasi default 🟦
 
+Ringkas: var boleh dideklarasikan tanpa nilai tetapi wajib diisi sebelum dibaca; aturan ini diterima pada irisan yang diuji, bukan klaim gerbang v1 atau kualitas production-grade.
+
 **Aturan:** `var x: T` boleh tanpa nilai, tetapi dibaca sebelum diisi = error (sudah dilakukan compiler). Klaim "nol otomatis" dihapus dari §24.
 
 **Status sintaks:** aturan inisialisasi pada dua doc-test di bawah dicatat sebagai irisan tersendiri di [ledger G2](FEATURE-STATUS.md); bukan penerimaan seluruh analisis dataflow atau gerbang v1.
@@ -458,6 +482,8 @@ Nilai default eksplisit lewat kontrak `Default` dengan `Tipe.default()` dicatat 
 ---
 
 ## 11. Literal numerik dan `Char` 🟦
+
+Ringkas: Lexer mendukung pemisah digit, radix, suffix numerik, Char Unicode, escape, dan Float128, dengan pembedaan suffix-versus-pemisah serta pemeriksaan rentang.
 
 **Aturan lexer**
 
@@ -490,6 +516,8 @@ val heart = '\u{2764}'
 
 ## 12. String, interpolasi, dan komentar dokumen 🟦
 
+Ringkas: Str adalah view borrowed dan String adalah owned move-only dengan konversi eksplisit, batas borrow dan payload koleksi yang ketat; interpolasi dan builder ditunda.
+
 **Aturan**
 
 - **Status implementasi:** Fondasi borrowed `Str`/owned `String` di bawah — [sudah]. F-string/interpolasi dan string builder tetap ditunda.
@@ -515,6 +543,8 @@ val heart = '\u{2764}'
 ---
 
 ## 13. Generic contract, `with`, dan lokasi `implements` 🟦
+
+Ringkas: Generic memakai with untuk kontrak, sementara orphan rule membatasi lokasi implements pada modul shape atau kontrak dan menolak duplikasi pasangan tipe-kontrak.
 
 **Aturan**
 
@@ -545,6 +575,8 @@ implements Vector2 with Add[Vector2] { ... }
 
 ## 14. `slice` 🟦
 
+Ringkas: Slicing publik hanya melalui indexing dengan range, menghasilkan borrowed Str dengan pemeriksaan batas dan UTF-8; get menyediakan Maybe, sedangkan method slice publik dihapus.
+
 **Aturan**
 
 - Satu bentuk publik: indexing dengan range.
@@ -572,6 +604,8 @@ val safe  = text.get(2..5)        // Maybe[ref Str], tidak defect
 ---
 
 ## 15. `foreign c`, annotation, dan `rewrite` 🟦
+
+Ringkas: foreign c dan annotation bawaan menjadi bagian v1 dengan foreign hanya di raw dan wrapper safe; rewrite memerlukan ekspansi macro dan ditunda ke v1.x.
 
 **`foreign c`:** jadi bentuk resmi deklarasi fungsi C. Hasil parse diisi ke struktur *external contract* yang sama dengan yang dipakai `claw.toml`, jadi tidak ada dua jalur logika.
 
@@ -613,6 +647,8 @@ shape Point {
 
 ## 16. Sinkronisasi dua PRD 🟦
 
+Ringkas: PRD panjang menjadi sumber otoritatif dan dokumen ringkas dihasilkan otomatis dari baris Ringkas dalam encoding UTF-8; contoh main kanonis dan audit Arena tetap mengikuti ketentuan bagian ini.
+
 - **Satu PRD otoritatif** (yang panjang, bagian 1–38). Dokumen ringkas tidak ditulis tangan lagi, tetapi dibuat otomatis dari baris `Ringkas:` yang ditulis di tiap bagian PRD panjang.
 - Normalisasi encoding ke UTF-8 pada dokumen ringkas (kerusakan karakter yang disebut proposal).
 - Pilih satu contoh `main` kanonis: `fn main() -> Int32` dengan `return 0`; bentuk `fn main() {}` ditandai "varian sah".
@@ -624,6 +660,8 @@ shape Point {
 
 ## 17. Modularitas ✅
 
+Ringkas: Satu file menjadi modul dan folder namespace; share mengatur visibilitas, import memiliki bentuk namespace, langsung, dan super yang deterministik, sementara siklus serta kebocoran tipe privat ditolak.
+
 - Satu file = satu modul; folder = namespace; tidak ada `modules.cat` dan tidak ada kata kunci `pub`.
 - `share` adalah satu-satunya aturan visibilitas. Tanpa `share`, item hanya terlihat di file itu.
 - `import src.math` membawa namespace (`math.add(1, 2)`); `import src.math.{ add }` membawa item langsung; dua modul berakhiran sama memerlukan alias.
@@ -634,6 +672,8 @@ shape Point {
 ---
 
 ## 18. Rencana milestone
+
+Ringkas: Milestone v0.1 hingga v1.0 mengurutkan konsistensi, ekspresi, data, teks, tipe lanjutan, FFI, borrow checking, optimasi, dan pengerasan; rewrite serta self-hosting berada di v1.x.
 
 | Versi | Isi | Bukti selesai |
 | --- | --- | --- |
@@ -660,6 +700,8 @@ shape Point {
 
 ## 19. Keputusan dari celah di luar proposal
 
+Ringkas: Bagian ini menetapkan import super, overflow release, noalias untuk ref mut, dan audit Arena v0.9 sebagai keputusan tambahan di luar proposal.
+
 1. **`import super`** ✅ dipertahankan (bagian 17). Catatan: di bahasa lain `super` berarti folder induk; kalau nanti membingungkan pengguna, nama bisa diganti tanpa mengubah aturan.
 2. **Overflow di release** ✅ membungkus tanpa cek; debug = defect; `checked_*`/`wrapping_*`/`saturating_*` eksplisit. Cek batas indeks tetap ada (kalau dibuang, klaim Safe gugur). `ref mut` eksklusif, sehingga pointer-nya ditandai `noalias` di LLVM.
 3. **Arena** sudah ditandai \[sudah\] di PRD tetapi di luar cakupan audit proposal; contohnya masih memakai sintaks named-argument yang dihapus. Masuk audit v0.9.
@@ -667,6 +709,8 @@ shape Point {
 ---
 
 ## 20. Keputusan penutup ✅ (diputuskan agar tidak ada yang menggantung)
+
+Ringkas: Keputusan penutup menetapkan bentuk Maybe, aturan penyempitan as, nama kontrak, batas Fast v1, perilaku closure, dan casing konstanta static.
 
 1. **`Maybe`**: sudah dipakai PRD sendiri (`Maybe[ref Node]`, `Some`, `None`), jadi final: `Maybe[T]` dengan varian `Some(T)` dan `None`.
 2. **`as` untuk penyempitan**: integer → integer yang tidak muat = defect di debug dan terpotong (*truncate*) di release; float → integer memakai saturasi (di luar rentang menjadi nilai batas, NaN menjadi 0; LLVM `llvm.fptosi.sat`); `UInt32` → `Char` hanya lewat `Char.from(n)` yang mengembalikan `Maybe`. Konversi yang aman untuk nilai dari luar: `x.to[Int8]()` mengembalikan `Maybe`.
