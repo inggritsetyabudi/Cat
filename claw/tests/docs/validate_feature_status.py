@@ -13,7 +13,7 @@ from feature_status_source_index import validate_source_index
 
 HEADERS = ("ID", "Sumber", "Irisan", "Label", "Keputusan semantik", "Lingkup implementasi", "Bukti penerimaan", "Sisa", "Dimensi non-compiler")
 LABELS = ("[diusulkan]", "[diputuskan]", "[diterima compiler]")
-SOURCE_RE = re.compile(r"^(?:PRD:\d+|PLAN:(?:G[1-8]|M(?:0[1-9]|10)|S\d+))$")
+SOURCE_RE = re.compile(r"^(?:PRD:\d+|PLAN:(?:G[1-8]|M(?:0[1-9]|10)|S\d+)|ROADMAP:\d+)$")
 PRD_HEADING_RE = re.compile(r"^##\s+(\d+)(?:[.:\s]|$)")
 LINK_RE = re.compile(r"!?(?<!\!)\[([^]]+)\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
@@ -80,6 +80,14 @@ def _source_anchor_ok(root: Path, source_cell: str, source_anchor: str, line: in
     raw_path, anchor = source_anchor.split("#", 1)
     _manifest_source(root, raw_path + "#" + anchor, anchor, line)
     path = (root / raw_path).resolve()
+    if source_cell.startswith("ROADMAP:"):
+        expected = source_cell.split(":", 1)[1]
+        roadmap = (root / "cat-northstar/ROADMAP-v1-plus.md").resolve()
+        if path != roadmap:
+            raise ValidationError(f"line {line}: {source_cell} source_anchor must target ROADMAP-v1-plus.md")
+        if not anchor.startswith(expected + "-"):
+            raise ValidationError(f"line {line}: source_anchor heading number does not match {source_cell}: {source_anchor}")
+        return
     if source_cell.startswith("PLAN:S"):
         source_line = int(source_cell.split("S", 1)[1])
         if path.name != "PRD-CHANGES-v0.1-to-v1.0.md":
@@ -336,6 +344,7 @@ def validate(root: Path) -> list[str]:
         sources.append(source)
         if label not in LABELS: errors.append(f"line {line}: label must be exactly one of {LABELS}: {label}")
         if source.startswith("PLAN:S") and label == "[diterima compiler]": errors.append(f"line {line}: PLAN:S sources are documentation-only and cannot be accepted by the compiler")
+        if source.startswith("ROADMAP:") and label != "[diusulkan]": errors.append(f"line {line}: ROADMAP sources are design proposals and must remain [diusulkan]")
         if sum(" | ".join(cells).count(candidate) for candidate in LABELS) != 1: errors.append(f"line {line}: labels may occur only once, in the Label cell")
         evidence = cells[6]; links = list(LINK_RE.finditer(evidence)); resolved_links: list[Path] = []
         if not links: errors.append(f"line {line}: Bukti penerimaan needs a local Markdown link")
@@ -356,7 +365,7 @@ def validate(root: Path) -> list[str]:
     if missing: errors.append("missing required sources: " + ", ".join(missing))
     # PLAN:S<n> is an optional, line-addressed documentation/governance atom;
     # unlike PRD/G/M coverage, adding one does not make every S line mandatory.
-    unknown = sorted(source for source in set(sources) - required_sources if not source.startswith("PLAN:S"))
+    unknown = sorted(source for source in set(sources) - required_sources if not source.startswith(("PLAN:S", "ROADMAP:")))
     if unknown: errors.append("unrecognized sources: " + ", ".join(unknown))
     _validate_manifest(root, rows, errors)
     return errors

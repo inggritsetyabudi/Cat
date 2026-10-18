@@ -1534,8 +1534,8 @@
       "id": "G2-PRD-15-REWRITE",
       "source": "PRD:15",
       "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
-      "requirement_description": "rewrite diputuskan masuk v1.x, bukan v1; kebutuhan fase ekspansi, hygiene, introspeksi AST dicatat sebagai pekerjaan tertunda, bukan fitur diterima.",
-      "source_excerpt": "✅ Diputuskan: masuk **v1.x**, bukan v1."
+      "requirement_description": "Hanya staging/keberadaan rewrite: diputuskan masuk v1.x, bukan v1. Rincian aturan macro ROADMAP §4 tetap usulan terpisah; S80 adalah konteks migrasi historis.",
+      "source_excerpt": "**`rewrite` (macro dengan postfix `!`):** perlu fase ekspansi, kebersihan nama (*hygiene*), dan introspeksi AST. Pekerjaannya sebesar fitur tersendiri. ✅ Diputuskan: masuk **v1.x**, bukan v1."
     },
     {
       "id": "G2-PRD-15-CONFIG-LINK",
@@ -2432,6 +2432,118 @@
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
       "requirement_description": "Verifikasi pustaka standar map cukup untuk prasyarat self-hosting; ini acceptance kecukupan, bukan usulan API baru atau mulai self-hosting v1.x. Pemilik terkait: G2-PRD-18-SELFHOST-PREREQS, G2-PRD-2-MAP.",
       "source_excerpt": "`map`"
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-EXPANSION-ORDER",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Ekspansi macro terjadi sebelum pengecekan tipe.",
+      "source_excerpt": "- Ekspansi terjadi **sebelum** pengecekan tipe; hasilnya AST biasa yang lalu dicek seperti kode tulisan tangan. Jadi hasil macro tidak punya jalan pintas Safe."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-EXPANSION-AST",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Hasil ekspansi berupa AST biasa; bentuk hasil berbeda dari batas kemampuan mesin ekspander.",
+      "source_excerpt": "- Ekspansi terjadi **sebelum** pengecekan tipe; hasilnya AST biasa yang lalu dicek seperti kode tulisan tangan. Jadi hasil macro tidak punya jalan pintas Safe."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-TYPE-CHECK",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Hasil ekspansi menjalani pengecekan tipe seperti kode tulisan tangan.",
+      "source_excerpt": "- Ekspansi terjadi **sebelum** pengecekan tipe; hasilnya AST biasa yang lalu dicek seperti kode tulisan tangan. Jadi hasil macro tidak punya jalan pintas Safe."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-SAFE-CHECK",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Hasil macro tidak mendapat pengecualian dari pemeriksaan Safe.",
+      "source_excerpt": "- Ekspansi terjadi **sebelum** pengecekan tipe; hasilnya AST biasa yang lalu dicek seperti kode tulisan tangan. Jadi hasil macro tidak punya jalan pintas Safe."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-HYGIENE",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Nama yang dibuat macro tidak bentrok dengan nama di tempat pemanggilan.",
+      "source_excerpt": "- **Hygiene** (kebersihan nama): nama yang dibuat di dalam macro tidak bisa bentrok dengan nama di tempat pemanggilan."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-NO-IO",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Macro tidak melakukan I/O saat ekspansi; larangan kode luar dimiliki atom terpisah.",
+      "source_excerpt": "- Macro **tidak bisa** melakukan I/O atau memanggil kode luar saat ekspansi."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-NO-EXTERNAL",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Macro tidak memanggil kode luar saat ekspansi; larangan I/O dimiliki atom terpisah.",
+      "source_excerpt": "- Macro **tidak bisa** melakukan I/O atau memanggil kode luar saat ekspansi."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-DEPTH-LIMIT",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Kedalaman ekspansi dibatasi untuk menghentikan rekursi; tidak menentukan angka batas baru.",
+      "source_excerpt": "- **Batas ekspansi** (kedalaman dan jumlah node) supaya macro rekursif tidak berputar selamanya."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-NODE-LIMIT",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Jumlah node ekspansi dibatasi; berbeda dari lint ukuran dan batas kedalaman, tanpa angka batas baru.",
+      "source_excerpt": "- **Batas ekspansi** (kedalaman dan jumlah node) supaya macro rekursif tidak berputar selamanya."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-CALLSITE-DIAGNOSTIC",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Lokasi pesan error menunjuk tempat pemanggilan, bukan tengah kode hasil macro; source span node terpisah.",
+      "source_excerpt": "- Pesan error menunjuk ke **tempat pemanggilan** dan menyebut ekspansinya, bukan ke tengah kode hasil macro."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-EXPANSION-DIAGNOSTIC",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Pesan error menyebut ekspansi macro terkait; berbeda dari lokasi call-site.",
+      "source_excerpt": "- Pesan error menunjuk ke **tempat pemanggilan** dan menyebut ekspansinya, bukan ke tengah kode hasil macro."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-USER-ANNOTATION-ENGINE",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Annotation buatan pengguna, misalnya @derive, dibangun di atas mesin ekspansi yang sama; bukan annotation bawaan v1.",
+      "source_excerpt": "- Annotation buatan pengguna (`@derive` dll.) dibangun di atas mesin yang sama."
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-EXPAND-TOOL",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Perintah claw expand menampilkan hasil ekspansi macro.",
+      "source_excerpt": "| Macro menyembunyikan bug | `claw expand` menampilkan hasil ekspansi; lint untuk macro yang menghasilkan lebih dari N node |"
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-SIZE-LINT",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Lint menandai macro yang menghasilkan lebih dari N node; N belum ditentukan, bukan batas keras jumlah node.",
+      "source_excerpt": "| Macro menyembunyikan bug | `claw expand` menampilkan hasil ekspansi; lint untuk macro yang menghasilkan lebih dari N node |"
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-SOURCE-SPAN",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Setiap node hasil macro membawa lokasi asal (source span); penyimpanan pemetaan berbeda dari penyajian diagnostik call-site.",
+      "source_excerpt": "| Pesan error membingungkan | Setiap node hasil macro membawa lokasi asal (*source span*) |"
+    },
+    {
+      "id": "G2-ROADMAP-4-REWRITE-AST-ONLY-ENGINE",
+      "source": "ROADMAP:4",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+      "requirement_description": "Ekspander hanya memanipulasi AST tanpa logika sembarang; batas kemampuan mesin, bukan sekadar bentuk hasil AST.",
+      "source_excerpt": "| Mesin ekspansi menjadi bahasa kedua yang rumit | Ekspander hanya memanipulasi AST; tidak ada logika sembarang |"
     }
   ]
 }

@@ -18,7 +18,7 @@ class TestFeatureStatusValidator(unittest.TestCase):
         self.addCleanup(shutil.rmtree, temp)
         (temp / "cat-northstar").mkdir(); (temp / "claw/tests/frontend/fixtures").mkdir(parents=True)
         (temp / "cat-northstar/PRD.md").write_text("\n".join(f"## {n}. Requirement {n}" for n in prd_numbers) + "\n", encoding="utf-8")
-        (temp / "cat-northstar/ROADMAP-v1-plus.md").write_text("# Post-v1\n", encoding="utf-8")
+        (temp / "cat-northstar/ROADMAP-v1-plus.md").write_text("# Post-v1\n\n## 4. v1.3 rewrite macro\n\nRoadmap proposal text.\n\n## 5. v1.4 threading\n\nLater proposal.\n", encoding="utf-8")
         plan = ["## 2. Perubahan global\n", "| # | Perubahan | Versi |\n", "| --- | --- | --- |\n"] + [f"| G{i} | change | v0.1 |\n" for i in range(1, 9)] + ["## 4. Milestone final v0.1 sampai v1.0\n", "| Versi | Isi | Bukti |\n", "| --- | --- | --- |\n"] + [f"| {'v1.0' if i == 10 else f'v0.{i}'} | milestone | proof |\n" for i in range(1, 11)]
         (temp / "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md").write_text("".join(plan), encoding="utf-8")
         (temp / "evidence.md").write_text("# Evidence\n\n## Proof\n", encoding="utf-8")
@@ -176,7 +176,7 @@ class TestFeatureStatusValidator(unittest.TestCase):
         self.assertIn("§2 heading", self.validate_cli(root).stderr)
 
     def test_malformed_sources_report_errors_without_traceback(self):
-        for bad in ("PRD:x", "PLAN:Gx", "PLAN:Mxx", "missing-colon"):
+        for bad in ("PRD:x", "PLAN:Gx", "PLAN:Mxx", "ROADMAP:x", "missing-colon"):
             with self.subTest(source=bad):
                 rows = self.valid_rows(); rows[0] = rows[0].replace("PRD:1", bad)
                 result = self.validate_cli(self.make_repo(rows))
@@ -342,6 +342,69 @@ class TestFeatureStatusValidator(unittest.TestCase):
         result = self.validate_cli(root)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("documentation-only", result.stderr)
+
+    def roadmap_repo(self, source="ROADMAP:4", anchor="4-v13-rewrite-macro", label="[diusulkan]", path=None):
+        root = self.make_repo(self.valid_rows())
+        ident = "G2-ROADMAP-4-REWRITE-PROPOSAL"
+        source_path = path or "cat-northstar/ROADMAP-v1-plus.md"
+        source_anchor = f"{source_path}#{anchor}"
+        ledger = root / "cat-northstar/FEATURE-STATUS.md"
+        ledger.write_text(ledger.read_text() + f"| {ident} | {source} | rewrite proposal | {label} | proposal only | Belum diimplementasikan | [source]({source_anchor.removeprefix('cat-northstar/')}) | pending ratification | governance docs |\n")
+        manifest_path = root / "cat-northstar/feature-status-atoms.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest[ident] = {"source_anchor": source_anchor, "fixtures": [], "assertions": []}
+        manifest_path.write_text(json.dumps(manifest))
+        index_path = root / "cat-northstar/feature-status-source-index.json"
+        index = json.loads(index_path.read_text())
+        index["atoms"].append({"id": ident, "source": source, "source_anchor": source_anchor, "requirement_description": "Roadmap design proposal", "source_excerpt": "Roadmap proposal text."})
+        index_path.write_text(json.dumps(index))
+        return root
+
+    def test_roadmap_numeric_section_and_exact_file_pass(self):
+        result = self.validate_cli(self.roadmap_repo())
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_roadmap_wrong_file_or_heading_section_is_rejected(self):
+        cases = (("cat-northstar/PRD.md", "1-requirement-1", "must target ROADMAP-v1-plus.md"),
+                 ("cat-northstar/ROADMAP-v1-plus.md", "5-v14-threading", "does not match ROADMAP:4"),
+                 ("cat-northstar/ROADMAP-v1-plus.md", "6-missing", "heading not found"))
+        for path, anchor, expected in cases:
+            with self.subTest(path=path, anchor=anchor):
+                result = self.validate_cli(self.roadmap_repo(path=path, anchor=anchor))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected, result.stderr)
+
+    def test_roadmap_proposal_cannot_escalate_label(self):
+        for label in ("[diputuskan]", "[diterima compiler]"):
+            with self.subTest(label=label):
+                result = self.validate_cli(self.roadmap_repo(label=label))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("ROADMAP sources are design proposals", result.stderr)
+
+    def test_roadmap_source_index_source_mismatch_is_rejected(self):
+        root = self.roadmap_repo()
+        path = root / "cat-northstar/feature-status-source-index.json"
+        index = json.loads(path.read_text())
+        index["atoms"][-1]["source"] = "PRD:15"
+        path.write_text(json.dumps(index))
+        result = self.validate_cli(root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source does not match ledger", result.stderr)
+
+    def test_roadmap_source_index_anchor_mismatch_is_rejected(self):
+        root = self.roadmap_repo()
+        path = root / "cat-northstar/feature-status-source-index.json"
+        index = json.loads(path.read_text())
+        index["atoms"][-1]["source_anchor"] = "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading"
+        path.write_text(json.dumps(index))
+        result = self.validate_cli(root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source_anchor does not match manifest", result.stderr)
+
+    def test_roadmap_unknown_numeric_section_is_rejected(self):
+        result = self.validate_cli(self.roadmap_repo(source="ROADMAP:99", anchor="99-missing"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("heading not found", result.stderr)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

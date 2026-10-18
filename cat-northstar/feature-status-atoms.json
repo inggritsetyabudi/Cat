@@ -2240,5 +2240,85 @@
     "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
     "fixtures": [],
     "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-EXPANSION-ORDER": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-EXPANSION-AST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-TYPE-CHECK": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-SAFE-CHECK": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-HYGIENE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-NO-IO": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-NO-EXTERNAL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-DEPTH-LIMIT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-NODE-LIMIT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-CALLSITE-DIAGNOSTIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-EXPANSION-DIAGNOSTIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-USER-ANNOTATION-ENGINE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-EXPAND-TOOL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-SIZE-LINT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-SOURCE-SPAN": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-AST-ONLY-ENGINE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
   }
 }

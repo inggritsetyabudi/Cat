@@ -32,7 +32,7 @@ class TestFeatureStatusSourceIndex(unittest.TestCase):
         self.temp = Path(tempfile.mkdtemp(prefix="feature-status-source-index-"))
         self.addCleanup(shutil.rmtree, self.temp)
         (self.temp / "cat-northstar").mkdir()
-        for name in ("feature-status-source-index.json", "PRD.md", "PRD-CHANGES-v0.1-to-v1.0.md"):
+        for name in ("feature-status-source-index.json", "PRD.md", "PRD-CHANGES-v0.1-to-v1.0.md", "ROADMAP-v1-plus.md"):
             shutil.copy(ROOT / "cat-northstar" / name, self.temp / "cat-northstar" / name)
 
     def index(self):
