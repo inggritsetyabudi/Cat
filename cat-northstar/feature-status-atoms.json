@@ -2390,5 +2390,545 @@
     "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
     "fixtures": [],
     "assertions": []
+  },
+  "G2-ROADMAP-0-DESIGN-FIRST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-0-NON-GOALS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-0-NEGATIVE-TESTS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-0-MEASURABLE-CRITERIA": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-0-BOOTSTRAP-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V11": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V12": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V13": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V14": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V15": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V16": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V17": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V20": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-FILE-IO": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-STRING-BUILDER": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-VEC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-MAP": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-SET": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-TIME": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-PROCESS-ARGS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-MAYBE-RESULT-HELPERS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-FMT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-DOC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-TEST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LANGUAGE-SERVER-INLAY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-SELFHOST-ADEQUACY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-STAGE0": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-STAGE1": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-STAGE2": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-STAGE3": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-BYTE-IDENTICAL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-SAME-SUITE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-LANGUAGE-FINDINGS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-CPP-RETENTION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-RACE-FREE-GOAL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-STRUCTURAL-DERIVATION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SEND-TRANSFER": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SYNC-SHARING": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SPAWN-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SCOPED-BORROW": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-MUTABLE-EXCLUSION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-DATAFLOW-SPAWN": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-STATIC-SYNC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-CHILD-DEFECT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-THREAD-RUNTIME": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-ATOMIC-LLVM": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SEQ-CST-DEFAULT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-EXPLICIT-ORDERING": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SPAWN-CLOSURE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-OWNED-CAPTURE-MOVE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-CAPTURE-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-NEGATIVE-MUTABLE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-NEGATIVE-NON-SYNC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-NEGATIVE-STATIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-TSAN": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SCHEDULE-EXPLORATION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-CHANNEL-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-MOVE-AFTER-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-RECEIVER-END": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-DEADLOCK-LIMIT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-CAPACITY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-TRY-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-TRY-RECV": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-SAFE-PATTERNS-DOC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-CORE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-STD": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-LLVM-TRIPLE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-BARE-PROFILE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-RAW-REGISTERS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-INTERRUPT-HANDLER": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-OFFICIAL-STAGE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-FIXED-POOL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-READ-ONLY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-PLAIN-TYPES": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-ALLOC-REF": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-RESET-BORROW": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-FULL-MAYBE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-WRITABLE-DEFERRED": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-STD-WRAPS-CORE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-CORE-EMULATOR-TESTS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-A-THREAD-CHANNEL-POLLING": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-B-ASYNC-AWAIT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-C-GREEN-THREADS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-RECOMMEND-A": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-BENCHMARK-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-NO-DECISION-WITHOUT-DATA": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BORROW-FORMAL-MODEL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BORROW-DIFFERENTIAL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BORROW-RANDOM-SAFETY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-REFMUT-SCOPED": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-REFMUT-EXCLUSIVITY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-REFMUT-NEGATIVES": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-SIMD-LLVM": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-SIMD-BENCHMARK": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BACKEND-TARGETS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BACKEND-SUITE-PARITY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-GPU-EXPLORATION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-GPU-NEED-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-CONVERT-DESIGN": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-CONVERT-NEGATIVES": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-DEFAULT-TYPE-LIST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-DEFAULT-GENERIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-OPEN-SHAPE-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-FUNCTION-CONST-GENERIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-USER-ANNOTATION-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-QUEUE-CONSISTENCY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-NARROW-CONVERSION-TABLE-TESTS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-ARENA-COMPILER-AST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
   }
 }

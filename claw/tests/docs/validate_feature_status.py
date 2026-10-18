@@ -10,6 +10,7 @@ from pathlib import Path
 
 from feature_status_shell_checks import STDOUT_IF, stdout_check_errors
 from feature_status_source_index import validate_source_index
+from feature_status_roadmap import validate_roadmap_inventory
 
 HEADERS = ("ID", "Sumber", "Irisan", "Label", "Keputusan semantik", "Lingkup implementasi", "Bukti penerimaan", "Sisa", "Dimensi non-compiler")
 LABELS = ("[diusulkan]", "[diputuskan]", "[diterima compiler]")
@@ -368,6 +369,11 @@ def validate(root: Path) -> list[str]:
     unknown = sorted(source for source in set(sources) - required_sources if not source.startswith(("PLAN:S", "ROADMAP:")))
     if unknown: errors.append("unrecognized sources: " + ", ".join(unknown))
     _validate_manifest(root, rows, errors)
+    # Full PRD inventory: require independently enumerated roadmap owners even
+    # when an atom has been removed consistently from ledger/index/manifest.
+    # Small synthetic unit-test PRDs do not represent the full product corpus.
+    if "20" in prd_numbers:
+        errors.extend(validate_roadmap_inventory(root, rows))
     return errors
 
 def main(argv: list[str] | None = None) -> int:

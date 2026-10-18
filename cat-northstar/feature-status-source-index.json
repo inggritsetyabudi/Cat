@@ -2558,6 +2558,762 @@
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
       "requirement_description": "Dokumen ringkas harus dihasilkan otomatis dari sumber Ringkas:, dengan hubungan output/sumber dapat diperiksa.",
       "source_excerpt": "dokumen ringkas dibuat otomatis dari baris `Ringkas:`"
+    },
+    {
+      "id": "G2-ROADMAP-0-DESIGN-FIRST",
+      "source": "ROADMAP:0",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+      "requirement_description": "Desain fitur pasca-v1 ditulis lebih dulu.",
+      "source_excerpt": "1. **Desain tertulis lebih dulu**, termasuk daftar apa yang sengaja tidak dikerjakan."
+    },
+    {
+      "id": "G2-ROADMAP-0-NON-GOALS",
+      "source": "ROADMAP:0",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+      "requirement_description": "Desain menyertakan daftar yang sengaja tidak dikerjakan.",
+      "source_excerpt": "1. **Desain tertulis lebih dulu**, termasuk daftar apa yang sengaja tidak dikerjakan."
+    },
+    {
+      "id": "G2-ROADMAP-0-NEGATIVE-TESTS",
+      "source": "ROADMAP:0",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+      "requirement_description": "Fitur pasca-v1 menyertakan tes negatif khusus Safe.",
+      "source_excerpt": "2. **Tes negatif**: program yang harus ditolak (khusus Safe)."
+    },
+    {
+      "id": "G2-ROADMAP-0-MEASURABLE-CRITERIA",
+      "source": "ROADMAP:0",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+      "requirement_description": "Fitur pasca-v1 mempunyai kriteria Fast/Safe/Simple terukur.",
+      "source_excerpt": "3. **Kriteria Fast/Safe/Simple** yang terukur untuk fitur itu."
+    },
+    {
+      "id": "G2-ROADMAP-0-BOOTSTRAP-GATE",
+      "source": "ROADMAP:0",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+      "requirement_description": "Fitur pasca-v1 lolos bootstrap dengan hasil biner identik.",
+      "source_excerpt": "4. **Lolos bootstrap**: compiler C@ yang membangun dirinya sendiri tetap menghasilkan biner identik."
+    },
+    {
+      "id": "G2-ROADMAP-1-V11",
+      "source": "ROADMAP:1",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+      "requirement_description": "Urutan v1.1 untuk pustaka standar/tooling adalah usulan prasyarat self-hosting dan pengujian Simple.",
+      "source_excerpt": "| v1.1 | Pustaka standar dan tooling (`fmt`, `doc`, `test`, language server) | Prasyarat self-hosting; menguji \"Simple\" |"
+    },
+    {
+      "id": "G2-ROADMAP-1-V12",
+      "source": "ROADMAP:1",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+      "requirement_description": "Penempatan bootstrap pada v1.2 adalah usulan; mulai setelah v1 tetap keputusan staging, bukan target versi yang sudah diratifikasi.",
+      "source_excerpt": "| v1.2 | **Self-hosting** (bootstrap) | Ujian akhir slogan v1 |"
+    },
+    {
+      "id": "G2-ROADMAP-1-V13",
+      "source": "ROADMAP:1",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+      "requirement_description": "Penempatan rewrite pada v1.3 dan ekspander ditulis dalam C@ adalah usulan; staging ratifikasi v1.x tetap G2-PRD-15-REWRITE.",
+      "source_excerpt": "| v1.3 | **`rewrite` (macro)** | Ekspander ditulis dengan C@ sendiri |"
+    },
+    {
+      "id": "G2-ROADMAP-1-V14",
+      "source": "ROADMAP:1",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+      "requirement_description": "Urutan threading pada v1.4 sebagai fondasi concurrency aman adalah usulan.",
+      "source_excerpt": "| v1.4 | **Threading** (thread terstruktur, mutex, atomik) | Fondasi concurrency yang aman |"
+    },
+    {
+      "id": "G2-ROADMAP-1-V15",
+      "source": "ROADMAP:1",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+      "requirement_description": "Urutan channel pada v1.5 setelah threading adalah usulan.",
+      "source_excerpt": "| v1.5 | **Channel** (message passing) | Memindahkan kepemilikan antar thread |"
+    },
+    {
+      "id": "G2-ROADMAP-1-V16",
+      "source": "ROADMAP:1",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+      "requirement_description": "Urutan profil embedded pada v1.6 adalah usulan.",
+      "source_excerpt": "| v1.6 | **Profil embedded** (`core`, tanpa OS) | Target mikrokontroler |"
+    },
+    {
+      "id": "G2-ROADMAP-1-V17",
+      "source": "ROADMAP:1",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+      "requirement_description": "Urutan keputusan async pada v1.7 adalah usulan dan hanya dikerjakan bila terbukti perlu.",
+      "source_excerpt": "| v1.7 | **Keputusan async** | Hanya dikerjakan bila terbukti perlu |"
+    },
+    {
+      "id": "G2-ROADMAP-1-V20",
+      "source": "ROADMAP:1",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+      "requirement_description": "Penempatan penguatan formal, ref mut[s], SIMD dan backend tambahan pada v2.0 adalah usulan.",
+      "source_excerpt": "| v2.0 | Verifikasi formal, `ref mut[s]`, SIMD, backend tambahan | Penguatan jangka panjang |"
+    },
+    {
+      "id": "G2-ROADMAP-2-LIBRARY-FILE-IO",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Cakupan pustaka v1.1 mencakup file I/O; kecukupan workload v1 dimiliki G2-PLAN-M10-SELFHOST-FILE-IO.",
+      "source_excerpt": "- **Pustaka:** file I/O, string builder, `vec`, `map`, `set`, waktu, argumen proses, `Maybe`/`Result` helper."
+    },
+    {
+      "id": "G2-ROADMAP-2-LIBRARY-STRING-BUILDER",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Cakupan pustaka v1.1 mencakup string builder; API dasar dan kecukupan v1 tetap pada owner PRD/PLAN.",
+      "source_excerpt": "- **Pustaka:** file I/O, string builder, `vec`, `map`, `set`, waktu, argumen proses, `Maybe`/`Result` helper."
+    },
+    {
+      "id": "G2-ROADMAP-2-LIBRARY-VEC",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Cakupan pustaka v1.1 mencakup vec; literal dan kecukupan v1 tetap pada owner PRD/PLAN.",
+      "source_excerpt": "- **Pustaka:** file I/O, string builder, `vec`, `map`, `set`, waktu, argumen proses, `Maybe`/`Result` helper."
+    },
+    {
+      "id": "G2-ROADMAP-2-LIBRARY-MAP",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Cakupan pustaka v1.1 mencakup map; literal dan kecukupan v1 tetap pada owner PRD/PLAN.",
+      "source_excerpt": "- **Pustaka:** file I/O, string builder, `vec`, `map`, `set`, waktu, argumen proses, `Maybe`/`Result` helper."
+    },
+    {
+      "id": "G2-ROADMAP-2-LIBRARY-SET",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Cakupan pustaka v1.1 mencakup set; ini bukan duplikasi keputusan literal set.",
+      "source_excerpt": "- **Pustaka:** file I/O, string builder, `vec`, `map`, `set`, waktu, argumen proses, `Maybe`/`Result` helper."
+    },
+    {
+      "id": "G2-ROADMAP-2-LIBRARY-TIME",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Cakupan pustaka v1.1 mencakup waktu.",
+      "source_excerpt": "- **Pustaka:** file I/O, string builder, `vec`, `map`, `set`, waktu, argumen proses, `Maybe`/`Result` helper."
+    },
+    {
+      "id": "G2-ROADMAP-2-LIBRARY-PROCESS-ARGS",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Cakupan pustaka v1.1 mencakup argumen proses.",
+      "source_excerpt": "- **Pustaka:** file I/O, string builder, `vec`, `map`, `set`, waktu, argumen proses, `Maybe`/`Result` helper."
+    },
+    {
+      "id": "G2-ROADMAP-2-LIBRARY-MAYBE-RESULT-HELPERS",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Cakupan pustaka v1.1 mencakup helper Maybe/Result, bukan penamaan atau varian dasar tipe.",
+      "source_excerpt": "- **Pustaka:** file I/O, string builder, `vec`, `map`, `set`, waktu, argumen proses, `Maybe`/`Result` helper."
+    },
+    {
+      "id": "G2-ROADMAP-2-FMT",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "claw fmt memakai satu gaya tanpa opsi.",
+      "source_excerpt": "- **Tooling:** `claw fmt` (satu gaya, tanpa opsi, supaya Simple), `claw doc` (dari `///` pada item `share`), `claw test` (dari `@test`), language server (inlay hint nama parameter, yang menutup risiko \"tanpa argumen bernama\")."
+    },
+    {
+      "id": "G2-ROADMAP-2-DOC",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "claw doc menghasilkan dokumentasi dari /// pada item share; visibilitas dasar tetap G2-PRD-17-SHARE.",
+      "source_excerpt": "- **Tooling:** `claw fmt` (satu gaya, tanpa opsi, supaya Simple), `claw doc` (dari `///` pada item `share`), `claw test` (dari `@test`), language server (inlay hint nama parameter, yang menutup risiko \"tanpa argumen bernama\")."
+    },
+    {
+      "id": "G2-ROADMAP-2-TEST",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "claw test menggunakan @test; keberadaan annotation bawaan dimiliki G2-PRD-15-ANNOTATION-TEST.",
+      "source_excerpt": "- **Tooling:** `claw fmt` (satu gaya, tanpa opsi, supaya Simple), `claw doc` (dari `///` pada item `share`), `claw test` (dari `@test`), language server (inlay hint nama parameter, yang menutup risiko \"tanpa argumen bernama\")."
+    },
+    {
+      "id": "G2-ROADMAP-2-LANGUAGE-SERVER-INLAY",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Language server memberikan inlay hint nama parameter sebagai mitigasi tanpa argumen bernama.",
+      "source_excerpt": "- **Tooling:** `claw fmt` (satu gaya, tanpa opsi, supaya Simple), `claw doc` (dari `///` pada item `share`), `claw test` (dari `@test`), language server (inlay hint nama parameter, yang menutup risiko \"tanpa argumen bernama\")."
+    },
+    {
+      "id": "G2-ROADMAP-2-SELFHOST-ADEQUACY",
+      "source": "ROADMAP:2",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+      "requirement_description": "Compiler C@ dapat ditulis hanya memakai pustaka yang diusulkan di bagian ini; berbeda dari kecukupan empat komponen gerbang v1.",
+      "source_excerpt": "- **Gerbang:** compiler C@ bisa ditulis hanya dengan pustaka ini."
+    },
+    {
+      "id": "G2-ROADMAP-3-STAGE0",
+      "source": "ROADMAP:3",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+      "requirement_description": "stage0 adalah biner awal yang dibangun oleh compiler C++ saat ini.",
+      "source_excerpt": "| stage0 | compiler C++ saat ini | biner awal |"
+    },
+    {
+      "id": "G2-ROADMAP-3-STAGE1",
+      "source": "ROADMAP:3",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+      "requirement_description": "stage0 mengompilasi sumber C@ untuk menghasilkan compiler C@ pertama, stage1.",
+      "source_excerpt": "| stage1 | stage0 mengompilasi sumber C@ | compiler C@ pertama |"
+    },
+    {
+      "id": "G2-ROADMAP-3-STAGE2",
+      "source": "ROADMAP:3",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+      "requirement_description": "stage1 mengompilasi sumber sama untuk menghasilkan compiler C@ kedua, stage2.",
+      "source_excerpt": "| stage2 | stage1 mengompilasi sumber yang sama | compiler C@ kedua |"
+    },
+    {
+      "id": "G2-ROADMAP-3-STAGE3",
+      "source": "ROADMAP:3",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+      "requirement_description": "stage2 mengompilasi sumber sama untuk menghasilkan stage3.",
+      "source_excerpt": "| stage3 | stage2 mengompilasi sumber yang sama | harus **identik byte** dengan stage2 |"
+    },
+    {
+      "id": "G2-ROADMAP-3-BYTE-IDENTICAL",
+      "source": "ROADMAP:3",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+      "requirement_description": "stage3 harus identik byte dengan stage2, yakni fixed point pada L53 yang menunjukkan konsistensi compiler dengan dirinya sendiri, bukan bukti bebas bug atau safety universal.",
+      "source_excerpt": "| stage3 | stage2 mengompilasi sumber yang sama | harus **identik byte** dengan stage2 |\n\nJika stage2 dan stage3 identik (*fixed point*), compiler terbukti konsisten dengan dirinya sendiri."
+    },
+    {
+      "id": "G2-ROADMAP-3-SAME-SUITE",
+      "source": "ROADMAP:3",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+      "requirement_description": "Suite sama dijalankan pada stage0, stage1 dan stage2 dengan hasil sama.",
+      "source_excerpt": "| Bug di stage0 menurun ke stage1 | Suite tes yang sama dijalankan di stage0, stage1, dan stage2; hasilnya harus sama |"
+    },
+    {
+      "id": "G2-ROADMAP-3-LANGUAGE-FINDINGS",
+      "source": "ROADMAP:3",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+      "requirement_description": "Kekurangan fitur saat self-hosting dicatat sebagai temuan tertunda atau edition berikutnya, bukan tambalan mendadak.",
+      "source_excerpt": "| Fitur bahasa yang kurang terasa saat menulis compiler | Catat sebagai temuan; masuk daftar tertunda atau edition berikutnya, bukan tambalan mendadak |"
+    },
+    {
+      "id": "G2-ROADMAP-3-CPP-RETENTION",
+      "source": "ROADMAP:3",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+      "requirement_description": "Compiler C++ dipertahankan sampai stage3 identik selama beberapa rilis.",
+      "source_excerpt": "| Compiler C++ lama dibuang terlalu cepat | Dipertahankan sampai stage3 identik selama beberapa rilis |"
+    },
+    {
+      "id": "G2-ROADMAP-5-RACE-FREE-GOAL",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Tujuan threading adalah bebas data race oleh sistem tipe tanpa biaya runtime tambahan; ini target desain, bukan bukti tercapai.",
+      "source_excerpt": "**Tujuan:** thread yang **bebas data race** oleh sistem tipe, tanpa biaya runtime tambahan."
+    },
+    {
+      "id": "G2-ROADMAP-5-STRUCTURAL-DERIVATION",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Kontrak thread diturunkan otomatis dari struktur tipe; nama Send/Sync tetap owner PRD:20.",
+      "source_excerpt": "**Dua kontrak penanda** (diturunkan otomatis dari struktur tipe; nama final diputuskan nanti agar tidak bentrok dengan kata `share`):"
+    },
+    {
+      "id": "G2-ROADMAP-5-SEND-TRANSFER",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Send berarti nilai boleh dipindahkan ke thread lain; keputusan nama tetap G2-PRD-20-SEND.",
+      "source_excerpt": "| `Send` | nilai boleh **dipindahkan** ke thread lain |"
+    },
+    {
+      "id": "G2-ROADMAP-5-SYNC-SHARING",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Sync berarti ref ke nilai boleh dipakai bersama dari beberapa thread; keputusan nama tetap G2-PRD-20-SYNC.",
+      "source_excerpt": "| `Sync` | `ref` ke nilai boleh **dipakai bersamaan** dari beberapa thread |"
+    },
+    {
+      "id": "G2-ROADMAP-5-SPAWN-SEND",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "spawn hanya menerima argumen bertipe Send.",
+      "source_excerpt": "- `spawn` hanya menerima argumen bertipe `Send`; pinjaman harus terikat ke `scope` yang akan menunggu."
+    },
+    {
+      "id": "G2-ROADMAP-5-SCOPED-BORROW",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Pinjaman pada spawn terikat ke scope yang menunggu selesainya thread.",
+      "source_excerpt": "- `spawn` hanya menerima argumen bertipe `Send`; pinjaman harus terikat ke `scope` yang akan menunggu."
+    },
+    {
+      "id": "G2-ROADMAP-5-MUTABLE-EXCLUSION",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Dua thread tidak boleh memegang ref mut ke data sama; ini perluasan lintas spawn dari G2-PRD-9-MUTABLE-OVERLAP.",
+      "source_excerpt": "- Dua thread tidak boleh memegang `ref mut` ke data yang sama; borrow checker dataflow (v0.7) diperluas melintasi `spawn`."
+    },
+    {
+      "id": "G2-ROADMAP-5-DATAFLOW-SPAWN",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Borrow checker dataflow diperluas melintasi spawn; aturan liveness dasar tetap G2-PRD-9-DATAFLOW.",
+      "source_excerpt": "- Dua thread tidak boleh memegang `ref mut` ke data yang sama; borrow checker dataflow (v0.7) diperluas melintasi `spawn`."
+    },
+    {
+      "id": "G2-ROADMAP-5-STATIC-SYNC",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "static mutable tanpa tipe Sync ditolak.",
+      "source_excerpt": "- `static` mutable tanpa tipe `Sync` = error."
+    },
+    {
+      "id": "G2-ROADMAP-5-CHILD-DEFECT",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Defect pada thread anak menghentikan seluruh program; alternatif join mengembalikan Result hanya pertimbangan nanti.",
+      "source_excerpt": "- Defect di thread anak menghentikan seluruh program (aturan paling sederhana dan aman; alternatif `join` mengembalikan `Result` bisa dipertimbangkan nanti)."
+    },
+    {
+      "id": "G2-ROADMAP-5-THREAD-RUNTIME",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Thread dilaksanakan lewat runtime pthread atau setara.",
+      "source_excerpt": "**LLVM:** thread lewat runtime (pthread atau setara). Atomik memakai `atomicrmw`, `cmpxchg`, dan `fence`. Urutan memori default **seq_cst** (paling mudah dan aman); `acquire`/`release` eksplisit untuk kode yang butuh kecepatan."
+    },
+    {
+      "id": "G2-ROADMAP-5-ATOMIC-LLVM",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Atomik memakai LLVM atomicrmw, cmpxchg dan fence.",
+      "source_excerpt": "**LLVM:** thread lewat runtime (pthread atau setara). Atomik memakai `atomicrmw`, `cmpxchg`, dan `fence`. Urutan memori default **seq_cst** (paling mudah dan aman); `acquire`/`release` eksplisit untuk kode yang butuh kecepatan."
+    },
+    {
+      "id": "G2-ROADMAP-5-SEQ-CST-DEFAULT",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Urutan memori default adalah seq_cst.",
+      "source_excerpt": "**LLVM:** thread lewat runtime (pthread atau setara). Atomik memakai `atomicrmw`, `cmpxchg`, dan `fence`. Urutan memori default **seq_cst** (paling mudah dan aman); `acquire`/`release` eksplisit untuk kode yang butuh kecepatan."
+    },
+    {
+      "id": "G2-ROADMAP-5-EXPLICIT-ORDERING",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Ordering lebih lemah hanya eksplisit dan terdokumentasi; L135 menyebut acquire/release untuk kebutuhan kecepatan.",
+      "source_excerpt": "| `seq_cst` lebih lambat dari perlu | Dipakai sebagai default; ordering lemah hanya eksplisit dan terdokumentasi |"
+    },
+    {
+      "id": "G2-ROADMAP-5-SPAWN-CLOSURE",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "spawn menerima closure; keberadaan dan bentuk dasar closure tetap owner PRD/PLAN, bukan proposal baru.",
+      "source_excerpt": "**Closure:** `spawn` menerima closure (diputuskan: C@ punya closure). Closure yang menangkap nilai milik wajib `move`, dan hanya `Send` bila semua tangkapannya `Send`."
+    },
+    {
+      "id": "G2-ROADMAP-5-OWNED-CAPTURE-MOVE",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Closure untuk spawn yang menangkap nilai milik wajib move; arti move dasar tetap G2-PRD-20-CLOSURE-MOVE.",
+      "source_excerpt": "**Closure:** `spawn` menerima closure (diputuskan: C@ punya closure). Closure yang menangkap nilai milik wajib `move`, dan hanya `Send` bila semua tangkapannya `Send`."
+    },
+    {
+      "id": "G2-ROADMAP-5-CAPTURE-SEND",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Closure hanya Send jika semua tangkapannya Send.",
+      "source_excerpt": "**Closure:** `spawn` menerima closure (diputuskan: C@ punya closure). Closure yang menangkap nilai milik wajib `move`, dan hanya `Send` bila semua tangkapannya `Send`."
+    },
+    {
+      "id": "G2-ROADMAP-5-NEGATIVE-MUTABLE",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Suite negatif threading mencakup dua ref mut lintas thread ke data sama.",
+      "source_excerpt": "| Data race lolos | Tes negatif (dua `ref mut`, `ref` non-`Sync` lintas thread, `static mut` telanjang) + ThreadSanitizer pada runtime |"
+    },
+    {
+      "id": "G2-ROADMAP-5-NEGATIVE-NON-SYNC",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Suite negatif threading mencakup ref non-Sync lintas thread.",
+      "source_excerpt": "| Data race lolos | Tes negatif (dua `ref mut`, `ref` non-`Sync` lintas thread, `static mut` telanjang) + ThreadSanitizer pada runtime |"
+    },
+    {
+      "id": "G2-ROADMAP-5-NEGATIVE-STATIC",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Suite negatif threading mencakup static mut telanjang.",
+      "source_excerpt": "| Data race lolos | Tes negatif (dua `ref mut`, `ref` non-`Sync` lintas thread, `static mut` telanjang) + ThreadSanitizer pada runtime |"
+    },
+    {
+      "id": "G2-ROADMAP-5-TSAN",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Runtime threading diuji memakai ThreadSanitizer.",
+      "source_excerpt": "| Data race lolos | Tes negatif (dua `ref mut`, `ref` non-`Sync` lintas thread, `static mut` telanjang) + ThreadSanitizer pada runtime |"
+    },
+    {
+      "id": "G2-ROADMAP-5-SCHEDULE-EXPLORATION",
+      "source": "ROADMAP:5",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+      "requirement_description": "Primitif inti diuji dengan eksplorasi urutan eksekusi thread.",
+      "source_excerpt": "| Bug urutan eksekusi sulit direproduksi | Tes yang menjelajahi urutan eksekusi thread (*schedule exploration*) untuk primitif inti |"
+    },
+    {
+      "id": "G2-ROADMAP-6-CHANNEL-SEND",
+      "source": "ROADMAP:6",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+      "requirement_description": "channel[T] dibatasi pada T: Send.",
+      "source_excerpt": "- `channel[T]` hanya untuk `T: Send`."
+    },
+    {
+      "id": "G2-ROADMAP-6-MOVE-AFTER-SEND",
+      "source": "ROADMAP:6",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+      "requirement_description": "Nilai yang dikirim tidak boleh dipakai lagi oleh pengirim; konteks channel, bukan aturan move umum baru.",
+      "source_excerpt": "- Nilai yang sudah dikirim tidak bisa dipakai lagi oleh pengirim (aturan *move* yang sudah ada)."
+    },
+    {
+      "id": "G2-ROADMAP-6-RECEIVER-END",
+      "source": "ROADMAP:6",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+      "requirement_description": "Contoh channel mengakhiri scan receiver saat seluruh pengirim selesai.",
+      "source_excerpt": "scan msg over rx { println(msg) }    // berhenti saat semua pengirim selesai"
+    },
+    {
+      "id": "G2-ROADMAP-6-DEADLOCK-LIMIT",
+      "source": "ROADMAP:6",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+      "requirement_description": "Sistem tipe channel tidak diklaim mencegah deadlock.",
+      "source_excerpt": "- **Risiko:** deadlock tidak bisa dicegah oleh tipe. **Penutup:** channel berkapasitas dengan `try_send`/`try_recv`, plus dokumentasi pola yang aman."
+    },
+    {
+      "id": "G2-ROADMAP-6-CAPACITY",
+      "source": "ROADMAP:6",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+      "requirement_description": "Mitigasi channel menyediakan kapasitas.",
+      "source_excerpt": "- **Risiko:** deadlock tidak bisa dicegah oleh tipe. **Penutup:** channel berkapasitas dengan `try_send`/`try_recv`, plus dokumentasi pola yang aman."
+    },
+    {
+      "id": "G2-ROADMAP-6-TRY-SEND",
+      "source": "ROADMAP:6",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+      "requirement_description": "Mitigasi channel menyediakan try_send tanpa menetapkan signature atau hasil baru.",
+      "source_excerpt": "- **Risiko:** deadlock tidak bisa dicegah oleh tipe. **Penutup:** channel berkapasitas dengan `try_send`/`try_recv`, plus dokumentasi pola yang aman."
+    },
+    {
+      "id": "G2-ROADMAP-6-TRY-RECV",
+      "source": "ROADMAP:6",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+      "requirement_description": "Mitigasi channel menyediakan try_recv tanpa menetapkan signature atau hasil baru.",
+      "source_excerpt": "- **Risiko:** deadlock tidak bisa dicegah oleh tipe. **Penutup:** channel berkapasitas dengan `try_send`/`try_recv`, plus dokumentasi pola yang aman."
+    },
+    {
+      "id": "G2-ROADMAP-6-SAFE-PATTERNS-DOC",
+      "source": "ROADMAP:6",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+      "requirement_description": "Mitigasi deadlock mencakup dokumentasi pola channel yang aman.",
+      "source_excerpt": "- **Risiko:** deadlock tidak bisa dicegah oleh tipe. **Penutup:** channel berkapasitas dengan `try_send`/`try_recv`, plus dokumentasi pola yang aman."
+    },
+    {
+      "id": "G2-ROADMAP-7-CORE",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "core tidak memakai alokasi maupun OS; program embedded hanya memakai core.",
+      "source_excerpt": "- **Dua lapis pustaka:** `core` (tanpa alokasi, tanpa OS) dan `std` (butuh OS dan heap). Program embedded hanya memakai `core`."
+    },
+    {
+      "id": "G2-ROADMAP-7-STD",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "std adalah lapisan yang membutuhkan OS dan heap.",
+      "source_excerpt": "- **Dua lapis pustaka:** `core` (tanpa alokasi, tanpa OS) dan `std` (butuh OS dan heap). Program embedded hanya memakai `core`."
+    },
+    {
+      "id": "G2-ROADMAP-7-LLVM-TRIPLE",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Target embedded ditentukan lewat triple LLVM, dengan Cortex-M/RISC-V sebagai contoh, bukan jaminan target diterima.",
+      "source_excerpt": "- Target lewat triple LLVM (misalnya ARM Cortex-M atau RISC-V)."
+    },
+    {
+      "id": "G2-ROADMAP-7-BARE-PROFILE",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "claw build --profile bare tidak memakai thread runtime.",
+      "source_excerpt": "- `claw build --profile bare`: tanpa thread runtime; akses register lewat `raw`; penangan interupsi sebagai fungsi khusus."
+    },
+    {
+      "id": "G2-ROADMAP-7-RAW-REGISTERS",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Akses register pada profil bare memakai raw.",
+      "source_excerpt": "- `claw build --profile bare`: tanpa thread runtime; akses register lewat `raw`; penangan interupsi sebagai fungsi khusus."
+    },
+    {
+      "id": "G2-ROADMAP-7-INTERRUPT-HANDLER",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Penangan interupsi pada profil bare berupa fungsi khusus, tanpa signature baru yang disimpulkan.",
+      "source_excerpt": "- `claw build --profile bare`: tanpa thread runtime; akses register lewat `raw`; penangan interupsi sebagai fungsi khusus."
+    },
+    {
+      "id": "G2-ROADMAP-7-ARENA-OFFICIAL-STAGE",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Arena resmi ditargetkan pertama kali pada profil embedded; eksperimental dan pengecualian gerbang v1 tetap owner PLAN.",
+      "source_excerpt": "- **Arena resmi pertama kali di sini**, sebagai pool memori tetap di atas buffer yang kamu sediakan (tanpa heap). Di v1 Arena berlabel eksperimental. Modelnya: data diisi sekali lalu hanya dibaca (`ref[a]`), hanya tipe polos, dan `alloc` memakai `ref Arena` sehingga `reset()` ditolak selagi ada referensi aktif. Pool penuh mengembalikan `Maybe`, bukan crash. Arena yang bisa ditulis menunggu `ref mut[s]` (v2.0)."
+    },
+    {
+      "id": "G2-ROADMAP-7-ARENA-FIXED-POOL",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Arena merupakan pool tetap tanpa heap pada buffer yang disediakan pemakai.",
+      "source_excerpt": "- **Arena resmi pertama kali di sini**, sebagai pool memori tetap di atas buffer yang kamu sediakan (tanpa heap). Di v1 Arena berlabel eksperimental. Modelnya: data diisi sekali lalu hanya dibaca (`ref[a]`), hanya tipe polos, dan `alloc` memakai `ref Arena` sehingga `reset()` ditolak selagi ada referensi aktif. Pool penuh mengembalikan `Maybe`, bukan crash. Arena yang bisa ditulis menunggu `ref mut[s]` (v2.0)."
+    },
+    {
+      "id": "G2-ROADMAP-7-ARENA-READ-ONLY",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Data Arena diisi sekali lalu dibaca melalui ref[a].",
+      "source_excerpt": "- **Arena resmi pertama kali di sini**, sebagai pool memori tetap di atas buffer yang kamu sediakan (tanpa heap). Di v1 Arena berlabel eksperimental. Modelnya: data diisi sekali lalu hanya dibaca (`ref[a]`), hanya tipe polos, dan `alloc` memakai `ref Arena` sehingga `reset()` ditolak selagi ada referensi aktif. Pool penuh mengembalikan `Maybe`, bukan crash. Arena yang bisa ditulis menunggu `ref mut[s]` (v2.0)."
+    },
+    {
+      "id": "G2-ROADMAP-7-ARENA-PLAIN-TYPES",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Arena hanya menyimpan tipe polos.",
+      "source_excerpt": "- **Arena resmi pertama kali di sini**, sebagai pool memori tetap di atas buffer yang kamu sediakan (tanpa heap). Di v1 Arena berlabel eksperimental. Modelnya: data diisi sekali lalu hanya dibaca (`ref[a]`), hanya tipe polos, dan `alloc` memakai `ref Arena` sehingga `reset()` ditolak selagi ada referensi aktif. Pool penuh mengembalikan `Maybe`, bukan crash. Arena yang bisa ditulis menunggu `ref mut[s]` (v2.0)."
+    },
+    {
+      "id": "G2-ROADMAP-7-ARENA-ALLOC-REF",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "alloc Arena memakai ref Arena.",
+      "source_excerpt": "- **Arena resmi pertama kali di sini**, sebagai pool memori tetap di atas buffer yang kamu sediakan (tanpa heap). Di v1 Arena berlabel eksperimental. Modelnya: data diisi sekali lalu hanya dibaca (`ref[a]`), hanya tipe polos, dan `alloc` memakai `ref Arena` sehingga `reset()` ditolak selagi ada referensi aktif. Pool penuh mengembalikan `Maybe`, bukan crash. Arena yang bisa ditulis menunggu `ref mut[s]` (v2.0)."
+    },
+    {
+      "id": "G2-ROADMAP-7-ARENA-RESET-BORROW",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "reset Arena ditolak selama referensi masih aktif.",
+      "source_excerpt": "- **Arena resmi pertama kali di sini**, sebagai pool memori tetap di atas buffer yang kamu sediakan (tanpa heap). Di v1 Arena berlabel eksperimental. Modelnya: data diisi sekali lalu hanya dibaca (`ref[a]`), hanya tipe polos, dan `alloc` memakai `ref Arena` sehingga `reset()` ditolak selagi ada referensi aktif. Pool penuh mengembalikan `Maybe`, bukan crash. Arena yang bisa ditulis menunggu `ref mut[s]` (v2.0)."
+    },
+    {
+      "id": "G2-ROADMAP-7-ARENA-FULL-MAYBE",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Arena penuh mengembalikan Maybe, bukan crash.",
+      "source_excerpt": "- **Arena resmi pertama kali di sini**, sebagai pool memori tetap di atas buffer yang kamu sediakan (tanpa heap). Di v1 Arena berlabel eksperimental. Modelnya: data diisi sekali lalu hanya dibaca (`ref[a]`), hanya tipe polos, dan `alloc` memakai `ref Arena` sehingga `reset()` ditolak selagi ada referensi aktif. Pool penuh mengembalikan `Maybe`, bukan crash. Arena yang bisa ditulis menunggu `ref mut[s]` (v2.0)."
+    },
+    {
+      "id": "G2-ROADMAP-7-ARENA-WRITABLE-DEFERRED",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Arena writable menunggu ref mut[s] pada usulan v2.0; larangan ref mut[s] v1 tetap G2-PRD-9-REFMUT.",
+      "source_excerpt": "- **Arena resmi pertama kali di sini**, sebagai pool memori tetap di atas buffer yang kamu sediakan (tanpa heap). Di v1 Arena berlabel eksperimental. Modelnya: data diisi sekali lalu hanya dibaca (`ref[a]`), hanya tipe polos, dan `alloc` memakai `ref Arena` sehingga `reset()` ditolak selagi ada referensi aktif. Pool penuh mengembalikan `Maybe`, bukan crash. Arena yang bisa ditulis menunggu `ref mut[s]` (v2.0)."
+    },
+    {
+      "id": "G2-ROADMAP-7-STD-WRAPS-CORE",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "std hanya membungkus core sebagai satu sumber kebenaran tipe dasar.",
+      "source_excerpt": "- **Risiko:** pustaka terbelah dua. **Penutup:** `std` hanya membungkus `core`, jadi satu sumber kebenaran untuk tipe dasar; tes `core` dijalankan di emulator."
+    },
+    {
+      "id": "G2-ROADMAP-7-CORE-EMULATOR-TESTS",
+      "source": "ROADMAP:7",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+      "requirement_description": "Tes core dijalankan di emulator.",
+      "source_excerpt": "- **Risiko:** pustaka terbelah dua. **Penutup:** `std` hanya membungkus `core`, jadi satu sumber kebenaran untuk tipe dasar; tes `core` dijalankan di emulator."
+    },
+    {
+      "id": "G2-ROADMAP-8-A-THREAD-CHANNEL-POLLING",
+      "source": "ROADMAP:8",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+      "requirement_description": "Pilihan A adalah thread, channel dan polling I/O: sederhana tanpa fitur baru tetapi kurang efisien untuk puluhan ribu koneksi; belum menjadi keputusan.",
+      "source_excerpt": "| A. Thread + channel + polling I/O | Paling sederhana; tidak ada fitur baru | Kurang efisien untuk puluhan ribu koneksi |"
+    },
+    {
+      "id": "G2-ROADMAP-8-B-ASYNC-AWAIT",
+      "source": "ROADMAP:8",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+      "requirement_description": "Pilihan B adalah async/await mesin keadaan: efisien untuk I/O dengan pewarnaan fungsi dan compiler lebih rumit; belum menjadi keputusan.",
+      "source_excerpt": "| B. `async/await` (mesin keadaan) | Sangat efisien untuk I/O | Pewarnaan fungsi; kompiler lebih rumit |"
+    },
+    {
+      "id": "G2-ROADMAP-8-C-GREEN-THREADS",
+      "source": "ROADMAP:8",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+      "requirement_description": "Pilihan C adalah green threads runtime tanpa pewarnaan, dengan runtime lebih berat dan stack per task; belum menjadi keputusan.",
+      "source_excerpt": "| C. Task ringan (*green threads*) di runtime | Tanpa pewarnaan; ramah pengguna | Runtime lebih berat; tumpukan per task |"
+    },
+    {
+      "id": "G2-ROADMAP-8-RECOMMEND-A",
+      "source": "ROADMAP:8",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+      "requirement_description": "Mulai dari A hanya rekomendasi, bukan ratifikasi pilihan concurrency.",
+      "source_excerpt": "**Rekomendasi:** mulai dari A. Pindah ke B atau C **hanya bila** benchmark server menunjukkan thread per koneksi tidak cukup. Keputusan ini ditunda sampai ada data."
+    },
+    {
+      "id": "G2-ROADMAP-8-BENCHMARK-GATE",
+      "source": "ROADMAP:8",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+      "requirement_description": "B atau C hanya dipertimbangkan bila benchmark server menunjukkan thread per koneksi tidak cukup.",
+      "source_excerpt": "**Rekomendasi:** mulai dari A. Pindah ke B atau C **hanya bila** benchmark server menunjukkan thread per koneksi tidak cukup. Keputusan ini ditunda sampai ada data."
+    },
+    {
+      "id": "G2-ROADMAP-8-NO-DECISION-WITHOUT-DATA",
+      "source": "ROADMAP:8",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+      "requirement_description": "Keputusan async ditunda sampai ada data; tidak ada implementasi async yang dikreditkan.",
+      "source_excerpt": "**Rekomendasi:** mulai dari A. Pindah ke B atau C **hanya bila** benchmark server menunjukkan thread per koneksi tidak cukup. Keputusan ini ditunda sampai ada data."
+    },
+    {
+      "id": "G2-ROADMAP-9-BORROW-FORMAL-MODEL",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "Borrow checker memiliki model kecil yang diperiksa formal.",
+      "source_excerpt": "| Verifikasi borrow checker | Model kecil yang diperiksa formal + differential testing terhadap referensi | Tidak ada program tak aman yang lolos pada korpus uji acak |"
+    },
+    {
+      "id": "G2-ROADMAP-9-BORROW-DIFFERENTIAL",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "Borrow checker diuji differential terhadap referensi.",
+      "source_excerpt": "| Verifikasi borrow checker | Model kecil yang diperiksa formal + differential testing terhadap referensi | Tidak ada program tak aman yang lolos pada korpus uji acak |"
+    },
+    {
+      "id": "G2-ROADMAP-9-BORROW-RANDOM-SAFETY",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "Gerbang verifikasi adalah tidak ada program tak aman lolos pada korpus uji acak; bukan klaim pembuktian universal.",
+      "source_excerpt": "| Verifikasi borrow checker | Model kecil yang diperiksa formal + differential testing terhadap referensi | Tidak ada program tak aman yang lolos pada korpus uji acak |"
+    },
+    {
+      "id": "G2-ROADMAP-9-REFMUT-SCOPED",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "ref mut[s] mutable ber-scope adalah usulan pasca-v1; larangan v1 tetap G2-PRD-9-REFMUT.",
+      "source_excerpt": "| `ref mut[s]` | Pinjaman mutable ber-scope | Bukti eksklusivitas, tes negatif lengkap |"
+    },
+    {
+      "id": "G2-ROADMAP-9-REFMUT-EXCLUSIVITY",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "Usulan ref mut[s] memerlukan bukti eksklusivitas.",
+      "source_excerpt": "| `ref mut[s]` | Pinjaman mutable ber-scope | Bukti eksklusivitas, tes negatif lengkap |"
+    },
+    {
+      "id": "G2-ROADMAP-9-REFMUT-NEGATIVES",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "Usulan ref mut[s] memerlukan tes negatif lengkap.",
+      "source_excerpt": "| `ref mut[s]` | Pinjaman mutable ber-scope | Bukti eksklusivitas, tes negatif lengkap |"
+    },
+    {
+      "id": "G2-ROADMAP-9-SIMD-LLVM",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "Tipe SIMD seperti Vec4[Float32] dipetakan ke vektor LLVM.",
+      "source_excerpt": "| SIMD | Tipe vektor (`Vec4[Float32]` dll.) memetakan ke vektor LLVM | Benchmark numerik |"
+    },
+    {
+      "id": "G2-ROADMAP-9-SIMD-BENCHMARK",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "SIMD memiliki gerbang benchmark numerik.",
+      "source_excerpt": "| SIMD | Tipe vektor (`Vec4[Float32]` dll.) memetakan ke vektor LLVM | Benchmark numerik |"
+    },
+    {
+      "id": "G2-ROADMAP-9-BACKEND-TARGETS",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "Backend tambahan mencakup WASM dan backend lain lewat LLVM.",
+      "source_excerpt": "| Backend tambahan | WASM, backend lain lewat LLVM | Suite tes sama di semua target |"
+    },
+    {
+      "id": "G2-ROADMAP-9-BACKEND-SUITE-PARITY",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "Backend tambahan wajib menjalankan suite tes yang sama pada semua target.",
+      "source_excerpt": "| Backend tambahan | WASM, backend lain lewat LLVM | Suite tes sama di semua target |"
+    },
+    {
+      "id": "G2-ROADMAP-9-GPU-EXPLORATION",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "GPU/akselerator hanya eksplorasi.",
+      "source_excerpt": "| GPU / akselerator | Eksplorasi saja | Hanya bila ada kebutuhan nyata dari proyek AI |"
+    },
+    {
+      "id": "G2-ROADMAP-9-GPU-NEED-GATE",
+      "source": "ROADMAP:9",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+      "requirement_description": "Eksplorasi GPU/akselerator hanya bila ada kebutuhan nyata dari proyek AI.",
+      "source_excerpt": "| GPU / akselerator | Eksplorasi saja | Hanya bila ada kebutuhan nyata dari proyek AI |"
+    },
+    {
+      "id": "G2-ROADMAP-10-CONVERT-DESIGN",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "Kontrak Convert tertunda pada v1.x dan memerlukan desain tertulis; tidak ada konversi diam-diam tetap rujukan PRD:5.",
+      "source_excerpt": "| Kontrak `Convert` (konversi error di `try`) | Tidak ada konversi diam-diam | v1.x | desain tertulis + tes negatif |"
+    },
+    {
+      "id": "G2-ROADMAP-10-CONVERT-NEGATIVES",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "Kontrak Convert tertunda memerlukan tes negatif.",
+      "source_excerpt": "| Kontrak `Convert` (konversi error di `try`) | Tidak ada konversi diam-diam | v1.x | desain tertulis + tes negatif |"
+    },
+    {
+      "id": "G2-ROADMAP-10-DEFAULT-TYPE-LIST",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "Kontrak Default tertunda memerlukan daftar tipe; nama dan API dasar tetap owner PRD:20/10.",
+      "source_excerpt": "| Kontrak `Default` | Tidak ada nol otomatis | v1.x | daftar tipe + perilaku generik |"
+    },
+    {
+      "id": "G2-ROADMAP-10-DEFAULT-GENERIC",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "Kontrak Default tertunda memerlukan perilaku generik yang ditentukan.",
+      "source_excerpt": "| Kontrak `Default` | Tidak ada nol otomatis | v1.x | daftar tipe + perilaku generik |"
+    },
+    {
+      "id": "G2-ROADMAP-10-OPEN-SHAPE-GATE",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "open shape tetap tidak ada; usulan v1.x hanya bila lint dan inlay hint terbukti tidak cukup, melengkapi konteks mitigasi PRD:1.",
+      "source_excerpt": "| `open shape` (literal dari luar untuk data murni) | Tidak ada | v1.x | hanya bila lint + inlay hint terbukti tidak cukup |"
+    },
+    {
+      "id": "G2-ROADMAP-10-FUNCTION-CONST-GENERIC",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "Const generic fungsi fn f[N] tertunda v1.x; sementara gunakan Span[T], dan perlu kebutuhan nyata dari pustaka.",
+      "source_excerpt": "| `fn f[N]` (const generic pada fungsi) | Pakai `Span[T]` | v1.x | kebutuhan nyata dari pustaka |"
+    },
+    {
+      "id": "G2-ROADMAP-10-USER-ANNOTATION-GATE",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "Annotation pengguna menunggu mesin macro selesai pada usulan v1.3; annotation bawaan v1 tetap owner PRD:15.",
+      "source_excerpt": "| Annotation buatan pengguna | Hanya bawaan | v1.3 | mesin macro selesai |"
+    },
+    {
+      "id": "G2-ROADMAP-10-QUEUE-CONSISTENCY",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "Literal Queue tertunda v1.x mempunyai syarat konsistensi vec/set/map; status Queue.new tetap G2-PRD-2-QUEUE.",
+      "source_excerpt": "| Literal koleksi lain (`Queue`) | `Queue.new()` | v1.x | konsistensi dengan `vec`/`set`/`map` |"
+    },
+    {
+      "id": "G2-ROADMAP-10-NARROW-CONVERSION-TABLE-TESTS",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "Keputusan narrowing yang sudah ratifikasi mempunyai syarat tes tabel konversi; semantik tetap owner G2-PRD-20-NARROW-*.",
+      "source_excerpt": "| `as` penyempitan | Diputuskan: defect di debug, terpotong di release; konversi aman lewat `to` yang mengembalikan `Maybe` | v0.5 | tes tabel konversi |"
+    },
+    {
+      "id": "G2-ROADMAP-10-ARENA-COMPILER-AST",
+      "source": "ROADMAP:10",
+      "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+      "requirement_description": "Arena untuk AST compiler sementara memakai Anchor atau vec + indeks; keputusan usulan v1.2 berdasarkan data waktu kompilasi.",
+      "source_excerpt": "| Arena untuk AST compiler | Pakai `Anchor` atau `vec` + indeks | v1.2 | keputusan berdasarkan data waktu kompilasi |"
     }
   ]
 }
