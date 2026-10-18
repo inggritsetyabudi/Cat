@@ -2095,5 +2095,150 @@
     "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
     "fixtures": [],
     "assertions": []
+  },
+  "G2-PLAN-M01-D-CHECKLIST": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-PRECEDENCE-TABLE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-IF": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-PICK": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-NEVER": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-TRY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-IMPLICIT": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M03-EXHAUST-PROPERTY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-RADIX": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-SEPARATOR": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-SUFFIX": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-CHAR": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-ESCAPE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-FSTRING": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-DOC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M05-CLOSURE-MAP": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M05-CLOSURE-FILTER": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M06-FFI-NEGATIVE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M07-VALID-RECOVERY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M08-CORE-BENCHMARK": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M08-IR-C-COMPARE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M09-PARSER-FUZZ": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M09-ROBUSTNESS": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M09-RANDOM-NOCRASH": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-RELEASE-CHECKLIST": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-SELFHOST-FILE-IO": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-SELFHOST-STRING-BUILDER": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-SELFHOST-VEC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-SELFHOST-MAP": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
   }
 }

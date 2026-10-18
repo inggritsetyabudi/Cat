@@ -1772,7 +1772,7 @@
       "id": "G2-PRD-18-SELFHOST-PREREQS",
       "source": "PRD:18",
       "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
-      "requirement_description": "Prasyarat self-hosting mencakup pustaka standar file I/O, string builder, Vec dan Map yang cukup; tidak menetapkan API baru.",
+      "requirement_description": "Agregasi prasyarat self-hosting; kecukupan file I/O, string builder, Vec dan Map dimiliki masing-masing G2-PLAN-M10-SELFHOST-FILE-IO, G2-PLAN-M10-SELFHOST-STRING-BUILDER, G2-PLAN-M10-SELFHOST-VEC, G2-PLAN-M10-SELFHOST-MAP. Tidak menetapkan API baru.",
       "source_excerpt": "pustaka standar untuk file I/O, string builder, `Vec`, dan `Map` harus cukup."
     },
     {
@@ -2229,6 +2229,209 @@
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
       "requirement_description": "Artefak Config untuk perbandingan identitas historis §22 ditulis ulang; terpisah dari Config shape/choice S55.",
       "source_excerpt": "contoh `Config` ditulis ulang"
+    },
+    {
+      "id": "G2-PLAN-M01-D-CHECKLIST",
+      "source": "PLAN:S96",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Audit setiap perubahan kolom D yang berlaku pada target v0.1, termasuk migrasi contoh dan batas staging. Pemilik terkait: G2-PLAN-G3, G2-PLAN-G4, G2-PLAN-G5, G2-PLAN-G6, G2-PLAN-G7, G2-PLAN-G8, G2-PLAN-HISTORICAL-EXAMPLE-AUDIT.",
+      "source_excerpt": "Seluruh perubahan teks PRD (kolom D)"
+    },
+    {
+      "id": "G2-PLAN-M02-PRECEDENCE-TABLE",
+      "source": "PLAN:S97",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Jalankan dan cocokkan tes dari seluruh tabel presedensi yang berlaku untuk operator grup A–B. Pemilik terkait: G2-PRD-6-PRECEDENCE, G2-PRD-6-ASSOCIATIVITY, G2-PRD-6-OP-GROUP.",
+      "source_excerpt": "Tes tabel presedensi"
+    },
+    {
+      "id": "G2-PLAN-M02-BRANCH-IF",
+      "source": "PLAN:S97",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Uji cakupan cabang if pada bentuk expression M02, termasuk jalur sah dan penolakan yang berlaku; ini cakupan kasus bahasa, bukan target persentase code coverage baru. Pemilik terkait: G2-PRD-3-IF, G2-PRD-3-IF-ELSE, G2-PRD-3-IF-ELSE-IF, G2-PRD-3-BRANCH-TYPE.",
+      "source_excerpt": "tes cabang"
+    },
+    {
+      "id": "G2-PLAN-M02-BRANCH-PICK",
+      "source": "PLAN:S97",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Uji cakupan cabang pick pada bentuk expression M02, termasuk jalur sah dan penolakan yang berlaku; ini cakupan kasus bahasa, bukan target persentase code coverage baru. Pemilik terkait: G2-PRD-3-PICK, G2-PRD-3-EXHAUST, G2-PRD-3-BRANCH-TYPE.",
+      "source_excerpt": "tes cabang"
+    },
+    {
+      "id": "G2-PLAN-M02-BRANCH-NEVER",
+      "source": "PLAN:S97",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Uji cakupan cabang Never pada bentuk expression M02, termasuk jalur sah dan penolakan yang berlaku; ini cakupan kasus bahasa, bukan target persentase code coverage baru. Pemilik terkait: G2-PRD-3-NEVER, G2-PRD-5-ELSE, G2-PRD-5-ELSE-NONTERMINAL.",
+      "source_excerpt": "tes cabang"
+    },
+    {
+      "id": "G2-PLAN-M02-BRANCH-TRY",
+      "source": "PLAN:S97",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Uji cakupan cabang try pada bentuk expression M02, termasuk jalur sah dan penolakan yang berlaku; ini cakupan kasus bahasa, bukan target persentase code coverage baru. Pemilik terkait: G2-PRD-5-INIT, G2-PRD-5-IDENTITY, G2-PRD-5-OWNED, G2-PRD-5-SINGLE-TRY.",
+      "source_excerpt": "tes cabang"
+    },
+    {
+      "id": "G2-PLAN-M02-BRANCH-IMPLICIT",
+      "source": "PLAN:S97",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Uji cakupan cabang implicit return pada bentuk expression M02, termasuk jalur sah dan penolakan yang berlaku; ini cakupan kasus bahasa, bukan target persentase code coverage baru. Pemilik terkait: G2-PLAN-M02-IMPLICIT-TAIL, G2-PLAN-M02-IMPLICIT-WARNING.",
+      "source_excerpt": "tes cabang"
+    },
+    {
+      "id": "G2-PLAN-M03-EXHAUST-PROPERTY",
+      "source": "PLAN:S98",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Buktikan exhaustiveness melalui tes properti dengan generator/domain dan hasil yang dapat ditelusuri, bukan hanya contoh tuple/range sukses. Pemilik terkait: G2-PRD-3-EXHAUST, G2-PRD-4-PATTERN, G2-PRD-4-LAST-WILDCARD, G2-PRD-8-PICK.",
+      "source_excerpt": "Tes properti exhaustiveness"
+    },
+    {
+      "id": "G2-PLAN-M04-LEXER-RADIX",
+      "source": "PLAN:S99",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Sediakan tes tabel lexer untuk keluarga Radix yang disebut pada isi M04, dengan kasus sah/tidak sah sesuai owner semantik. Pemilik terkait: G2-PRD-11-RADIX, G2-PRD-11-RADIX-BINARY, G2-PRD-11-RADIX-OCTAL.",
+      "source_excerpt": "Tes tabel lexer"
+    },
+    {
+      "id": "G2-PLAN-M04-LEXER-SEPARATOR",
+      "source": "PLAN:S99",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Sediakan tes tabel lexer untuk keluarga `_` yang disebut pada isi M04, dengan kasus sah/tidak sah sesuai owner semantik. Pemilik terkait: G2-PRD-11-DECIMAL-SEPARATOR, G2-PRD-11-RADIX.",
+      "source_excerpt": "Tes tabel lexer"
+    },
+    {
+      "id": "G2-PLAN-M04-LEXER-SUFFIX",
+      "source": "PLAN:S99",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Sediakan tes tabel lexer untuk keluarga suffix yang disebut pada isi M04, dengan kasus sah/tidak sah sesuai owner semantik. Pemilik terkait: G2-PRD-11-SUFFIX, G2-PRD-11-SUFFIX-CANONICAL, G2-PRD-11-SUFFIX-FALLBACK, G2-PRD-11-SUFFIX-INVALID.",
+      "source_excerpt": "Tes tabel lexer"
+    },
+    {
+      "id": "G2-PLAN-M04-LEXER-CHAR",
+      "source": "PLAN:S99",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Sediakan tes tabel lexer untuk keluarga `Char` yang disebut pada isi M04, dengan kasus sah/tidak sah sesuai owner semantik. Pemilik terkait: G2-PRD-11-CHAR, G2-PRD-11-CHAR-WIDTH, G2-PRD-11-CHAR-UTF8, G2-PRD-11-CHAR-ESCAPE.",
+      "source_excerpt": "Tes tabel lexer"
+    },
+    {
+      "id": "G2-PLAN-M04-LEXER-ESCAPE",
+      "source": "PLAN:S99",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Sediakan tes tabel lexer untuk keluarga escape yang disebut pada isi M04, dengan kasus sah/tidak sah sesuai owner semantik. Pemilik terkait: G2-PRD-12-ESCAPE.",
+      "source_excerpt": "Tes tabel lexer"
+    },
+    {
+      "id": "G2-PLAN-M04-LEXER-FSTRING",
+      "source": "PLAN:S99",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Sediakan tes tabel lexer untuk keluarga f-string yang disebut pada isi M04, dengan kasus sah/tidak sah sesuai owner semantik. Pemilik terkait: G2-PRD-12-FSTRING, G2-PRD-12-FSTRING-MODES.",
+      "source_excerpt": "Tes tabel lexer"
+    },
+    {
+      "id": "G2-PLAN-M04-LEXER-DOC",
+      "source": "PLAN:S99",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Sediakan tes tabel lexer untuk keluarga `///` yang disebut pada isi M04, dengan kasus sah/tidak sah sesuai owner semantik. Pemilik terkait: G2-PRD-12-DOC-ATTACH, G2-PRD-12-DOC-ORPHAN, G2-PRD-12-DOC-PRIVATE, G2-PRD-12-DOC-CLAW.",
+      "source_excerpt": "Tes tabel lexer"
+    },
+    {
+      "id": "G2-PLAN-M05-CLOSURE-MAP",
+      "source": "PLAN:S100",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Buktikan operasi map dengan closure bekerja end-to-end dan hasilnya diperiksa; tidak menetapkan API atau semantik capture baru. Pemilik terkait: G2-PRD-20-CLOSURE-CAPTURE, G2-PRD-20-CLOSURE-MOVE, G2-PRD-20-CLOSURE-RETURN.",
+      "source_excerpt": "`map`"
+    },
+    {
+      "id": "G2-PLAN-M05-CLOSURE-FILTER",
+      "source": "PLAN:S100",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Buktikan operasi filter dengan closure bekerja end-to-end dan hasilnya diperiksa; tidak menetapkan API atau semantik capture baru. Pemilik terkait: G2-PRD-20-CLOSURE-CAPTURE, G2-PRD-20-CLOSURE-MOVE, G2-PRD-20-CLOSURE-RETURN.",
+      "source_excerpt": "`filter`"
+    },
+    {
+      "id": "G2-PLAN-M06-FFI-NEGATIVE",
+      "source": "PLAN:S101",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Penuhi acceptance M06 melalui tes negatif FFI; batas legal tetap pada owner FFI. Pemilik terkait: G2-PRD-15-FFI, G2-PRD-15-FFI-RAW, G2-PRD-15-FFI-CONTRACT, G2-PRD-15-ANNOTATION-CLOSED.",
+      "source_excerpt": "Tes negatif FFI"
+    },
+    {
+      "id": "G2-PLAN-M07-VALID-RECOVERY",
+      "source": "PLAN:S102",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Bandingkan program valid yang ditolak checker per-blok dengan checker dataflow; simpan bukti sebelum/sesudah. Pemilik terkait: G2-PRD-9-DATAFLOW, G2-PRD-9-ELISION-SINGLE, G2-PRD-9-ELISION-MULTI.",
+      "source_excerpt": "program valid yang dulu ditolak kini lolos"
+    },
+    {
+      "id": "G2-PLAN-M08-CORE-BENCHMARK",
+      "source": "PLAN:S103",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Jalankan benchmark inti release dan simpan konteks serta hasil; ambang v1 tetap G2-PRD-18-FAST. Pemilik terkait: G2-PRD-18-FAST, G2-PRD-19-WRAP, G2-PRD-19-NOALIAS, G2-PRD-18-BOUNDS-ELISION.",
+      "source_excerpt": "Benchmark inti"
+    },
+    {
+      "id": "G2-PLAN-M08-IR-C-COMPARE",
+      "source": "PLAN:S103",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Bandingkan IR program benchmark dengan implementasi C setara dan catat hasil review, terpisah dari pengukuran waktu. Pemilik terkait: G2-PRD-19-WRAP, G2-PRD-19-NOALIAS, G2-PRD-18-BOUNDS-ELISION, G2-PRD-18-NO-HIDDEN-COST.",
+      "source_excerpt": "IR dibandingkan dengan C setara"
+    },
+    {
+      "id": "G2-PLAN-M09-PARSER-FUZZ",
+      "source": "PLAN:S104",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Jalankan fuzzing parser dengan corpus/generator dan hasil yang dapat diulang. Pemilik terkait: G2-PLAN-M09.",
+      "source_excerpt": "fuzzing parser"
+    },
+    {
+      "id": "G2-PLAN-M09-ROBUSTNESS",
+      "source": "PLAN:S104",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Sediakan suite ketahanan beserta cakupan input/stress dan hasil; tidak menetapkan batas sumber daya baru. Pemilik terkait: G2-PLAN-M09.",
+      "source_excerpt": "uji ketahanan"
+    },
+    {
+      "id": "G2-PLAN-M09-RANDOM-NOCRASH",
+      "source": "PLAN:S104",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Periksa tidak adanya crash pada input acak yang benar-benar dijalankan; hasil terikat corpus, bukan jaminan semua input. Pemilik terkait: G2-PLAN-M09-PARSER-FUZZ, G2-PLAN-M09-ROBUSTNESS.",
+      "source_excerpt": "Tidak ada crash dari input acak"
+    },
+    {
+      "id": "G2-PLAN-M10-RELEASE-CHECKLIST",
+      "source": "PLAN:S105",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "requirement_description": "Satukan hasil seluruh kewajiban S111–115 dengan owner tunggal; checklist agregasi bukan duplikasi Safe/Simple/Fast/stabilitas/pustaka. Pemilik terkait: G2-PLAN-M10, G2-PRD-9-SAFE-SUITE, G2-PLAN-SAFE-PRIVATE-SUITE, G2-PRD-18-SAFE, G2-PRD-18-SIMPLE, G2-PRD-18-NO-BOILERPLATE, G2-PRD-0-DOC, G2-PRD-18-FAST, G2-PRD-19-WRAP, G2-PRD-19-NOALIAS, G2-PRD-18-NO-HIDDEN-COST, G2-PLAN-EDITION-STABILITY, G2-PRD-18-SELFHOST-PREREQS.",
+      "source_excerpt": "Daftar periksa di bawah"
+    },
+    {
+      "id": "G2-PLAN-M10-SELFHOST-FILE-IO",
+      "source": "PLAN:S115",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+      "requirement_description": "Verifikasi pustaka standar file I/O cukup untuk prasyarat self-hosting; ini acceptance kecukupan, bukan usulan API baru atau mulai self-hosting v1.x. Pemilik terkait: G2-PRD-18-SELFHOST-PREREQS.",
+      "source_excerpt": "file I/O"
+    },
+    {
+      "id": "G2-PLAN-M10-SELFHOST-STRING-BUILDER",
+      "source": "PLAN:S115",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+      "requirement_description": "Verifikasi pustaka standar string builder cukup untuk prasyarat self-hosting; ini acceptance kecukupan, bukan usulan API baru atau mulai self-hosting v1.x. Pemilik terkait: G2-PRD-18-SELFHOST-PREREQS, G2-PRD-12-STRING-BUILDER.",
+      "source_excerpt": "string builder"
+    },
+    {
+      "id": "G2-PLAN-M10-SELFHOST-VEC",
+      "source": "PLAN:S115",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+      "requirement_description": "Verifikasi pustaka standar vec cukup untuk prasyarat self-hosting; ini acceptance kecukupan, bukan usulan API baru atau mulai self-hosting v1.x. Pemilik terkait: G2-PRD-18-SELFHOST-PREREQS, G2-PRD-2-VEC.",
+      "source_excerpt": "`vec`"
+    },
+    {
+      "id": "G2-PLAN-M10-SELFHOST-MAP",
+      "source": "PLAN:S115",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+      "requirement_description": "Verifikasi pustaka standar map cukup untuk prasyarat self-hosting; ini acceptance kecukupan, bukan usulan API baru atau mulai self-hosting v1.x. Pemilik terkait: G2-PRD-18-SELFHOST-PREREQS, G2-PRD-2-MAP.",
+      "source_excerpt": "`map`"
     }
   ]
 }
