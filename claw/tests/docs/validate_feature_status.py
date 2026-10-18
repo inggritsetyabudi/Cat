@@ -8,6 +8,9 @@ import re
 import sys
 from pathlib import Path
 
+from feature_status_shell_checks import STDOUT_IF, stdout_check_errors
+from feature_status_source_index import validate_source_index
+
 HEADERS = ("ID", "Sumber", "Irisan", "Label", "Keputusan semantik", "Lingkup implementasi", "Bukti penerimaan", "Sisa", "Dimensi non-compiler")
 LABELS = ("[diusulkan]", "[diputuskan]", "[diterima compiler]")
 SOURCE_RE = re.compile(r"^(?:PRD:\d+|PLAN:(?:G[1-8]|M(?:0[1-9]|10)))$")
@@ -135,6 +138,7 @@ def _validate_manifest(root: Path, rows: list[tuple[int, list[str]]], errors: li
         errors.append(f"invalid feature atom manifest: {exc}"); return
     if not isinstance(manifest, dict):
         errors.append("feature atom manifest must be an object keyed by ID"); return
+    errors.extend(validate_source_index(root, rows, manifest))
     row_map = {cells[0]: (line, cells) for line, cells in rows if len(cells) == 9}
     ids, accepted = set(row_map), {key for key, (_, cells) in row_map.items() if cells[3] == "[diterima compiler]"}
     missing, extra = sorted(ids - set(manifest)), sorted(set(manifest) - ids)
@@ -153,7 +157,7 @@ def _validate_manifest(root: Path, rows: list[tuple[int, list[str]]], errors: li
         fixtures = atom.get("fixtures")
         assertions = atom.get("assertions")
         fixtures_ok = isinstance(fixtures, list) and all(isinstance(x, str) and x for x in fixtures)
-        assertions_ok = isinstance(assertions, list) and all(isinstance(x, dict) and set(x) == {"path", "text"} and isinstance(x.get("path"), str) and x.get("path") and isinstance(x.get("text"), str) and x.get("text") for x in assertions)
+        assertions_ok = isinstance(assertions, list) and all(isinstance(x, dict) and set(x) in ({"path", "text"}, {"path", "text", "checks"}) and isinstance(x.get("checks", []), list) and all(isinstance(check, str) and check for check in x.get("checks", [])) and isinstance(x.get("path"), str) and x.get("path") and isinstance(x.get("text"), str) and x.get("text") for x in assertions)
         if not fixtures_ok: errors.append(f"line {line}: manifest atom {key} fixtures must be an array of string paths")
         if not assertions_ok: errors.append(f"line {line}: manifest atom {key} assertions must be path/text objects")
         evidence_links = set()
@@ -182,6 +186,17 @@ def _validate_manifest(root: Path, rows: list[tuple[int, list[str]]], errors: li
             if root.resolve() not in runner.parents or not runner.is_file(): errors.append(f"line {line}: assertion runner does not exist: {runner_path}"); continue
             if runner not in evidence_paths: errors.append(f"line {line}: assertion runner is not linked by ledger evidence: {runner_path}")
             runner_lines = runner.read_text(encoding="utf-8").splitlines()
+            if runner.suffix == ".sh":
+                if re.match(r"^\s*\w+=", text):
+                    errors.append(f"line {line}: a variable declaration is not acceptance assertion evidence")
+                checks = assertion.get("checks", [])
+                if checks and not STDOUT_IF.fullmatch(text.strip()):
+                    errors.append(f"line {line}: companion checks require a primary stdout comparison")
+                for check in ([text] if STDOUT_IF.fullmatch(text.strip()) else []) + checks:
+                    for issue in stdout_check_errors(runner_lines, check):
+                        errors.append(f"line {line}: {runner_path}: {issue}: {check!r}")
+            elif assertion.get("checks"):
+                errors.append(f"line {line}: companion checks require a shell runner")
             if text not in runner.read_text(encoding="utf-8"): errors.append(f"line {line}: assertion text not found in runner: {text!r}")
             tokens = [Path(f).parent.name if Path(f).name == "main.cat" else Path(f).name for f in fixtures]
             if text and not any(_fixture_assertion_matches(runner_lines, token, text) for token in tokens):

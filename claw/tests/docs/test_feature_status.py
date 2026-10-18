@@ -32,6 +32,11 @@ class TestFeatureStatusValidator(unittest.TestCase):
             if i == 0 and any("[diterima compiler]" in row for row in rows): atom.update(fixtures=["claw/tests/frontend/fixtures/g2.cat"], assertions=[{"path": "claw/tests/frontend/run_fixture.sh", "text": "assertion text"}])
             atoms[f"G2-F{i:02d}"] = atom
         (temp / "cat-northstar/feature-status-atoms.json").write_text(json.dumps(atoms), encoding="utf-8")
+        index = {"schema_version": 1, "authority": "Test canonical crosswalk", "maintenance": "Independent fixture inventory", "boundaries": "No closure claim", "atoms": []}
+        for i, (ident, atom) in enumerate(atoms.items()):
+            source = (["PRD:1", "PRD:2"] + [f"PLAN:G{j}" for j in range(1, 9)] + [f"PLAN:M{j:02d}" for j in range(1, 11)])[i]
+            index["atoms"].append({"id": ident, "source": source, "source_anchor": atom["source_anchor"], "requirement_description": "Test requirement", "source_excerpt": "Requirement" if source.startswith("PRD:") else ("change" if source.startswith("PLAN:G") else "milestone")})
+        (temp / "cat-northstar/feature-status-source-index.json").write_text(json.dumps(index), encoding="utf-8")
         return temp
 
     def valid_rows(self, accepted=False):
