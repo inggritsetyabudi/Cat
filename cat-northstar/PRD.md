@@ -455,6 +455,8 @@ Nilai default eksplisit lewat kontrak `Default` dengan `Tipe.default()` dicatat 
 | Escape | `\n \t \r \\ \' \" \0 \u{1F600}` |
 | `Float128` | Literal diparse dengan `llvm::APFloat`, tipe LLVM `fp128` |
 
+**Status compiler literal float:** konversi target langsung untuk `Float32`/`Float64`, validasi sebelum lowering, serta materialisasi lokal dan `static` **[sudah]** pada irisan yang diuji. Konversi bersama menerima nilai finite termasuk subnormal dan nol dengan eksponen; overflow serta nilai nonzero yang membulat ke nol ditolak. Literal tanpa konteks tetap default `Float64` setelah inferensi, bukan sebelum konteks operator diperiksa. Ini tidak menambahkan konversi implisit antar-lebar float atau inferensi baru antar-cabang. `Float128` tetap keputusan v0.4 yang **belum diimplementasikan**, bukan dukungan yang dapat disimpulkan dari nama/layout tipe. Lihat [bukti dan batas irisan](../changelog/2026-10-18-target-direct-float-literals.md); milestone v0.4 belum selesai.
+
 ```cat proposal
 val big   = 1_000_000
 val mask  = 0xFF_UInt8        // suffix: "UInt8" adalah nama tipe

@@ -1128,6 +1128,33 @@ void SemanticAnalyzer::analyze(RealmDecl* realm) {
 
     exitSemanticScope();
 
+    // Preserve symbolic literal types while contexts are inferred. Only after all
+    // declarations have been analyzed may uncontextualized floats default to
+    // Float64. Finalize every analyzed float leaf, including unary operands,
+    // discarded values and inferred aggregate/carrier payloads, before lowering.
+    if (diagnostics.empty()) {
+        std::vector<const FloatExpr*> floatLiterals;
+        for (auto& [expr, type] : analysisResult.exprTypes) {
+            if (isFloatLiteralType(type)) {
+                type = defaultFloatLiteralType();
+            }
+            if (const auto* literal = dynamic_cast<const FloatExpr*>(expr)) {
+                floatLiterals.push_back(literal);
+            }
+        }
+        std::sort(floatLiterals.begin(), floatLiterals.end(), [](const FloatExpr* a, const FloatExpr* b) {
+            if (a->span.line != b->span.line) return a->span.line < b->span.line;
+            return a->span.column < b->span.column;
+        });
+        for (const auto* expr : floatLiterals) {
+            const auto& type = analysisResult.exprTypes.at(expr);
+            const auto literal = splitNumericLiteralText(expr->value);
+            if (isFloatTypeName(type.name) && !floatLiteralFitsTarget(literal.magnitude, type.name)) {
+                reportError(expr, "Float literal '" + literal.magnitude + "' does not fit target type " + type.name + ".");
+            }
+        }
+    }
+
     if (!diagnostics.empty()) {
         throw DiagnosticError(
             "Semantic analysis failed with " + std::to_string(diagnostics.size()) + " errors.",

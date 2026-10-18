@@ -1,6 +1,8 @@
 #include "analysis/numeric_literals.h"
 
 #include <algorithm>
+#include <bit>
+#include <charconv>
 #include <cctype>
 #include <cmath>
 #include <limits>
@@ -21,6 +23,9 @@ ResolvedType makePlainType(const std::string& name) {
 
 bool literalMagnitudeHasNonZeroDigit(const std::string& magnitude) {
     for (char c : magnitude) {
+        if (c == 'e' || c == 'E') {
+            break;
+        }
         if (std::isdigit(static_cast<unsigned char>(c)) && c != '0') {
             return true;
         }
@@ -351,27 +356,45 @@ bool integerLiteralFitsNegatedTarget(const std::string& magnitude, const std::st
     return integerLiteralFitsTarget(magnitude, targetName, target);
 }
 
-bool floatLiteralFitsTarget(const std::string& magnitude, const std::string& targetName) {
-    if (!isFloatTypeName(targetName)) {
-        return false;
+std::optional<ParsedFloatLiteral> parseFloatLiteralTarget(
+    const std::string& magnitude,
+    const std::string& targetName) {
+    const std::string canonical = canonicalTypeName(targetName);
+    if (!isFloatTypeName(canonical) || magnitude.empty()) {
+        return std::nullopt;
     }
 
-    try {
-        size_t parsedLength = 0;
-        const long double value = std::stold(magnitude, &parsedLength);
-        if (parsedLength != magnitude.size() || !std::isfinite(value)) {
-            return false;
+    const bool nonZeroMagnitude = literalMagnitudeHasNonZeroDigit(magnitude);
+
+    if (canonical == "Float32") {
+        float value = 0.0f;
+        const auto parsed = std::from_chars(
+            magnitude.data(), magnitude.data() + magnitude.size(), value, std::chars_format::general);
+        if (parsed.ptr != magnitude.data() + magnitude.size() ||
+            (parsed.ec != std::errc{} && (nonZeroMagnitude || parsed.ec != std::errc::result_out_of_range))) {
+            return std::nullopt;
         }
-        const bool nonZeroMagnitude = literalMagnitudeHasNonZeroDigit(magnitude);
-        if (targetName == "Float32") {
-            const float narrowed = static_cast<float>(value);
-            return std::isfinite(narrowed) && !(narrowed == 0.0f && nonZeroMagnitude);
+        if (!std::isfinite(value) || (value == 0.0f && nonZeroMagnitude)) {
+            return std::nullopt;
         }
-        const double narrowed = static_cast<double>(value);
-        return std::isfinite(narrowed) && !(narrowed == 0.0 && nonZeroMagnitude);
-    } catch (const std::exception&) {
-        return false;
+        return ParsedFloatLiteral{std::bit_cast<std::uint32_t>(value), 32};
     }
+
+    double value = 0.0;
+    const auto parsed = std::from_chars(
+        magnitude.data(), magnitude.data() + magnitude.size(), value, std::chars_format::general);
+    if (parsed.ptr != magnitude.data() + magnitude.size() ||
+        (parsed.ec != std::errc{} && (nonZeroMagnitude || parsed.ec != std::errc::result_out_of_range))) {
+        return std::nullopt;
+    }
+    if (!std::isfinite(value) || (value == 0.0 && nonZeroMagnitude)) {
+        return std::nullopt;
+    }
+    return ParsedFloatLiteral{std::bit_cast<std::uint64_t>(value), 64};
+}
+
+bool floatLiteralFitsTarget(const std::string& magnitude, const std::string& targetName) {
+    return parseFloatLiteralTarget(magnitude, targetName).has_value();
 }
 
 bool shouldUseExpectedIntegerType(const ResolvedType* expectedType) {
