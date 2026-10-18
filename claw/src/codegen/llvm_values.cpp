@@ -562,8 +562,8 @@ std::string LlvmEmitter::extractLength(
         lines.push_back("  " + lengthReg + " = extractvalue %claw.slice " + aggregateValue + ", 1");
         return lengthReg;
     }
-    if (baseType == "Vec") {
-        const std::string lengthReg = state.temp("vec.len");
+    if (baseType == "Vec" || baseType == "String") {
+        const std::string lengthReg = state.temp(baseType == "String" ? "string.len" : "vec.len");
         lines.push_back("  " + lengthReg + " = extractvalue %claw.buffer " + aggregateValue + ", 1");
         return lengthReg;
     }
@@ -581,8 +581,8 @@ std::string LlvmEmitter::extractPointer(
         lines.push_back("  " + pointerReg + " = extractvalue %claw.slice " + aggregateValue + ", 0");
         return pointerReg;
     }
-    if (baseType == "Vec") {
-        const std::string pointerReg = state.temp("vec.ptr");
+    if (baseType == "Vec" || baseType == "String") {
+        const std::string pointerReg = state.temp(baseType == "String" ? "string.ptr" : "vec.ptr");
         lines.push_back("  " + pointerReg + " = extractvalue %claw.buffer " + aggregateValue + ", 0");
         return pointerReg;
     }

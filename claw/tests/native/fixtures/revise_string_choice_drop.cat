@@ -1,0 +1,10 @@
+choice Wrapped[T] {
+    some(value: T)
+    none
+}
+
+fn main() -> Int32 {
+    val wrapped: Wrapped[String] = some(String.from("choice"))
+    println("drop-ok")
+    return 0
+}

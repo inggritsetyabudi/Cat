@@ -35,6 +35,14 @@ ResolvedType makeOwnedType(const std::string& name) {
     return type;
 }
 
+ResolvedType makeStrViewType() {
+    ResolvedType type;
+    type.name = "Str";
+    type.viewKind = "look";
+    type.category = TypeCategory::View;
+    return type;
+}
+
 bool isInt32RangeType(const ResolvedType& type) {
     return type.name == "Range" && type.isPlain() && type.params.size() == 1 &&
         type.params.front().name == "Int32" && type.params.front().isPlain() &&
@@ -50,6 +58,25 @@ bool isBorrowedStrMaybeType(const ResolvedType& type) {
     return type.name == "Maybe" && type.params.size() == 1 &&
         type.params.front().name == "Str" && type.params.front().isView() &&
         type.params.front().viewKind == "look" && type.params.front().params.empty();
+}
+
+bool hasBorrowedStorageType(const ResolvedType& type) {
+    if (type.isView() || !type.scopeName.empty() || !type.viewScope.empty() || type.name == "Span") {
+        return true;
+    }
+    return std::any_of(type.params.begin(), type.params.end(), hasBorrowedStorageType);
+}
+
+std::string stringOwnershipHint(const ResolvedType& expected, const ResolvedType& actual) {
+    const std::string expectedName = canonicalTypeName(expected.name);
+    const std::string actualName = canonicalTypeName(actual.name);
+    if (expectedName == "String" && actualName == "Str") {
+        return ". Hint: use `String.from(str)` when an owned copy is required.";
+    }
+    if (expectedName == "Str" && actualName == "String") {
+        return ". Hint: call `value.as_str()` for a borrowed view and keep the owner alive for the full use.";
+    }
+    return {};
 }
 
 void inheritMaybeStrViewScope(ResolvedType& maybeType, const ResolvedType& sourceType) {
@@ -158,8 +185,23 @@ bool isAnchorStaticConstructorCall(const Expr* callee) {
     return objectIdent && objectIdent->name == "Anchor" && member->member == "new";
 }
 
+bool isStringFromCall(const Expr* callee) {
+    const auto* member = dynamic_cast<const MemberExpr*>(callee);
+    if (!member) {
+        return false;
+    }
+    const auto* objectIdent = dynamic_cast<const IdentExpr*>(member->object.get());
+    return objectIdent && objectIdent->name == "String" && member->member == "from";
+}
+
 bool isStaticStringLiteral(const Expr* expr) {
     return dynamic_cast<const StringExpr*>(expr) != nullptr;
+}
+
+bool isOwnedTemporaryExpression(const SemanticAnalyzer& sema, const Expr* expr) {
+    const auto* type = sema.lookupExprType(expr);
+    return type && type->isOwned() && type->name != "Arena" &&
+        !sema.isPlaceExpression(expr) && !isStaticStringLiteral(expr);
 }
 
 bool projectsFromOwnedTemporary(const SemanticAnalyzer& sema, const Expr* expr) {
@@ -186,9 +228,126 @@ bool callsBorrowingMethodOnOwnedTemporary(const SemanticAnalyzer& sema, const Ex
 
     const auto method = sema.lookupMethodSignature(call->callee.get());
     const Expr* receiver = member->object.get();
-    const auto* receiverType = sema.lookupExprType(receiver);
-    return method && method->receiverType.isView() && receiverType && receiverType->isOwned() &&
-        receiverType->name != "Arena" && !sema.isPlaceExpression(receiver) && !isStaticStringLiteral(receiver);
+    if (!method || !method->receiverType.isView()) {
+        return false;
+    }
+    const bool returnsBorrowFromReceiver = method->viewReturnFromReceiver ||
+        (method->function.viewReturnSourceParam.has_value() && *method->function.viewReturnSourceParam == SIZE_MAX) ||
+        (method->function.scopeReturnSourceParam.has_value() && *method->function.scopeReturnSourceParam == SIZE_MAX);
+    return returnsBorrowFromReceiver && isOwnedTemporaryExpression(sema, receiver);
+}
+
+bool callReturnsBorrowFromOwnedTemporaryArgument(
+    const SemanticAnalyzer& sema,
+    const CallExpr* call,
+    const FunctionSignature* signature,
+    const MethodSignature* method) {
+    if (!call) {
+        return false;
+    }
+
+    for (size_t i = 0; i < call->args.size(); ++i) {
+        if (!isOwnedTemporaryExpression(sema, call->args[i].get())) {
+            continue;
+        }
+        const bool signatureReturnsBorrowFromArg = signature &&
+            ((signature->viewReturnSourceParam.has_value() && *signature->viewReturnSourceParam == i) ||
+             (signature->scopeReturnSourceParam.has_value() && *signature->scopeReturnSourceParam == i));
+        const bool methodReturnsBorrowFromArg = method &&
+            method->viewReturnSourceArg.has_value() && *method->viewReturnSourceArg == i;
+        if (signatureReturnsBorrowFromArg || methodReturnsBorrowFromArg) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool expressionReturnsBorrowFromOwnedTemporary(const SemanticAnalyzer& sema, const Expr* expr);
+
+bool blockTailReturnsBorrowFromOwnedTemporary(const SemanticAnalyzer& sema, const BlockStmt* block) {
+    if (!block || block->statements.empty()) {
+        return false;
+    }
+    const auto* tail = dynamic_cast<const ExprStmt*>(block->statements.back().get());
+    return tail && expressionReturnsBorrowFromOwnedTemporary(sema, tail->expr.get());
+}
+
+bool expressionReturnsBorrowFromOwnedTemporary(const SemanticAnalyzer& sema, const Expr* expr) {
+    if (!expr) {
+        return false;
+    }
+    const ResolvedType* resultType = sema.lookupExprType(expr);
+    if (const auto* call = dynamic_cast<const CallExpr*>(expr)) {
+        const auto* member = dynamic_cast<const MemberExpr*>(call->callee.get());
+        const auto method = member ? sema.lookupMethodSignature(call->callee.get()) : std::nullopt;
+        const FunctionSignature* signature = method.has_value()
+            ? &method->function
+            : sema.lookupCallableSignature(call->callee.get());
+        if (method.has_value() && member && resultType && hasBorrowedStorageType(*resultType) &&
+            callsBorrowingMethodOnOwnedTemporary(sema, call)) {
+            return true;
+        }
+        if (callReturnsBorrowFromOwnedTemporaryArgument(
+                sema,
+                call,
+                signature,
+                method.has_value() ? &*method : nullptr)) {
+            return true;
+        }
+        if (!resultType || !hasBorrowedStorageType(*resultType)) {
+            return false;
+        }
+        const bool returnsBorrowFromReceiver = method.has_value() &&
+            (method->viewReturnFromReceiver ||
+             (method->function.viewReturnSourceParam.has_value() &&
+              *method->function.viewReturnSourceParam == SIZE_MAX) ||
+             (method->function.scopeReturnSourceParam.has_value() &&
+              *method->function.scopeReturnSourceParam == SIZE_MAX));
+        if (returnsBorrowFromReceiver && member &&
+            expressionReturnsBorrowFromOwnedTemporary(sema, member->object.get())) {
+            return true;
+        }
+        for (size_t i = 0; i < call->args.size(); ++i) {
+            const bool returnsBorrowFromArg =
+                (signature &&
+                 ((signature->viewReturnSourceParam.has_value() && *signature->viewReturnSourceParam == i) ||
+                  (signature->scopeReturnSourceParam.has_value() && *signature->scopeReturnSourceParam == i))) ||
+                (method.has_value() && method->viewReturnSourceArg.has_value() && *method->viewReturnSourceArg == i);
+            if (returnsBorrowFromArg && expressionReturnsBorrowFromOwnedTemporary(sema, call->args[i].get())) {
+                return true;
+            }
+        }
+        return false;
+    }
+    if (!resultType || !hasBorrowedStorageType(*resultType)) {
+        return false;
+    }
+    if (const auto* member = dynamic_cast<const MemberExpr*>(expr)) {
+        return expressionReturnsBorrowFromOwnedTemporary(sema, member->object.get());
+    }
+    if (const auto* index = dynamic_cast<const IndexExpr*>(expr)) {
+        return expressionReturnsBorrowFromOwnedTemporary(sema, index->object.get());
+    }
+    if (const auto* borrow = dynamic_cast<const BorrowExpr*>(expr)) {
+        return isOwnedTemporaryExpression(sema, borrow->target.get()) ||
+            expressionReturnsBorrowFromOwnedTemporary(sema, borrow->target.get());
+    }
+    if (const auto* tuple = dynamic_cast<const TupleExpr*>(expr)) {
+        return std::any_of(tuple->elements.begin(), tuple->elements.end(), [&](const auto& element) {
+            return expressionReturnsBorrowFromOwnedTemporary(sema, element.get());
+        });
+    }
+    if (const auto* array = dynamic_cast<const ArrayExpr*>(expr)) {
+        return std::any_of(array->elements.begin(), array->elements.end(), [&](const auto& element) {
+            return expressionReturnsBorrowFromOwnedTemporary(sema, element.get());
+        });
+    }
+    if (const auto* shape = dynamic_cast<const ShapeInitExpr*>(expr)) {
+        return std::any_of(shape->fields.begin(), shape->fields.end(), [&](const ShapeInitField& field) {
+            return expressionReturnsBorrowFromOwnedTemporary(sema, field.value.get());
+        });
+    }
+    return false;
 }
 
 bool containsAnchorPayload(const ResolvedType& type) {
@@ -220,8 +379,12 @@ std::string anchorPayloadTypeError(const ResolvedType& type) {
         return "Anchor.new(...) cannot store payload type `" + type.describe() +
             "` because it contains a nested Anchor; dropping the outer Anchor does not recursively destroy its payload. Recursive Anchor payload destruction is not supported.";
     }
+    if (canonicalTypeName(type.name) == "Str") {
+        return "Anchor.new(...) cannot store borrowed Str view `" + type.describe() +
+            "`. Hint: create owned text with `String.from(view)` before anchoring it.";
+    }
     return "Anchor.new(...) requires an owned payload with stable ownership. " +
-        type.describe() + " cannot be anchored directly.";
+        type.describe() + " cannot be anchored directly. Hint: pass an owned value; for text, use `String.from(view)`.";
 }
 
 ResolvedType makeOpaqueExternalCallType(const Expr* callee) {
@@ -415,10 +578,10 @@ void SemanticAnalyzer::warnNonTailValueExpression(const Stmt* stmt) {
             "Cannot discard an expression projected from an owned temporary because its owner cannot be safely destroyed on this path.");
         return;
     }
-    if (callsBorrowingMethodOnOwnedTemporary(*this, expr)) {
+    if (typeContainsBorrowedStorage(*type) && expressionReturnsBorrowFromOwnedTemporary(*this, expr)) {
         reportError(
             expressionStmt,
-            "Cannot discard a call on an owned temporary receiver because the borrowed receiver cannot be safely destroyed on this path.");
+            "Cannot discard a borrowed view whose owner is a temporary. Hint: consume it in the same expression, or bind the owner to a local variable.");
         return;
     }
     if (type->name == "Unit" || type->name == "Never") {
@@ -1887,7 +2050,12 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
                     : makePlainType("Unit");
                 hasImplicitTailReturn = valueType.name != "Never";
 
-                if (valueType.name != "Never" && valueType.isOpaqueExternal()) {
+                if (valueType.name != "Never" && typeContainsBorrowedStorage(valueType) &&
+                    tailExprStmt->expr && expressionReturnsBorrowFromOwnedTemporary(*this, tailExprStmt->expr.get())) {
+                    reportError(
+                        tailExprStmt->expr.get(),
+                        "Borrowed view cannot escape a temporary owner. Hint: keep the owner in a local variable, then derive the view from it.");
+                } else if (valueType.name != "Never" && valueType.isOpaqueExternal()) {
                     reportError(tailExprStmt->expr.get(), opaqueExternalValueUseMessage(valueType, "implicit return value"));
                 } else if (valueType.name != "Never" && typeContainsScopeName(valueType) &&
                            !typeContainsScopeName(currentSignature ? currentSignature->returnType : makeUnknownType())) {
@@ -1925,15 +2093,16 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
                     if (!sourceParamIndex.has_value()) {
                         reportError(
                             tailExprStmt,
-                            "Returned ref value must come from one of the function's ref parameters. Return an owned value instead, use Anchor[T] for stable storage, or keep the borrow inside a scope block.");
+                            "Returned ref value must come from one of the function's ref parameters. Hint: return a view derived from a ref parameter, or return an owned `String`/`String.from(...)` copy instead.");
                     } else if (sourceParamIndex.value() != SIZE_MAX) {
-                        if (!currentViewReturnSeen) {
+                        if (!currentViewReturnSourceParam.has_value() || currentViewReturnSourceParam.value() == SIZE_MAX) {
                             currentViewReturnSourceParam = sourceParamIndex;
                             currentViewReturnSeen = true;
-                        } else if (currentViewReturnSourceParam != sourceParamIndex && currentViewReturnSourceParam.value_or(SIZE_MAX) != SIZE_MAX) {
+                        } else if (currentViewReturnSourceParam != sourceParamIndex) {
                             reportError(tailExprStmt, "All returned ref values in a function must come from the same parameter.");
                         }
                     } else if (!currentViewReturnSeen) {
+                        currentViewReturnSourceParam = sourceParamIndex;
                         currentViewReturnSeen = true;
                     }
                 } else if (valueType.name != "Never" && currentSignature && currentFunction &&
@@ -2023,7 +2192,7 @@ void SemanticAnalyzer::analyzeShapeDecl(ShapeDecl* shape) {
             reportError(
                 field.span,
                 "shape '" + shape->name + "' cannot store borrowed field '" + field.name + "' of type " +
-                    type.describe() + ". Normal shapes may outlive borrowed data. Use an owned field, Anchor[T], or a scoped borrowed aggregate design.");
+                    type.describe() + ". Normal shapes may outlive borrowed data. Hint: use `String` for owned text, or keep `Str` local and pass it directly.");
         } else if (type.isView() && type.viewScope.empty()) {
             reportError(
                 field.span,
@@ -2436,6 +2605,12 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             }
         }
 
+        if (bind->value && typeContainsBorrowedStorage(valueType) &&
+            expressionReturnsBorrowFromOwnedTemporary(*this, bind->value.get())) {
+            reportError(
+                bind->value.get(),
+                "Borrowed view cannot escape a temporary owner. Hint: keep the owner in a local variable, then derive the view from it.");
+        }
         const bool bindingTypeMatches = finalType.isView()
             ? canPassArgumentType(bind->value.get(), valueType, finalType)
             : canAssignType(valueType, finalType);
@@ -2619,6 +2794,13 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
 
         const bool opaqueAssignedValue = assign->value && valueType.isOpaqueExternal();
 
+        if (assign->value && typeContainsBorrowedStorage(valueType) &&
+            expressionReturnsBorrowFromOwnedTemporary(*this, assign->value.get())) {
+            reportError(
+                assign->value.get(),
+                "Borrowed view cannot escape a temporary owner. Hint: keep the owner in a local variable, then derive the view from it.");
+        }
+
         if (auto* ident = dynamic_cast<IdentExpr*>(assign->target.get())) {
             const auto sym = lookupSymbol(ident->name);
             if (!sym) {
@@ -2765,7 +2947,12 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
         const ResolvedType valueType = returnStmt->value
             ? analyzeExpr(returnStmt->value.get(), currentSignature ? &currentSignature->returnType : nullptr)
             : makePlainType("Unit");
-        if (valueType.isOpaqueExternal()) {
+        if (returnStmt->value && typeContainsBorrowedStorage(valueType) &&
+            expressionReturnsBorrowFromOwnedTemporary(*this, returnStmt->value.get())) {
+            reportError(
+                returnStmt->value.get(),
+                "Borrowed view cannot escape a temporary owner. Hint: keep the owner in a local variable, then derive the view from it.");
+        } else if (valueType.isOpaqueExternal()) {
             reportError(returnStmt->value.get(), opaqueExternalValueUseMessage(valueType, "return value"));
         } else if (typeContainsScopeName(valueType) &&
                    !(currentSignature && typeContainsScopeName(currentSignature->returnType))) {
@@ -2801,15 +2988,16 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
             }
             const auto sourceParamIndex = returnStmt->value ? resolveViewSourceParam(returnStmt->value.get()) : std::nullopt;
             if (!sourceParamIndex.has_value()) {
-                reportError(returnStmt, "Returned ref value must come from one of the function's ref parameters. Return an owned value instead, use Anchor[T] for stable storage, or keep the borrow inside a scope block.");
+                reportError(returnStmt, "Returned ref value must come from one of the function's ref parameters. Hint: return a view derived from a ref parameter, or return an owned `String`/`String.from(...)` copy instead.");
             } else if (sourceParamIndex.value() != SIZE_MAX) {
-                if (!currentViewReturnSeen) {
+                if (!currentViewReturnSourceParam.has_value() || currentViewReturnSourceParam.value() == SIZE_MAX) {
                     currentViewReturnSourceParam = sourceParamIndex;
                     currentViewReturnSeen = true;
-                } else if (currentViewReturnSourceParam != sourceParamIndex && currentViewReturnSourceParam.value_or(SIZE_MAX) != SIZE_MAX) {
+                } else if (currentViewReturnSourceParam != sourceParamIndex) {
                     reportError(returnStmt, "All returned ref values in a function must come from the same parameter.");
                 }
             } else if (!currentViewReturnSeen) {
+                currentViewReturnSourceParam = sourceParamIndex;
                 currentViewReturnSeen = true;
             }
         } else if (currentSignature && currentFunction && !canAssignType(valueType, currentSignature->returnType)) {
@@ -3196,7 +3384,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
             type = makeFloatLiteralType();
         }
     } else if (dynamic_cast<StringExpr*>(expr)) {
-        type = makeOwnedType("Str");
+        type = makeStrViewType();
     } else if (auto* tupleExpr = dynamic_cast<TupleExpr*>(expr)) {
         if (tupleExpr->elements.empty()) {
             type = makePlainType("Unit");
@@ -3344,6 +3532,13 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 : branchTypes.front();
             applyBlockTailType(ifExpr->thenBlock.get(), type);
             applyBlockTailType(ifExpr->elseBlock.get(), type);
+            if (hasBorrowedStorageType(type) &&
+                (blockTailReturnsBorrowFromOwnedTemporary(*this, ifExpr->thenBlock.get()) ||
+                 blockTailReturnsBorrowFromOwnedTemporary(*this, ifExpr->elseBlock.get()))) {
+                reportError(
+                    ifExpr,
+                    "Borrowed view from a temporary owner cannot cross an `if` expression branch. Hint: keep the owner in a local variable before the branch, or use the view only inside each branch.");
+            }
         }
     } else if (auto* pickExpr = dynamic_cast<PickExpr*>(expr)) {
         const ResolvedType pickedType = analyzeExpr(pickExpr->value.get());
@@ -3527,6 +3722,14 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
         } else {
             type = makePlainType("Unit");
         }
+        }
+        if (valueRequired && hasBorrowedStorageType(type) &&
+            std::any_of(pickExpr->branches.begin(), pickExpr->branches.end(), [&](const PickBranch& branch) {
+                return blockTailReturnsBorrowFromOwnedTemporary(*this, branch.body.get());
+            })) {
+            reportError(
+                pickExpr,
+                "Borrowed view from a temporary owner cannot cross a `pick` expression branch. Hint: keep the owner in a local variable before the `pick`, or use the view only within each branch.");
         }
     } else if (auto* shapeInit = dynamic_cast<ShapeInitExpr*>(expr)) {
         const ShapeInfo* shapeInfo = lookupShape(shapeInit->name);
@@ -3966,6 +4169,25 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
         bool skipCalleeAnalysis = false;
         std::string opaqueExternalCallee;
 
+        if (isStringFromCall(call->callee.get())) {
+            const ResolvedType expectedView = makeStrViewType();
+            if (call->args.size() != 1) {
+                reportError(call, "String.from(view) expects exactly one Str view argument. Hint: pass a string literal or call `owner.as_str()` to copy owned text.");
+            }
+            for (size_t i = 0; i < call->args.size(); ++i) {
+                const ResolvedType argumentType = analyzeExpr(call->args[i].get(), &expectedView);
+                if (i == 0 && !canPassArgumentType(call->args[i].get(), argumentType, expectedView)) {
+                    reportError(
+                        call->args[i].get(),
+                        "String.from(view) requires Str, got " + argumentType.describe() +
+                            ". Hint: pass a string literal or borrowed `Str`; when the source is a `String`, call `owner.as_str()`.");
+                }
+            }
+            type = makeOwnedType("String");
+            analysisResult.exprTypes[expr] = type;
+            return type;
+        }
+
         if (isArenaNewCall(call->callee.get())) {
             if (!call->args.empty()) {
                 reportError(call, "Arena.new() expects exactly 0 arguments.");
@@ -4053,7 +4275,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                                 reportError(
                                     call->args[i].get(),
                                     "Constructor argument type mismatch: expected " + payloadType->describe() +
-                                        ", got " + argType.describe());
+                                        ", got " + argType.describe() + stringOwnershipHint(*payloadType, argType));
                             }
                         }
 
@@ -4239,7 +4461,7 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                     reportError(
                         call->args[i].get(),
                         "Call argument type mismatch: expected " + instantiatedParam.describe() +
-                            ", got " + argType.describe());
+                            ", got " + argType.describe() + stringOwnershipHint(instantiatedParam, argType));
                 }
             }
 
@@ -4401,6 +4623,10 @@ std::optional<size_t> SemanticAnalyzer::resolveViewSourceParam(const Expr* expr)
         return std::nullopt;
     }
 
+    if (dynamic_cast<const StringExpr*>(expr)) {
+        return std::optional<size_t>(SIZE_MAX);
+    }
+
     if (auto* ident = dynamic_cast<const IdentExpr*>(expr)) {
         const auto sym = lookupSymbol(ident->name);
         if (sym && sym->kind == SymbolKind::Variable) {
@@ -4424,6 +4650,27 @@ std::optional<size_t> SemanticAnalyzer::resolveViewSourceParam(const Expr* expr)
         return resolveViewSourceParam(borrow->target.get());
     }
 
+    if (auto* ifExpr = dynamic_cast<const IfExpr*>(expr)) {
+        const auto tail = [&](const BlockStmt* block) -> const Expr* {
+            if (!block || block->statements.empty()) return nullptr;
+            const auto* stmt = dynamic_cast<const ExprStmt*>(block->statements.back().get());
+            return stmt ? stmt->expr.get() : nullptr;
+        };
+        const auto a = resolveViewSourceParam(tail(ifExpr->thenBlock.get()));
+        const auto b = resolveViewSourceParam(tail(ifExpr->elseBlock.get()));
+        return a.has_value() && b.has_value() && a == b ? a : std::nullopt;
+    }
+    if (auto* pickExpr = dynamic_cast<const PickExpr*>(expr)) {
+        std::optional<size_t> common;
+        for (const auto& branch : pickExpr->branches) {
+            if (!branch.body || branch.body->statements.empty()) return std::nullopt;
+            const auto* stmt = dynamic_cast<const ExprStmt*>(branch.body->statements.back().get());
+            const auto source = stmt ? resolveViewSourceParam(stmt->expr.get()) : std::nullopt;
+            if (!source.has_value()) return std::nullopt;
+            if (!common.has_value()) common = source; else if (*common != *source) return std::nullopt;
+        }
+        return common;
+    }
     if (auto* call = dynamic_cast<const CallExpr*>(expr)) {
         const FunctionSignature* signature = nullptr;
         std::optional<MethodSignature> methodSignature;

@@ -151,36 +151,40 @@ oir.fn pick_statement_with_wildcard(route: Route [direct]) -> Int32 [scalar] [ab
   block pick_join_0:
     drop route : Route
     return selected : Int32
-oir.fn ownership_join(flag: Bool [scalar]) -> Str [direct] [abi=claw link=internal symbol=revise_if_pick_values::ownership_join ffi=false]
+oir.fn ownership_join(flag: Bool [scalar]) -> String [indirect] [abi=claw link=internal symbol=revise_if_pick_values::ownership_join ffi=false]
   block entry:
-    val x: Str = "outer"
-    var %t0: Str
+    %t0 = call String.from("outer") : String
+    val x: String = %t0
+    var %t1: String
     branch flag -> if_then_0, if_else_1
   block if_then_0:
-    return x : Str
+    return x : String
   block if_else_1:
-    store %t0 <- "inner" : Str
+    %t2 = call String.from("inner") : String
+    store %t1 <- %t2 : String
     goto if_join_2
   block if_join_2:
-    val y: Str = %t0
-    drop x : Str
-    return y : Str
-oir.fn anchor_ownership_join(flag: Bool [scalar]) -> Anchor[Str] [direct] [abi=claw link=internal symbol=revise_if_pick_values::anchor_ownership_join ffi=false]
+    val y: String = %t1
+    drop x : String
+    return y : String
+oir.fn anchor_ownership_join(flag: Bool [scalar]) -> Anchor[String] [direct] [abi=claw link=internal symbol=revise_if_pick_values::anchor_ownership_join ffi=false]
   block entry:
-    %t0 = call Anchor.new("outer") : Anchor[Str]
-    val x: Anchor[Str] = %t0
-    var %t1: Anchor[Str]
+    %t0 = call String.from("outer") : String
+    %t1 = call Anchor.new(%t0) : Anchor[String]
+    val x: Anchor[String] = %t1
+    var %t2: Anchor[String]
     branch flag -> if_then_0, if_else_1
   block if_then_0:
-    return x : Anchor[Str]
+    return x : Anchor[String]
   block if_else_1:
-    %t2 = call Anchor.new("inner") : Anchor[Str]
-    store %t1 <- %t2 : Anchor[Str]
+    %t3 = call String.from("inner") : String
+    %t4 = call Anchor.new(%t3) : Anchor[String]
+    store %t2 <- %t4 : Anchor[String]
     goto if_join_2
   block if_join_2:
-    val y: Anchor[Str] = %t1
-    drop x : Anchor[Str]
-    return y : Anchor[Str]
+    val y: Anchor[String] = %t2
+    drop x : Anchor[String]
+    return y : Anchor[String]
 oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_if_pick_values::main ffi=false]
   block entry:
     %t0 = call if_tail(true) : Int32
@@ -219,13 +223,15 @@ oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_if_pick_value
     %t20 = right(808) : Route
     %t21 = call pick_statement_with_wildcard(%t20) : Int32
     call println(%t21) : Unit
-    %t22 = call ownership_join(false) : Str
+    %t22 = call ownership_join(false) : String
     call println(%t22) : Unit
-    %t23 = call ownership_join(true) : Str
+    drop %t22 : String
+    %t23 = call ownership_join(true) : String
     call println(%t23) : Unit
-    %t24 = call anchor_ownership_join(false) : Anchor[Str]
-    val dropped_anchor: Anchor[Str] = %t24
-    %t25 = call anchor_ownership_join(true) : Anchor[Str]
-    val returned_anchor: Anchor[Str] = %t25
-    drop returned_anchor : Anchor[Str]
-    drop dropped_anchor : Anchor[Str]
+    drop %t23 : String
+    %t24 = call anchor_ownership_join(false) : Anchor[String]
+    val dropped_anchor: Anchor[String] = %t24
+    %t25 = call anchor_ownership_join(true) : Anchor[String]
+    val returned_anchor: Anchor[String] = %t25
+    drop returned_anchor : Anchor[String]
+    drop dropped_anchor : Anchor[String]

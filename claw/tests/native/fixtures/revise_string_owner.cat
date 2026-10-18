@@ -1,0 +1,43 @@
+fn identity_view(text: Str) -> str {
+    text
+}
+
+fn make_owned() -> String {
+    String.from("owned return")
+}
+
+fn relay_owned(value: string) -> String {
+    println(value.as_str())
+    value
+}
+
+fn relay_explicit(value: String) -> string {
+    return value
+}
+
+fn main() -> Int32 {
+    val static_text: str = "static literal"
+    val view = identity_view(static_text)
+    println(view)
+
+    val owner: string = String.from(view)
+    if true {
+        val owner_view = identity_view(owner.as_str())
+        println(owner_view)
+    }
+    val cloned = owner.clone()
+    println(owner.as_str())
+    println(cloned.as_str())
+
+    val moved = owner
+    println(moved.as_str())
+
+    val returned = relay_owned(make_owned())
+    println(returned.as_str())
+    val explicit_return = relay_explicit(make_owned())
+    println(explicit_return.as_str())
+
+    val unicode = String.from("AéB")
+    println(unicode.as_str()[1..3])
+    return 0
+}

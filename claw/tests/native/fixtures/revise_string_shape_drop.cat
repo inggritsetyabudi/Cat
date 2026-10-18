@@ -1,0 +1,16 @@
+shape Inner {
+    text: String
+}
+
+shape Outer {
+    inner: Inner
+}
+
+fn main() -> Int32 {
+    val first = Inner { text: String.from("before") }
+    var outer = Outer { inner: first }
+    val replacement = Inner { text: String.from("after") }
+    outer.inner = replacement
+    println(outer.inner.text.as_str())
+    return 0
+}

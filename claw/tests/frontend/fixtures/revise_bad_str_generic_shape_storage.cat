@@ -1,0 +1,7 @@
+shape Box[T] {
+    value: T,
+}
+
+fn bad(box: Box[Str]) {}
+
+fn main() {}

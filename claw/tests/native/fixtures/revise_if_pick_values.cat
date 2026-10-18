@@ -109,22 +109,22 @@ fn pick_statement_with_wildcard(route: Route) -> Int32 {
     selected
 }
 
-fn ownership_join(flag: Bool) -> Str {
-    val x = "outer"
+fn ownership_join(flag: Bool) -> String {
+    val x = String.from("outer")
     val y = if flag {
         return x
     } else {
-        "inner"
+        String.from("inner")
     }
     return y
 }
 
-fn anchor_ownership_join(flag: Bool) -> Anchor[Str] {
-    val x = Anchor.new("outer")
+fn anchor_ownership_join(flag: Bool) -> Anchor[String] {
+    val x = Anchor.new(String.from("outer"))
     val y = if flag {
         return x
     } else {
-        Anchor.new("inner")
+        Anchor.new(String.from("inner"))
     }
     return y
 }

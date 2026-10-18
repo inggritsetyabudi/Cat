@@ -13,6 +13,8 @@
 namespace claw::frontend {
 
 std::string canonicalTypeName(std::string_view name) {
+    if (name == "str") return "Str";
+    if (name == "string") return "String";
     std::string folded(name);
     for (char& character : folded) {
         if (character >= 'A' && character <= 'Z') {
@@ -223,6 +225,10 @@ public:
             return std::nullopt;
         }
 
+        if (type.isView() && type.name == "Str") {
+            return computeBuiltin(type);
+        }
+
         if (type.isView()) {
             TypeLayoutInfo layout;
             layout.typeName = type.describe();
@@ -417,6 +423,21 @@ private:
             layout.sizeBytes = pointerSizeBytes(target) * 2;
             layout.fields.push_back(LayoutFieldInfo{"data", makeUnknownType("RawPtr"), 0, pointerSizeBytes(target), pointerSizeBytes(target)});
             layout.fields.push_back(LayoutFieldInfo{"len", makeUnknownType("USize"), pointerSizeBytes(target), pointerSizeBytes(target), pointerSizeBytes(target)});
+            layout.passKind = classifyAggregatePass(layout);
+            return layout;
+        }
+        if (type.name == "String") {
+            TypeLayoutInfo layout;
+            layout.typeName = type.describe();
+            layout.repr = "claw-string";
+            layout.abi = "claw";
+            layout.kind = TypeLayoutKind::Buffer;
+            layout.ffiStable = false;
+            layout.alignBytes = pointerSizeBytes(target);
+            layout.sizeBytes = pointerSizeBytes(target) * 3;
+            layout.fields.push_back(LayoutFieldInfo{"data", makeUnknownType("RawPtr"), 0, pointerSizeBytes(target), pointerSizeBytes(target)});
+            layout.fields.push_back(LayoutFieldInfo{"len", makeUnknownType("USize"), pointerSizeBytes(target), pointerSizeBytes(target), pointerSizeBytes(target)});
+            layout.fields.push_back(LayoutFieldInfo{"cap", makeUnknownType("USize"), pointerSizeBytes(target) * 2, pointerSizeBytes(target), pointerSizeBytes(target)});
             layout.passKind = classifyAggregatePass(layout);
             return layout;
         }
@@ -887,13 +908,17 @@ TypeCatalog::TypeCatalog()
           "UInt8", "UInt16", "UInt32", "UInt64", "UInt128",
           "Float32", "Float64", "Float128", "USize", "Unit", "Tuple", "Range", "Array"},
       builtinOwnedTypes{
-          "Str", "Span", "CStr", "OwnedCStr", "Vec", "Map", "Queue",
+          "String", "Span", "CStr", "OwnedCStr", "Vec", "Map", "Queue",
           "Set", "Arena", "Anchor", "Addr",
-          "RawPtr", "RawMut", "Fn", "Maybe", "Result"} {
+          "RawPtr", "RawMut", "Fn", "Maybe", "Result"},
+      builtinViewTypes{"Str"} {
     for (const auto& name : builtinPlainTypes) {
         registerKnownTypeArity(name, 0);
     }
     for (const auto& name : builtinOwnedTypes) {
+        registerKnownTypeArity(name, 0);
+    }
+    for (const auto& name : builtinViewTypes) {
         registerKnownTypeArity(name, 0);
     }
 
@@ -948,6 +973,7 @@ void TypeCatalog::registerNominalIdentity(const std::string& name, const std::st
 bool TypeCatalog::hasNamedType(const std::string& name) const {
     const std::string canonical = canonicalTypeName(name);
     return contains(builtinPlainTypes, canonical) || contains(builtinOwnedTypes, canonical) ||
+           contains(builtinViewTypes, canonical) ||
            contains(shapeNames, canonical) || contains(choiceNames, canonical);
 }
 
@@ -1012,6 +1038,12 @@ ResolvedType TypeCatalog::resolveType(
         expectedArity = 0;
     } else if (contains(builtinPlainTypes, type.name)) {
         type.category = node->viewKind.empty() ? TypeCategory::Plain : TypeCategory::View;
+        expectedArity = lookupKnownTypeArity(type.name);
+    } else if (contains(builtinViewTypes, type.name)) {
+        type.category = TypeCategory::View;
+        if (type.viewKind.empty()) {
+            type.viewKind = "look";
+        }
         expectedArity = lookupKnownTypeArity(type.name);
     } else if (contains(builtinOwnedTypes, type.name) || contains(shapeNames, type.name) || contains(choiceNames, type.name)) {
         type.category = node->viewKind.empty() ? TypeCategory::Owned : TypeCategory::View;
@@ -1119,6 +1151,54 @@ ResolvedType TypeCatalog::resolveType(
             }
             type.category = TypeCategory::Unknown;
         }
+    }
+
+    const auto containsBorrowedPayload = [](const auto& self, const ResolvedType& candidate) -> bool {
+        // A named-scope aggregate (for example `Name[s]`) carries a statically
+        // checked scope, not an untracked `Str`/view payload. Preserve its
+        // validated use in generic shapes while rejecting raw borrowed views.
+        if (candidate.isView() || candidate.name == "Span" || !candidate.viewScope.empty()) {
+            return true;
+        }
+        return std::any_of(candidate.params.begin(), candidate.params.end(), [&](const ResolvedType& param) {
+            return self(self, param);
+        });
+    };
+    const bool trackedMaybeStr = type.name == "Maybe" && type.params.size() == 1 &&
+        type.params.front().name == "Str" && type.params.front().isView() &&
+        type.params.front().viewKind == "look" && type.params.front().params.empty() &&
+        type.params.front().scopeName.empty() && type.params.front().viewScope.empty();
+    if (!trackedMaybeStr && std::any_of(type.params.begin(), type.params.end(), [&](const ResolvedType& param) {
+            return containsBorrowedPayload(containsBorrowedPayload, param);
+        })) {
+        if (diagnostics) {
+            diagnostics->push_back(Diagnostic{
+                "semantic",
+                "Type `" + type.describe() + "` cannot store a borrowed view inside its payload. Hint: use `String` for owned text, or keep `Str` as a local view and pass it directly.",
+                node->span});
+        }
+        type.category = TypeCategory::Unknown;
+    }
+
+    const auto containsOwnedString = [](const auto& self, const ResolvedType& candidate) -> bool {
+        if (candidate.name == "String" && candidate.isOwned()) {
+            return true;
+        }
+        return std::any_of(candidate.params.begin(), candidate.params.end(), [&](const ResolvedType& param) {
+            return self(self, param);
+        });
+    };
+    const bool containerNeedsElementDrop = type.name == "Vec" || type.name == "Map" || type.name == "Set" || type.name == "Queue";
+    if (containerNeedsElementDrop && std::any_of(type.params.begin(), type.params.end(), [&](const ResolvedType& param) {
+            return containsOwnedString(containsOwnedString, param);
+        })) {
+        if (diagnostics) {
+            diagnostics->push_back(Diagnostic{
+                "semantic",
+                "Type `" + type.describe() + "` cannot contain owned `String` values because element drop glue is not available yet. Hint: store `String` directly in a shape or choice, or keep each owner as a separate local.",
+                node->span});
+        }
+        type.category = TypeCategory::Unknown;
     }
 
     return type;

@@ -7,50 +7,52 @@ oir.choice Maybe of T [abi=claw link=internal symbol=revise_try_contract::Maybe 
   layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
   case None
   case Some(T)
-oir.fn step(flag: Bool [scalar]) -> Result[Int32, Str] [indirect] [abi=claw link=internal symbol=revise_try_contract::step ffi=false]
+oir.fn step(flag: Bool [scalar]) -> Result[Int32, String] [indirect] [abi=claw link=internal symbol=revise_try_contract::step ffi=false]
   block entry:
     branch flag -> if_then_0, if_join_1
   block if_then_0:
-    %t0 = Ok(37) : Result[Int32, Str]
-    return %t0 : Result[Int32, Str]
+    %t0 = Ok(37) : Result[Int32, String]
+    return %t0 : Result[Int32, String]
   block if_join_1:
-    %t1 = Fail("step-failed") : Result[Int32, Str]
-    return %t1 : Result[Int32, Str]
-oir.fn propagate(flag: Bool [scalar]) -> Result[Int32, Str] [indirect] [abi=claw link=internal symbol=revise_try_contract::propagate ffi=false]
+    %t1 = call String.from("step-failed") : String
+    %t2 = Fail(%t1) : Result[Int32, String]
+    return %t2 : Result[Int32, String]
+oir.fn propagate(flag: Bool [scalar]) -> Result[Int32, String] [indirect] [abi=claw link=internal symbol=revise_try_contract::propagate ffi=false]
   block entry:
-    %t0 = call step(flag) : Result[Int32, Str]
+    %t0 = call step(flag) : Result[Int32, String]
     try %t0 -> value propagate
-    %t1 = Ok(value) : Result[Int32, Str]
-    return %t1 : Result[Int32, Str]
+    %t1 = Ok(value) : Result[Int32, String]
+    return %t1 : Result[Int32, String]
 oir.fn handle_locally(flag: Bool [scalar]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_try_contract::handle_locally ffi=false]
   block entry:
-    %t0 = call step(flag) : Result[Int32, Str]
+    %t0 = call step(flag) : Result[Int32, String]
     try %t0 -> value, else err -> try_fail_0
     return value : Int32
   block try_fail_0:
-    call println(err) : Unit
-    %t1 = neg 1 : Int32
-    drop err : Str
-    return %t1 : Int32
-oir.fn nested() -> Result[Result[Int32, Str], Str] [indirect] [abi=claw link=internal symbol=revise_try_contract::nested ffi=false]
+    %t1 = call err.as_str() : ref Str
+    call println(%t1) : Unit
+    %t2 = neg 1 : Int32
+    drop err : String
+    return %t2 : Int32
+oir.fn nested() -> Result[Result[Int32, String], String] [indirect] [abi=claw link=internal symbol=revise_try_contract::nested ffi=false]
   block entry:
-    %t0 = Ok(41) : Result[Int32, Str]
-    %t1 = Ok(%t0) : Result[Result[Int32, Str], Str]
-    return %t1 : Result[Result[Int32, Str], Str]
-oir.fn unwrap_one() -> Result[Int32, Str] [indirect] [abi=claw link=internal symbol=revise_try_contract::unwrap_one ffi=false]
+    %t0 = Ok(41) : Result[Int32, String]
+    %t1 = Ok(%t0) : Result[Result[Int32, String], String]
+    return %t1 : Result[Result[Int32, String], String]
+oir.fn unwrap_one() -> Result[Int32, String] [indirect] [abi=claw link=internal symbol=revise_try_contract::unwrap_one ffi=false]
   block entry:
-    %t0 = call nested() : Result[Result[Int32, Str], Str]
+    %t0 = call nested() : Result[Result[Int32, String], String]
     try %t0 -> inner_result propagate
-    return inner_result : Result[Int32, Str]
+    return inner_result : Result[Int32, String]
 oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_try_contract::main ffi=false]
   block entry:
     %t0 = call handle_locally(true) : Int32
     call println(%t0) : Unit
     %t1 = call handle_locally(false) : Int32
     call println(%t1) : Unit
-    %t2 = call propagate(true) : Result[Int32, Str]
-    val propagated_success: Result[Int32, Str] = %t2
-    pick propagated_success : Result[Int32, Str]
+    %t2 = call propagate(true) : Result[Int32, String]
+    val propagated_success: Result[Int32, String] = %t2
+    pick propagated_success : Result[Int32, String]
     case Ok(value) -> pick_Ok_1
     case Fail(_) -> pick_Fail_2
   block pick_Ok_1:
@@ -58,35 +60,34 @@ oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_try_contract:
     goto pick_join_0
   block pick_Fail_2:
     call println("unexpected") : Unit
-    drop _ : Str
+    drop _ : String
     goto pick_join_0
   block pick_join_0:
-    %t3 = call propagate(false) : Result[Int32, Str]
-    val propagated_failure: Result[Int32, Str] = %t3
-    pick propagated_failure : Result[Int32, Str]
+    %t3 = call propagate(false) : Result[Int32, String]
+    val propagated_failure: Result[Int32, String] = %t3
+    pick propagated_failure : Result[Int32, String]
     case Ok(_) -> pick_Ok_4
     case Fail(error) -> pick_Fail_5
   block pick_Ok_4:
     call println("unexpected") : Unit
     goto pick_join_3
   block pick_Fail_5:
-    call println(error) : Unit
-    drop error : Str
+    %t4 = call error.as_str() : ref Str
+    call println(%t4) : Unit
+    drop error : String
     goto pick_join_3
   block pick_join_3:
-    %t4 = call unwrap_one() : Result[Int32, Str]
-    val nested_result: Result[Int32, Str] = %t4
-    pick nested_result : Result[Int32, Str]
+    %t5 = call unwrap_one() : Result[Int32, String]
+    val nested_result: Result[Int32, String] = %t5
+    pick nested_result : Result[Int32, String]
     case Ok(value) -> pick_Ok_7
     case Fail(error) -> pick_Fail_8
   block pick_Ok_7:
     call println(value) : Unit
     goto pick_join_6
   block pick_Fail_8:
-    call println(error) : Unit
-    drop error : Str
+    %t6 = call error.as_str() : ref Str
+    call println(%t6) : Unit
+    drop error : String
     goto pick_join_6
   block pick_join_6:
-    drop nested_result : Result[Int32, Str]
-    drop propagated_failure : Result[Int32, Str]
-    drop propagated_success : Result[Int32, Str]

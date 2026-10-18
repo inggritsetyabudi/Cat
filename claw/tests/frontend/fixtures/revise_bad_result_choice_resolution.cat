@@ -3,13 +3,13 @@ choice Result[T, E] {
     Fail
 }
 
-fn step() -> Result[Int32, Str] {
+fn step() -> Result[Int32, String] {
     return Ok(41)
 }
 
 fn main() {
     val value = try step() else err {
-        println(err)
+        println(err.as_str())
         return
     }
     println(value)

@@ -22,18 +22,18 @@ oir.fn packet_value(packet: Packet[Int32] [direct]) -> Int32 [scalar] [abi=claw 
   block pick_empty_1:
     drop packet : Packet[Int32]
     return 0 : Int32
-oir.fn step() -> Result[Int32, Str] [indirect] [abi=claw link=internal symbol=revise_choice_resolution::step ffi=false]
+oir.fn step() -> Result[Int32, String] [indirect] [abi=claw link=internal symbol=revise_choice_resolution::step ffi=false]
   block entry:
-    %t0 = Ok(41) : Result[Int32, Str]
-    return %t0 : Result[Int32, Str]
+    %t0 = Ok(41) : Result[Int32, String]
+    return %t0 : Result[Int32, String]
 oir.fn result_value() -> Int32 [scalar] [abi=claw link=internal symbol=revise_choice_resolution::result_value ffi=false]
   block entry:
-    %t0 = call step() : Result[Int32, Str]
+    %t0 = call step() : Result[Int32, String]
     try %t0 -> value, else err -> try_fail_0
     %t1 = add value, 1 : Int32
     return %t1 : Int32
   block try_fail_0:
-    drop err : Str
+    drop err : String
     return 0 : Int32
 oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_choice_resolution::main ffi=false]
   block entry:

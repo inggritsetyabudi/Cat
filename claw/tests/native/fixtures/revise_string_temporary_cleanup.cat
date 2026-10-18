@@ -1,0 +1,12 @@
+fn main() {
+    println(String.from("abc").len())
+    println(String.from("chain").clone().len())
+    println(String.from("temporary").clone())
+    println(String.from("borrowed").as_str())
+    println(String.from("borrowed").as_str().len())
+    println(String.from("abc").as_str()[0])
+
+    val retained = String.from("retained")
+    println(retained)
+    println(retained.as_str())
+}

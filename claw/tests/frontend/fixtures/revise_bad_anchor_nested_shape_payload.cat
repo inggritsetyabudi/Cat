@@ -2,7 +2,7 @@ shape AnchorBox[T] {
     value: Anchor[T]
 }
 
-fn wrap_box(box: AnchorBox[Str]) {
+fn wrap_box(box: AnchorBox[String]) {
     val outer = Anchor.new(box)
 }
 

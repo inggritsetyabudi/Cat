@@ -1,11 +1,11 @@
 
-fn greet(name: Maybe[Str]) -> Str {
+fn greet(name: Maybe[String]) -> String {
     pick name {
         Some(n) {
             return n
         }
         None {
-            return "world"
+            return String.from("world")
         }
     }
 }
@@ -26,6 +26,8 @@ fn main() {
     val b: Maybe[Int32] = None
     println(add_one(a))
     println(add_one(b))
-    println(greet(Some("C@")))
-    println(greet(None))
+    val greeting = greet(Some(String.from("C@")))
+    println(greeting.as_str())
+    val default_greeting = greet(None)
+    println(default_greeting.as_str())
 }

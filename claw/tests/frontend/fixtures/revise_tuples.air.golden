@@ -48,4 +48,4 @@ air.fn main() -> Unit
   expr println((selected_if.0 + selected_if.1) : Int64) : Unit
   expr println((selected_pick.0 + selected_pick.1) : Int64) : Unit
   if ((decimal.0 + decimal.1) == 3.75) : Bool
-    expr println("float-ok" : Str) : Unit
+    expr println("float-ok" : ref Str) : Unit

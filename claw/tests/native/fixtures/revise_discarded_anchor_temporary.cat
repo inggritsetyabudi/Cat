@@ -1,6 +1,6 @@
-fn payload() -> Str {
+fn payload() -> String {
     println("payload-once")
-    "discarded"
+    String.from("discarded")
 }
 
 fn main() -> Int32 {

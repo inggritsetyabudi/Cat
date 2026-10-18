@@ -7,15 +7,16 @@ oir.choice Maybe of T [abi=claw link=internal symbol=revise_discarded_anchor_tem
   layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
   case None
   case Some(T)
-oir.fn payload() -> Str [direct] [abi=claw link=internal symbol=revise_discarded_anchor_temporary::payload ffi=false]
+oir.fn payload() -> String [indirect] [abi=claw link=internal symbol=revise_discarded_anchor_temporary::payload ffi=false]
   block entry:
     call println("payload-once") : Unit
-    return "discarded" : Str
+    %t0 = call String.from("discarded") : String
+    return %t0 : String
 oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=revise_discarded_anchor_temporary::main ffi=false]
   block entry:
-    %t0 = call payload() : Str
-    %t1 = call Anchor.new(%t0) : Anchor[Str]
-    discard %t1 : Anchor[Str]
-    drop %t1 : Anchor[Str]
+    %t0 = call payload() : String
+    %t1 = call Anchor.new(%t0) : Anchor[String]
+    discard %t1 : Anchor[String]
+    drop %t1 : Anchor[String]
     call println("finished") : Unit
     return 0 : integer literal

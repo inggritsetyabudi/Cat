@@ -1,0 +1,11 @@
+fn main() -> Int32 {
+    val view: Str = if true {
+        val owner = String.from("branch local")
+        val alias = owner.as_str()
+        alias[0..2]
+    } else {
+        "static"
+    }
+    println(view)
+    return 0
+}

@@ -1,0 +1,11 @@
+fn main() -> Int32 {
+    val outer = String.from("outer")
+    val view: Str = if true {
+        outer.as_str()
+    } else {
+        "static"
+    }
+    val moved = outer
+    println(view)
+    return 0
+}

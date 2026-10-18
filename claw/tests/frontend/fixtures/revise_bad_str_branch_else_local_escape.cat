@@ -1,0 +1,10 @@
+fn main() -> Int32 {
+    val view: Str = if false {
+        "static"
+    } else {
+        val owner = String.from("else local")
+        owner.as_str()
+    }
+    println(view)
+    return 0
+}

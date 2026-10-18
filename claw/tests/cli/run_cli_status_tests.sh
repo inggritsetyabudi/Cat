@@ -383,7 +383,6 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     pty_compile_failure_rc=$?
     set -e
     [[ "$pty_compile_failure_rc" -eq 1 ]] || fail "PTY compile failure exit code changed: $pty_compile_failure_rc"
-    grep -Fq 'error[parse]: Character literal must contain exactly one Unicode scalar value.' "$pty_compile_failure_stderr" || fail "PTY compile diagnostic missing"
     if [[ "$IS_POSIX" -eq 1 ]]; then
       grep -Fq $'\033[31;1mFORGE HALTED | compile rejected; see diagnostics\033[0m' "$pty_compile_failure_stderr" || fail "PTY compile failure summary is not red"
     else
@@ -397,10 +396,12 @@ from pathlib import Path
 raw = Path(sys.argv[1]).read_bytes()
 text = raw.decode(errors="replace")
 visible = re.sub(r"\x1b\[[0-9;]*m", "", text)
+if "error[parse]: Character literal must contain exactly one Unicode scalar value." not in visible:
+    raise SystemExit("PTY compile diagnostic missing")
 if not visible.rstrip().endswith("[=!....] | FORGE HALTED | compile rejected; see diagnostics"):
     raise SystemExit("final PTY line is not the settled compile failure status")
-diagnostic_at = text.find("error[parse]: Character literal")
-if diagnostic_at < 0 or not text[:diagnostic_at].endswith("\n"):
+diagnostic_at = visible.find("error[parse]: Character literal")
+if diagnostic_at < 0 or not visible[:diagnostic_at].endswith("\n"):
     raise SystemExit("compile diagnostic was interleaved with the progress line")
 PY
 
@@ -416,8 +417,6 @@ PY
     pty_failure_rc=$?
     set -e
     [[ "$pty_failure_rc" -eq 1 ]] || fail "PTY linker failure exit code changed: $pty_failure_rc"
-    grep -Fq 'simulated clang failure: exit 23' "$pty_failure_stderr" || fail "simulated linker diagnostic missing"
-    grep -Fq '`clang` exited with status 23' "$pty_failure_stderr" || fail "PTY linker failure omitted exit 23 classification"
     assert_ansi_color_policy "$pty_failure_stderr" "interactive failure status"
     python3 - "$pty_failure_stderr" "$IS_POSIX" <<'PY'
 import re
@@ -426,12 +425,16 @@ from pathlib import Path
 raw = Path(sys.argv[1]).read_bytes()
 text = raw.decode(errors="replace")
 visible = re.sub(r"\x1b\[[0-9;]*m", "", text)
+if "simulated clang failure: exit 23" not in visible:
+    raise SystemExit("simulated linker diagnostic missing")
+if "`clang` exited with status 23" not in visible:
+    raise SystemExit("PTY linker failure omitted exit 23 classification")
 if not visible.rstrip().endswith("FORGE HALTED | native build failed; see error above"):
     raise SystemExit("final PTY line is not the settled native-link failure status")
 if "[=====!" not in visible:
     raise SystemExit("link failure did not mark the active native phase as failed")
-diagnostic_at = text.find("simulated clang failure: exit 23")
-if diagnostic_at < 0 or not text[:diagnostic_at].endswith("\n"):
+diagnostic_at = visible.find("simulated clang failure: exit 23")
+if diagnostic_at < 0 or not visible[:diagnostic_at].endswith("\n"):
     raise SystemExit("linker diagnostic was interleaved with the active spinner line")
 if sys.argv[2] == "1":
     if not raw.rstrip().endswith(b"\x1b[0m"):

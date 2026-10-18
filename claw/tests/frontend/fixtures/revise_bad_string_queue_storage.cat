@@ -1,0 +1,3 @@
+fn takes(values: Queue[String]) {}
+
+fn main() {}

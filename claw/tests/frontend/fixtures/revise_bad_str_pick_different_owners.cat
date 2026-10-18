@@ -1,0 +1,24 @@
+choice Route {
+    first
+    second
+    third
+}
+fn main() -> Int32 {
+    val owner = String.from("first owner")
+    val other = String.from("other owner")
+    val route: Route = first()
+    val view: Str = pick route {
+        first {
+            owner.as_str()
+        }
+        second {
+            other.as_str()
+        }
+        third {
+            owner.as_str()
+        }
+    }
+    val moved = owner
+    println(view)
+    return 0
+}

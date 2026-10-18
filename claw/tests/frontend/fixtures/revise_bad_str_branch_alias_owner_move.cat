@@ -1,0 +1,13 @@
+fn main() -> Int32 {
+    val owner = String.from("outer owner")
+    val view: Str = if true {
+        val alias = owner.as_str()
+        alias
+    } else {
+        val alias = owner.as_str()
+        alias
+    }
+    val moved = owner
+    println(view)
+    return 0
+}

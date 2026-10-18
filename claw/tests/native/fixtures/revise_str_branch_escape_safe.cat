@@ -1,0 +1,59 @@
+fn choose_view(flag: Bool, outer: ref Str) -> Str {
+    if flag {
+        outer
+    } else {
+        outer
+    }
+}
+fn choose_owned(flag: Bool) -> String {
+    if flag {
+        String.from("owned true")
+    } else {
+        String.from("owned false")
+    }
+}
+fn main() -> Int32 {
+    val outer = String.from("outer owner")
+    val outer_view = choose_view(true, outer.as_str())
+    println(outer_view)
+    val borrowed_view = choose_view(false, outer.as_str())
+    println(borrowed_view)
+    val static_view = if false {
+        "static first"
+    } else {
+        "static second"
+    }
+    println(static_view)
+    val alias_view = if true {
+        val alias = outer.as_str()
+        alias
+    } else {
+        val alias = outer.as_str()
+        alias
+    }
+    println(alias_view)
+    val nested = if true {
+        if false {
+            "nested false"
+        } else {
+            "nested true"
+        }
+    } else {
+        "nested outer"
+    }
+    println(nested)
+    val safe = if true {
+        val local = String.from("dropped local")
+        val literal = "literal safe"
+        literal
+    } else {
+        "literal other"
+    }
+    println(safe)
+    val owned_true = choose_owned(true)
+    println(owned_true.as_str())
+    val owned_false = choose_owned(false)
+    println(owned_false.as_str())
+    println(outer.as_str())
+    return 0
+}

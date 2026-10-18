@@ -1,0 +1,18 @@
+choice Route {
+    left
+    right
+}
+fn main() -> Int32 {
+    val route: Route = left()
+    val view: Str = pick route {
+        left {
+            val owner = String.from("pick local")
+            owner.as_str()
+        }
+        right {
+            "static"
+        }
+    }
+    println(view)
+    return 0
+}

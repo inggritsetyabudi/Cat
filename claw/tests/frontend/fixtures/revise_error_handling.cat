@@ -1,19 +1,19 @@
 
-fn step(flag: Bool) -> Result[Int32, Str] {
+fn step(flag: Bool) -> Result[Int32, String] {
     if flag {
         return Ok(7)
     }
-    return Fail("bad")
+    return Fail(String.from("bad"))
 }
 
-fn unwrap(flag: Bool) -> Result[Int32, Str] {
+fn unwrap(flag: Bool) -> Result[Int32, String] {
     val value = try step(flag)
     return Ok(value + 1)
 }
 
 fn show(flag: Bool) {
     val value = try step(flag) else err {
-        println(err)
+        println(err.as_str())
         return
     }
     println(value)
