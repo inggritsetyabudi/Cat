@@ -6,7 +6,9 @@ FIXTURE_DIR="$SCRIPT_DIR/owned_shape"
 ARTIFACT_DIR="$SCRIPT_DIR/artifacts/owned_shape"
 RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/claw-owned-shape.XXXXXX")"
 trap 'rm -rf -- "$RUN_DIR"' EXIT
-CLAW_EXE="${CLAW_EXE:-$CLAW_DIR/build/claw}"
+# The parent supplies its exact compiler as an argument across shell boundaries.
+# Keep the environment/default fallback for standalone invocations only.
+CLAW_EXE="${1:-${CLAW_EXE:-$CLAW_DIR/build/claw}}"
 [[ -x "$CLAW_EXE" ]] || { echo "missing compiler executable: $CLAW_EXE" >&2; exit 1; }
 mkdir -p "$ARTIFACT_DIR"
 PROJECTION='Cannot move an owned shape field through projection; partial moves are not supported. Hint: borrow the field, call `clone()` for an explicit copy, or move the complete shape.'

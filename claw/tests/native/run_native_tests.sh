@@ -1721,4 +1721,16 @@ else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for fixed-array indexed assignment"
 fi
 
-CLAW_EXE="$CLAW_EXE" bash "$SCRIPT_DIR/run_owned_shape_safety_tests.sh"
+owned_shape_missing_compiler="$CWD_TEST_DIR/missing compiler.exe"
+owned_shape_handoff_log="$CWD_TEST_DIR/owned_shape_handoff.log"
+if CLAW_EXE="$CLAW_EXE" bash "$SCRIPT_DIR/run_owned_shape_safety_tests.sh" "$owned_shape_missing_compiler" >"$owned_shape_handoff_log" 2>&1; then
+  echo "owned-shape runner ignored an invalid explicit compiler argument" >&2
+  exit 1
+fi
+grep -Fq "missing compiler executable: $owned_shape_missing_compiler" "$owned_shape_handoff_log" || {
+  echo "owned-shape runner did not preserve the explicit compiler path" >&2
+  cat "$owned_shape_handoff_log" >&2
+  exit 1
+}
+echo "[runner/pass] owned-shape explicit compiler path overrides environment fallback"
+bash "$SCRIPT_DIR/run_owned_shape_safety_tests.sh" "$CLAW_EXE"
