@@ -1720,3 +1720,5 @@ if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,
 else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for fixed-array indexed assignment"
 fi
+
+python3 "$SCRIPT_DIR/run_division_by_zero_tests.py"

@@ -574,7 +574,6 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     const std::string right = ensureValue(value.right, state, blockLines);
                     const std::string baseType = canonicalBackendTypeBase(stripGenericArgs(stripViewPrefix(value.left.type)));
                     std::ostringstream line;
-                    line << "  " << localName(value.result) << " = ";
                     if (value.op == "range_exclusive" || value.op == "range_inclusive") {
                         const std::string withStart = state.temp("range.start");
                         const std::string withEnd = state.temp("range.end");
@@ -622,6 +621,50 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                         state.namedValues[value.result] = localName(value.result);
                         return;
                     }
+                    std::string arithmeticRight = right;
+                    std::string signedOverflow;
+                    std::string signedMinimum;
+                    std::string operationResult = localName(value.result);
+                    if ((value.op == "div" || value.op == "rem") && !isFloatingType(baseType)) {
+                        // All supported integer /, %, /= and %= paths meet here.
+                        // Branch before LLVM can observe a zero divisor, including
+                        // literal operands that would otherwise produce poison.
+                        const std::string isZero = state.temp("div.zero");
+                        const std::string failLabel = state.inlineLabel("div.zero");
+                        const std::string okLabel = state.inlineLabel("div.ok");
+                        const std::string defectSymbol = quoteGlobal("claw.runtime.defect.division_by_zero");
+                        addRuntimeDecl("declare void " + defectSymbol + "() noreturn");
+                        blockLines.push_back("  " + isZero + " = icmp eq " + operandType + " " + right + ", 0");
+                        std::string invalidDivisor = isZero;
+                        if (isSignedIntegerType(baseType)) {
+                            signedMinimum = baseType == "Int8" ? "-128" :
+                                baseType == "Int16" ? "-32768" :
+                                baseType == "Int32" ? "-2147483648" :
+                                baseType == "Int64" ? "-9223372036854775808" :
+                                "-170141183460469231731687303715884105728";
+                            const std::string isMin = state.temp("div.is.min");
+                            const std::string isMinusOne = state.temp("div.is.minus.one");
+                            signedOverflow = state.temp("div.overflow");
+                            invalidDivisor = state.temp("div.invalid");
+                            blockLines.push_back("  " + isMin + " = icmp eq " + operandType + " " + left + ", " + signedMinimum);
+                            blockLines.push_back("  " + isMinusOne + " = icmp eq " + operandType + " " + right + ", -1");
+                            blockLines.push_back("  " + signedOverflow + " = and i1 " + isMin + ", " + isMinusOne);
+                            blockLines.push_back("  " + invalidDivisor + " = or i1 " + isZero + ", " + signedOverflow);
+                            operationResult = state.temp("div.result");
+                        }
+                        // Neither zero nor MIN/-1 may reach LLVM integer division,
+                        // even in statically dead IR. The native profile is currently
+                        // release-only: select the PRD's wrapping result below.
+                        arithmeticRight = state.temp("div.safe.divisor");
+                        blockLines.push_back("  " + arithmeticRight + " = select i1 " + invalidDivisor +
+                            ", " + operandType + " 1, " + operandType + " " + right);
+                        blockLines.push_back("  br i1 " + isZero + ", label %" + failLabel + ", label %" + okLabel);
+                        blockLines.push_back(failLabel + ":");
+                        blockLines.push_back("  call void " + defectSymbol + "()");
+                        blockLines.push_back("  unreachable");
+                        blockLines.push_back(okLabel + ":");
+                    }
+                    line << "  " << operationResult << " = ";
                     if (value.op == "add") {
                         line << (isFloatingType(baseType) ? "fadd " : "add ") << resultType;
                     } else if (value.op == "sub") {
@@ -680,8 +723,13 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     } else {
                         throw std::runtime_error("LLVM lowering does not yet support binary op '" + value.op + "'.");
                     }
-                    line << " " << left << ", " << right;
+                    line << " " << left << ", " << arithmeticRight;
                     blockLines.push_back(line.str());
+                    if (!signedOverflow.empty()) {
+                        const std::string wrapped = value.op == "div" ? signedMinimum : "0";
+                        blockLines.push_back("  " + localName(value.result) + " = select i1 " + signedOverflow +
+                            ", " + resultType + " " + wrapped + ", " + resultType + " " + operationResult);
+                    }
                     state.valueTypes[value.result] = value.type;
                     state.namedValues[value.result] = localName(value.result);
                 },
