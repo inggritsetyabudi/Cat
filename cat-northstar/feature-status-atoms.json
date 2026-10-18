@@ -24,6 +24,28 @@
     "fixtures": [],
     "assertions": []
   },
+  "G2-PRD-1-SHAPE-FIELDS": {
+    "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-1-SHAPE-DUPLICATE": {
+    "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-1-SHAPE-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_nested_scoped_generic_field_mismatch.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_nested_scoped_generic_field_mismatch.cat\" \"$FIXTURE_DIR/revise_bad_nested_scoped_generic_field_mismatch.cat\" \"Shape literal field type mismatch for 'value': expected Name[outer], got Name[inner]\""
+      }
+    ]
+  },
   "G2-PRD-2-ARRAY-ASSIGN": {
     "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
     "fixtures": [
@@ -541,6 +563,18 @@
       }
     ]
   },
+  "G2-PRD-10-LATER-ASSIGN": {
+    "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
+    "fixtures": [
+      "cat-northstar/PRD.md"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/docs/run_doc_tests.py",
+        "text": "if result.returncode == 0:"
+      }
+    ]
+  },
   "G2-PRD-11-CHAR": {
     "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
     "fixtures": [
@@ -708,6 +742,11 @@
     "fixtures": [],
     "assertions": []
   },
+  "G2-PRD-12-STRING-OOM": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
   "G2-PRD-13-CONTRACT": {
     "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
     "fixtures": [
@@ -752,8 +791,15 @@
   },
   "G2-PRD-14-GET": {
     "source_anchor": "cat-northstar/PRD.md#14-slice",
-    "fixtures": [],
-    "assertions": []
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_str_range_views.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "expected_str_range_views_stdout=$'A\\nA\\né\\né\\né\\né\\n\\n\\nAéB\\nA\\néB\\n\\nnone\\nnone\\nnone\\nnone\\nnone\\nnone\\nA'"
+      }
+    ]
   },
   "G2-PRD-14-SLICE": {
     "source_anchor": "cat-northstar/PRD.md#14-slice",
@@ -764,6 +810,72 @@
       {
         "path": "claw/tests/native/run_native_tests.sh",
         "text": "expected_str_range_views_stdout=$'A\\nA\\né\\né\\né\\né\\n\\n\\nAéB\\nA\\néB\\n\\nnone\\nnone\\nnone\\nnone\\nnone\\nnone\\nA'"
+      }
+    ]
+  },
+  "G2-PRD-14-BOUNDS": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_str_range_negative_defect.cat",
+      "claw/tests/native/fixtures/revise_str_range_reversed_defect.cat",
+      "claw/tests/native/fixtures/revise_str_range_oob_defect.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "run_expect_str_range_defect \"revise_str_range_negative_defect.cat\""
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "run_expect_str_range_defect \"revise_str_range_reversed_defect.cat\""
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "run_expect_str_range_defect \"revise_str_range_oob_defect.cat\""
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if \"$output\" >/dev/null 2>&1; then"
+      }
+    ]
+  },
+  "G2-PRD-14-UTF8": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_str_range_utf8_defect.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "run_expect_str_range_defect \"revise_str_range_utf8_defect.cat\""
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if \"$output\" >/dev/null 2>&1; then"
+      }
+    ]
+  },
+  "G2-PRD-14-BORROW": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_str_range_local_return.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"Maybe[ref Str] from Str.get cannot escape a local receiver\" \\\n  \"$FIXTURE_DIR/revise_bad_str_range_local_return.cat\" \\\n  \"Borrowed-returning functions must return a view derived from one of their borrowed parameters.\""
+      }
+    ]
+  },
+  "G2-PRD-14-LEGACY-SLICE": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_str_legacy_slice.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"legacy public Str.slice(start,length) is removed\" \\\n  \"$FIXTURE_DIR/revise_bad_str_legacy_slice.cat\" \"Type 'Str' does not provide method 'slice'.\""
       }
     ]
   },
@@ -788,6 +900,16 @@
     "assertions": []
   },
   "G2-PRD-15-REWRITE": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-CONFIG-LINK": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-CONFIG-DUPLICATE": {
     "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
     "fixtures": [],
     "assertions": []
@@ -852,6 +974,54 @@
       {
         "path": "claw/tests/frontend/run_frontend_tests.sh",
         "text": "run_check_pass \"test_frontend/revise_super_import\" \"$FIXTURE_DIR/revise_super_import\""
+      }
+    ]
+  },
+  "G2-PRD-17-SHARE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_private_item_import/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_private_item_import\" \"$FIXTURE_DIR/revise_bad_private_item_import\" \"does not share item 'hidden'\""
+      }
+    ]
+  },
+  "G2-PRD-17-NAMESPACE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_module_aliases/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"test_frontend/revise_module_aliases\" \"$FIXTURE_DIR/revise_module_aliases\""
+      }
+    ]
+  },
+  "G2-PRD-17-DIRECT-ITEM": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_pkg/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"test_frontend/revise_pkg\" \"$FIXTURE_DIR/revise_pkg\""
+      }
+    ]
+  },
+  "G2-PRD-17-BASENAME-ALIAS": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_module_aliases/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"test_frontend/revise_module_aliases\" \"$FIXTURE_DIR/revise_module_aliases\""
       }
     ]
   },
@@ -1021,6 +1191,35 @@
     "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
     "fixtures": [],
     "assertions": []
+  },
+  "G2-PLAN-M02-IMPLICIT-TAIL": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_implicit_return.cat",
+      "claw/tests/frontend/fixtures/revise_bad_implicit_return.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$implicit_return_stdout\" != \"42\" ]]; then"
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"middle expression is not an implicit return\" \"$FIXTURE_DIR/revise_bad_implicit_return.cat\" \"must end with a value of type Int32 or use explicit return.\""
+      }
+    ]
+  },
+  "G2-PLAN-M02-IMPLICIT-WARNING": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_implicit_return.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_warning \"implicit block-tail return\" \"$SCRIPT_DIR/../native/fixtures/revise_implicit_return.cat\" \"only the final expression in a block returns implicitly\""
+      }
+    ]
   },
   "G2-PLAN-M03": {
     "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
