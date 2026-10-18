@@ -2000,5 +2000,100 @@
     "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
     "fixtures": [],
     "assertions": []
+  },
+  "G2-PLAN-ARENA-EXPERIMENTAL": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-ARENA-V1-EXCLUSION": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-NODE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-CACHE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-DOUBLY-LINKED": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-GRAPH": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-SECTION": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-SHORT-DOC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-BLOCK-DOC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-FN-TYPE-DOC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-BORROW-NEGATIVE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-SAFE-PRIVATE-SUITE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-EDITION-STABILITY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-HISTORICAL-EXAMPLE-AUDIT": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-CONFIG-SHAPE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-BUFFER": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-CIRCLE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-VECTOR2": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-CONFIG-IDENTITY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
   }
 }

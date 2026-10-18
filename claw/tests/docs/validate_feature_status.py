@@ -13,7 +13,7 @@ from feature_status_source_index import validate_source_index
 
 HEADERS = ("ID", "Sumber", "Irisan", "Label", "Keputusan semantik", "Lingkup implementasi", "Bukti penerimaan", "Sisa", "Dimensi non-compiler")
 LABELS = ("[diusulkan]", "[diputuskan]", "[diterima compiler]")
-SOURCE_RE = re.compile(r"^(?:PRD:\d+|PLAN:(?:G[1-8]|M(?:0[1-9]|10)))$")
+SOURCE_RE = re.compile(r"^(?:PRD:\d+|PLAN:(?:G[1-8]|M(?:0[1-9]|10)|S\d+))$")
 PRD_HEADING_RE = re.compile(r"^##\s+(\d+)(?:[.:\s]|$)")
 LINK_RE = re.compile(r"!?(?<!\!)\[([^]]+)\]\(([^)]+)\)")
 HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
@@ -57,8 +57,20 @@ def _manifest_source(root: Path, source: str, anchor: str, line: int) -> str | N
 
 def _source_number(source_cell: str) -> str:
     value = source_cell.split(":", 1)[1]
-    value = value[1:] if value[:1] in {"G", "M"} else value
+    value = value[1:] if value[:1] in {"G", "M", "S"} else value
     return str(int(value))
+
+def _source_line_in_heading(path: Path, anchor: str, line_number: int) -> bool:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    starts = [i for i, raw in enumerate(lines) if (m := HEADING_RE.match(raw)) and github_slug(m.group(1)) == anchor]
+    if not starts or line_number < 1:
+        return False
+    start = starts[0]
+    heading = HEADING_RE.match(lines[start])
+    level = len(lines[start]) - len(lines[start].lstrip("#")) if heading else 1
+    end = next((i for i in range(start + 1, len(lines))
+                if (m := HEADING_RE.match(lines[i])) and len(lines[i]) - len(lines[i].lstrip("#")) <= level), len(lines))
+    return start < line_number <= end
 
 def _source_anchor_ok(root: Path, source_cell: str, source_anchor: str, line: int, atom_id: str | None = None) -> None:
     if not SOURCE_RE.fullmatch(source_cell):
@@ -68,6 +80,13 @@ def _source_anchor_ok(root: Path, source_cell: str, source_anchor: str, line: in
     raw_path, anchor = source_anchor.split("#", 1)
     _manifest_source(root, raw_path + "#" + anchor, anchor, line)
     path = (root / raw_path).resolve()
+    if source_cell.startswith("PLAN:S"):
+        source_line = int(source_cell.split("S", 1)[1])
+        if path.name != "PRD-CHANGES-v0.1-to-v1.0.md":
+            raise ValidationError(f"line {line}: {source_cell} source_anchor must target PRD-CHANGES-v0.1-to-v1.0.md")
+        if not _source_line_in_heading(path, anchor, source_line):
+            raise ValidationError(f"line {line}: {source_cell} source line is not enclosed by {source_anchor}")
+        return
     # These two atoms keep M02 as staging, but their normative rule is §3/S76.
     # Do not extend this exception to the milestone itself or other PLAN rows.
     if atom_id in {"G2-PLAN-M02-IMPLICIT-TAIL", "G2-PLAN-M02-IMPLICIT-WARNING"}:
@@ -167,6 +186,8 @@ def _validate_manifest(root: Path, rows: list[tuple[int, list[str]]], errors: li
         else:
             try: _source_anchor_ok(root, cells[1], source_anchor, line, key)
             except ValidationError as exc: errors.append(str(exc))
+        if cells[1].startswith("PLAN:S") and cells[3] == "[diterima compiler]":
+            errors.append(f"line {line}: PLAN:S sources are documentation-only and cannot be accepted by the compiler")
         fixtures = atom.get("fixtures")
         assertions = atom.get("assertions")
         fixtures_ok = isinstance(fixtures, list) and all(isinstance(x, str) and x for x in fixtures)
@@ -181,6 +202,22 @@ def _validate_manifest(root: Path, rows: list[tuple[int, list[str]]], errors: li
             raw_path, anchor = source_anchor.split("#", 1)
             if ((root / raw_path).resolve(), anchor) not in evidence_links:
                 errors.append(f"line {line}: source_anchor is not linked by ledger evidence")
+        if cells[1].startswith("PLAN:S") and SOURCE_RE.fullmatch(cells[1]):
+            index_path = root / "cat-northstar/feature-status-source-index.json"
+            try:
+                index_atoms = json.loads(index_path.read_text(encoding="utf-8")).get("atoms", [])
+            except (OSError, json.JSONDecodeError, AttributeError):
+                index_atoms = []
+            indexed = next((item for item in index_atoms if isinstance(item, dict) and item.get("id") == key), None)
+            if indexed is not None:
+                source_line = int(cells[1].split("S", 1)[1])
+                source_file = root / "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md"
+                source_lines = source_file.read_text(encoding="utf-8").splitlines() if source_file.is_file() else []
+                excerpt = indexed.get("source_excerpt")
+                if source_line < 1 or source_line > len(source_lines):
+                    errors.append(f"line {line}: {cells[1]} source line does not exist in PRD-CHANGES-v0.1-to-v1.0.md")
+                elif not isinstance(excerpt, str) or excerpt not in source_lines[source_line - 1]:
+                    errors.append(f"line {line}: {cells[1]} source_excerpt must be a substring of source line {source_line}")
         if not fixtures_ok or not assertions_ok: continue
         if key not in accepted: continue
         if not fixtures: errors.append(f"line {line}: accepted manifest atom {key} fixtures must be nonempty")
@@ -298,6 +335,7 @@ def validate(root: Path) -> list[str]:
         if not SOURCE_RE.fullmatch(source): errors.append(f"line {line}: invalid source: {source}")
         sources.append(source)
         if label not in LABELS: errors.append(f"line {line}: label must be exactly one of {LABELS}: {label}")
+        if source.startswith("PLAN:S") and label == "[diterima compiler]": errors.append(f"line {line}: PLAN:S sources are documentation-only and cannot be accepted by the compiler")
         if sum(" | ".join(cells).count(candidate) for candidate in LABELS) != 1: errors.append(f"line {line}: labels may occur only once, in the Label cell")
         evidence = cells[6]; links = list(LINK_RE.finditer(evidence)); resolved_links: list[Path] = []
         if not links: errors.append(f"line {line}: Bukti penerimaan needs a local Markdown link")
@@ -316,7 +354,9 @@ def validate(root: Path) -> list[str]:
             if not executable and not changelog: errors.append(f"line {line}: accepted evidence must reference an existing executable fixture under claw/tests or claw/test, or a bounded changelog")
     missing = sorted(required_sources - set(sources), key=lambda s: (s.split(":", 1)[0], s))
     if missing: errors.append("missing required sources: " + ", ".join(missing))
-    unknown = sorted(set(sources) - required_sources)
+    # PLAN:S<n> is an optional, line-addressed documentation/governance atom;
+    # unlike PRD/G/M coverage, adding one does not make every S line mandatory.
+    unknown = sorted(source for source in set(sources) - required_sources if not source.startswith("PLAN:S"))
     if unknown: errors.append("unrecognized sources: " + ", ".join(unknown))
     _validate_manifest(root, rows, errors)
     return errors

@@ -2096,6 +2096,139 @@
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
       "requirement_description": "**v1.0**: Gerbang rilis. Bukti selesai: Daftar periksa di bawah.",
       "source_excerpt": "| **v1.0** | Gerbang rilis | Daftar periksa di bawah |"
+    },
+    {
+      "id": "G2-PLAN-ARENA-EXPERIMENTAL",
+      "source": "PLAN:S58",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Dokumentasi Arena harus menampilkan label eksperimental; bukan audit safety Arena.",
+      "source_excerpt": "Arena diberi label `[eksperimental]`"
+    },
+    {
+      "id": "G2-PLAN-ARENA-V1-EXCLUSION",
+      "source": "PLAN:S58",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Daftar gerbang v1 harus mengecualikan Arena; terpisah dari pemasangan label eksperimental.",
+      "source_excerpt": "dikeluarkan dari gerbang v1"
+    },
+    {
+      "id": "G2-PLAN-MIGRATE-NODE",
+      "source": "PLAN:S58",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Artefak contoh Node pada bagian historis §11 dimigrasikan ke Node.new(...); aturan konstruksi tetap G2-PLAN-G3 dan G2-PRD-1-NEW.",
+      "source_excerpt": "Contoh `Node(...)` dan `Cache(stored: ...)` ditulis ulang ke `.new(...)`"
+    },
+    {
+      "id": "G2-PLAN-MIGRATE-CACHE",
+      "source": "PLAN:S58",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Artefak contoh Cache(stored: ...) pada bagian historis §11 dimigrasikan ke Cache.new(...), bukan definisi baru Anchor.",
+      "source_excerpt": "Contoh `Node(...)` dan `Cache(stored: ...)` ditulis ulang ke `.new(...)`"
+    },
+    {
+      "id": "G2-PLAN-MIGRATE-DOUBLY-LINKED",
+      "source": "PLAN:S58",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Artefak contoh doubly linked pada bagian Arena diganti dengan vec + indeks; terpisah dari contoh graph.",
+      "source_excerpt": "contoh siklus (doubly linked, graph) diganti `vec` + indeks"
+    },
+    {
+      "id": "G2-PLAN-MIGRATE-GRAPH",
+      "source": "PLAN:S58",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Artefak contoh graph pada bagian Arena diganti dengan vec + indeks; tidak mengubah semantik koleksi.",
+      "source_excerpt": "contoh siklus (doubly linked, graph) diganti `vec` + indeks"
+    },
+    {
+      "id": "G2-PLAN-CLOSURE-SECTION",
+      "source": "PLAN:S82",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "PRD harus mempunyai bagian closure tersendiri yang menampung desainnya; ini artefak dokumentasi, bukan acceptance closure.",
+      "source_excerpt": "Bagian baru di PRD"
+    },
+    {
+      "id": "G2-PLAN-CLOSURE-SHORT-DOC",
+      "source": "PLAN:S82",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Bagian closure mendokumentasikan bentuk pendek dengan contoh yang dapat ditelusuri.",
+      "source_excerpt": "bentuk pendek dan bentuk blok"
+    },
+    {
+      "id": "G2-PLAN-CLOSURE-BLOCK-DOC",
+      "source": "PLAN:S82",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Bagian closure mendokumentasikan bentuk blok dengan contoh yang dapat ditelusuri.",
+      "source_excerpt": "bentuk pendek dan bentuk blok"
+    },
+    {
+      "id": "G2-PLAN-CLOSURE-FN-TYPE-DOC",
+      "source": "PLAN:S82",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Bagian closure mencantumkan tipe parameter fn(A) -> R; pemilik ini hanya kewajiban dokumentasi bentuk tipe.",
+      "source_excerpt": "tipe parameter `fn(A) -> R`"
+    },
+    {
+      "id": "G2-PLAN-CLOSURE-BORROW-NEGATIVE",
+      "source": "PLAN:S82",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Inventaris tes closure harus menyertakan penolakan closure yang mengubah variabel terpinjam, dengan assertion diagnostik.",
+      "source_excerpt": "closure yang mengubah variabel terpinjam → error"
+    },
+    {
+      "id": "G2-PLAN-SAFE-PRIVATE-SUITE",
+      "source": "PLAN:S111",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+      "requirement_description": "Suite negatif wajib pada gerbang Safe v1 mencakup tes kebocoran tipe privat. G2-PRD-17-PRIVATE tetap pemilik semantik penolakan; G2-PRD-9-SAFE-SUITE tetap pemilik lima kategori lainnya.",
+      "source_excerpt": "kebocoran tipe privat"
+    },
+    {
+      "id": "G2-PLAN-EDITION-STABILITY",
+      "source": "PLAN:S114",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+      "requirement_description": "Kebijakan stabilitas pasca-v1 mengizinkan perubahan yang merusak kode lama hanya melalui mekanisme edition.",
+      "source_excerpt": "setelah v1, perubahan yang merusak kode lama hanya lewat *edition*"
+    },
+    {
+      "id": "G2-PLAN-HISTORICAL-EXAMPLE-AUDIT",
+      "source": "PLAN:S84",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Laksanakan satu audit dokumentasi dengan checklist enam bagian historis §1, §2, §17, §29, §30, §32, mencakup aturan huruf dan contoh lama; bukan pemilik semantik casing baru.",
+      "source_excerpt": "Bagian yang tidak muncul di tabel (§1, §2, §17, §29, §30, §32) tidak ikut diaudit proposal. Tugas v0.1: periksa aturan huruf dan contoh lama di sana."
+    },
+    {
+      "id": "G2-PLAN-MIGRATE-CONFIG-SHAPE",
+      "source": "PLAN:S55",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Artefak Config di bagian shape/choice historis §8 ditulis ulang; bukan contoh Config pada bagian identitas §22.",
+      "source_excerpt": "Contoh `Config` ditulis ulang"
+    },
+    {
+      "id": "G2-PLAN-MIGRATE-BUFFER",
+      "source": "PLAN:S61",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Artefak contoh Buffer pada bagian contract/implements historis §14 ditulis ulang tanpa menduplikasi aturan konstruktor/koleksi.",
+      "source_excerpt": "contoh `Buffer`, `Circle` ditulis ulang"
+    },
+    {
+      "id": "G2-PLAN-MIGRATE-CIRCLE",
+      "source": "PLAN:S61",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Artefak contoh Circle pada bagian contract/implements historis §14 ditulis ulang; locality/orphan tetap dimiliki PRD:13.",
+      "source_excerpt": "contoh `Buffer`, `Circle` ditulis ulang"
+    },
+    {
+      "id": "G2-PLAN-MIGRATE-VECTOR2",
+      "source": "PLAN:S62",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Artefak contoh Vector2 pada bagian operator overloading historis §15 ditulis ulang; bukan aturan presedensi/operator baru.",
+      "source_excerpt": "contoh `Vector2` ditulis ulang"
+    },
+    {
+      "id": "G2-PLAN-MIGRATE-CONFIG-IDENTITY",
+      "source": "PLAN:S68",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+      "requirement_description": "Artefak Config untuk perbandingan identitas historis §22 ditulis ulang; terpisah dari Config shape/choice S55.",
+      "source_excerpt": "contoh `Config` ditulis ulang"
     }
   ]
 }

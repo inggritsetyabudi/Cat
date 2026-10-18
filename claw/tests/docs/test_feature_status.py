@@ -282,5 +282,66 @@ class TestFeatureStatusValidator(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("exact normative implicit-return row not found", result.stderr)
 
+    def plan_s_repo(self, source="PLAN:S55", anchor="4-milestone-final-v01-sampai-v10", excerpt="S55 docs-only"):
+        root = self.make_repo(self.valid_rows())
+        plan_path = root / "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md"
+        plan_lines = plan_path.read_text().splitlines()
+        while len(plan_lines) < 54:
+            plan_lines.append("filler")
+        plan_lines.append("| S55 docs-only | governance |")
+        plan_path.write_text("\n".join(plan_lines) + "\n")
+        ident = "G2-PLAN-S55"
+        source_anchor = f"cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#{anchor}"
+        ledger = root / "cat-northstar/FEATURE-STATUS.md"
+        ledger.write_text(ledger.read_text() + f"| {ident} | {source} | governance | [diputuskan] | keputusan terbatas | Docs-only; tidak dikreditkan ke compiler. | [source](PRD-CHANGES-v0.1-to-v1.0.md#{anchor}) | pending limitation | governance docs |\n")
+        manifest_path = root / "cat-northstar/feature-status-atoms.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest[ident] = {"source_anchor": source_anchor, "fixtures": [], "assertions": []}
+        manifest_path.write_text(json.dumps(manifest))
+        index_path = root / "cat-northstar/feature-status-source-index.json"
+        index = json.loads(index_path.read_text())
+        index["atoms"].append({"id": ident, "source": source, "source_anchor": source_anchor, "requirement_description": "Docs-only governance requirement", "source_excerpt": excerpt})
+        index_path.write_text(json.dumps(index))
+        return root
+
+    def test_plan_s_valid_line_anchor_and_excerpt_pass(self):
+        result = self.validate_cli(self.plan_s_repo())
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_plan_s_nonexistent_line_is_rejected(self):
+        result = self.validate_cli(self.plan_s_repo(source="PLAN:S999"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source line is not enclosed", result.stderr)
+
+    def test_plan_s_mismatched_anchor_is_rejected(self):
+        result = self.validate_cli(self.plan_s_repo(anchor="2-perubahan-global"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source line is not enclosed", result.stderr)
+
+    def test_plan_s_excerpt_must_match_source_line(self):
+        for excerpt in ("not in source line", "filler"):
+            with self.subTest(excerpt=excerpt):
+                result = self.validate_cli(self.plan_s_repo(excerpt=excerpt))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("source_excerpt must be a substring", result.stderr)
+
+    def test_plan_s_malformed_line_is_rejected_without_traceback(self):
+        for source in ("PLAN:Sbad", "PLAN:S", "PLAN:S-1", "PLAN:S0"):
+            with self.subTest(source=source):
+                result = self.validate_cli(self.plan_s_repo(source=source))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertNotIn("SyntaxError", result.stderr)
+                self.assertIn("FEATURE-STATUS: FAIL", result.stdout)
+
+    def test_plan_s_cannot_be_accepted_by_compiler(self):
+        root = self.plan_s_repo()
+        path = root / "cat-northstar/FEATURE-STATUS.md"
+        text = path.read_text().replace("| G2-PLAN-S55 | PLAN:S55 | governance | [diputuskan]", "| G2-PLAN-S55 | PLAN:S55 | governance | [diterima compiler]")
+        path.write_text(text)
+        result = self.validate_cli(root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("documentation-only", result.stderr)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
