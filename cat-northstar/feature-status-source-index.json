@@ -463,14 +463,14 @@
       "id": "G2-PRD-6-BITWISE-INT",
       "source": "PRD:6",
       "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
-      "requirement_description": "bitwise AND, OR, XOR, dan NOT hanya berlaku pada tipe integer; Float/Bool tidak dipromosikan diam-diam.",
-      "source_excerpt": "Operasi floating-point tetap mengikuti IEEE-754; aturan defect integer ini tidak diterapkan pada float. Overflow signed `MIN / -1` dan `MIN % -1` tetap mengikuti §19: debug defect, release quotient MIN dan remainder 0."
+      "requirement_description": "Bitwise termasuk shift << dan >> hanya untuk tipe integer; tidak menambahkan kebijakan konversi atau semantik shift yang tidak ditulis PRD.",
+      "source_excerpt": "| C | bitwise (`& \\| ^ ~ << >>`), hanya tipe integer |"
     },
     {
       "id": "G2-PRD-6-COMPOUND",
       "source": "PRD:6",
       "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
-      "requirement_description": "Assignment majemuk mengevaluasi sisi kiri yang diuji satu kali.",
+      "requirement_description": "Compound assignment mengevaluasi sisi kiri sekali; penerimaan di sini hanya satu call next_index pada IR untuk values[next_index()] += 1.",
       "source_excerpt": "- Compound assignment mengevaluasi sisi kiri **sekali**: `a[f()] += 1` memanggil `f` satu kali."
     },
     {
@@ -478,21 +478,21 @@
       "source": "PRD:6",
       "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
       "requirement_description": "Aturan overflow signed yang sudah diratifikasi berlaku tanpa pengecualian khusus: debug menghasilkan defect untuk kedua operasi; release menghasilkan quotient membungkus ke MIN untuk MIN / -1 dan remainder 0 untuk MIN % -1.",
-      "source_excerpt": "Untuk builtin integer signed maupun unsigned, `/` dan `%` dengan pembagi nol menghasilkan **defect runtime deterministik yang tidak dapat dipulihkan**, baik debug maupun release. Aturan yang sama berlaku pada `/=` dan"
+      "source_excerpt": "Overflow signed `MIN / -1` dan `MIN % -1` tetap mengikuti §19: debug defect, release quotient MIN dan remainder 0."
     },
     {
       "id": "G2-PRD-6-DIV-NONZERO",
       "source": "PRD:6",
       "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
-      "requirement_description": "Lingkup bounded ini terbatas pada dua operasi tersebut: `-20 % 6` dan `48 / 4 / 3`; tidak mengklaim seluruh arithmetic matrix atau kebijakan zero-divisor.",
-      "source_excerpt": "Defect menulis diagnostik pembagi nol ke stderr dan menghentikan proses dengan status nonzero; tidak menghasilkan nilai, tidak melanjutkan eksekusi, dan tidak menjanjikan unwind atau destructor cleanup. Nomor"
+      "requirement_description": "Operator / dan % berada pada tingkat perkalian di tabel; irisan nilai hanya -20 % 6 = -2 dan 48 / 4 / 3 = 4 yang ditest, bukan kebijakan divisor nol atau seluruh arithmetic matrix.",
+      "source_excerpt": "| 4 | `*` `/` `%` | kiri |"
     },
     {
       "id": "G2-PRD-6-DIV-ZERO",
       "source": "PRD:6",
       "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
-      "requirement_description": "Integer / dan % dengan pembagi nol menjadi defect runtime yang sama pada debug/release, termasuk divisor konstan; float mempertahankan IEEE-754.",
-      "source_excerpt": "Untuk builtin integer signed maupun unsigned, `/` dan `%` dengan pembagi nol menghasilkan **defect runtime deterministik yang tidak dapat dipulihkan**, baik debug maupun release. Aturan yang sama berlaku pada `/=` dan"
+      "requirement_description": "Builtin integer signed/unsigned / dan % dengan divisor nol menjadi defect runtime deterministik tidak dapat dipulihkan pada debug maupun release. Compound, konteks evaluasi, diagnostik, LLVM dan float mempunyai pemilik terpisah.",
+      "source_excerpt": "Untuk builtin integer signed maupun unsigned, `/` dan `%` dengan pembagi nol menghasilkan **defect runtime deterministik yang tidak dapat dipulihkan**, baik debug maupun release."
     },
     {
       "id": "G2-PRD-6-IS-REF",
@@ -505,134 +505,281 @@
       "id": "G2-PRD-6-NONASSOC",
       "source": "PRD:6",
       "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
-      "requirement_description": "Comparison tidak associative: rantai `a < b < c` tidak diparse sebagai dua comparison tersirat dan harus ditolak/ditulis eksplisit.",
-      "source_excerpt": "Defect menulis diagnostik pembagi nol ke stderr dan menghentikan proses dengan status nonzero; tidak menghasilkan nilai, tidak melanjutkan eksekusi, dan tidak menjanjikan unwind atau destructor cleanup. Nomor"
+      "requirement_description": "Perbandingan pada tingkat 10 non-asosiatif; a < b < c adalah error kompilasi. Range non-asosiatif dan assignment kanan/statement memiliki ID terpisah.",
+      "source_excerpt": "- Perbandingan non-asosiatif: `a < b < c` adalah error kompilasi."
     },
     {
       "id": "G2-PRD-6-OP-GROUP",
       "source": "PRD:6",
       "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
-      "requirement_description": "Operator mengikuti kelompok ratifikasi dan tabel parser pada irisan yang diuji.",
-      "source_excerpt": "**Cara kerja compiler:** parser Pratt (parser operator yang mengambil prioritas dari tabel binding-power), dibuat langsung dari tabel di atas. LLVM, **mode debug**: `Int*` memakai `llvm.sadd.with.overflow` (dan"
+      "requirement_description": "Operator compound assignment pada tabel statement diuji hanya untuk urutan +=, -=, *=, /=, %= pada local Int32 dan += field Meter; tidak memiliki precedence, associativity, boolean atau nonzero div/rem biasa.",
+      "source_excerpt": "| 14 | `=` `+=` `-=` `*=` `/=` `%=` dst. | kanan (statement) |"
     },
     {
       "id": "G2-PRD-6-PRECEDENCE",
       "source": "PRD:6",
       "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
-      "requirement_description": "Tabel operator PRD bersifat normatif; bitwise mengikat lebih kuat daripada comparison.",
-      "source_excerpt": "**Tabel normatif** (tinggi ke rendah)"
+      "requirement_description": "Urutan tingkat 1–14 mengikuti tabel normatif L290–303; bitwise di atas comparison (L307). Atom ini hanya prioritas binding, bukan pemilik ganda associativity, comparison/range nonassoc atau assignment statement.",
+      "source_excerpt": "| 1 | postfix: `.`, `()`, `[]`, `!` | kiri |\n| 2 | unary: `-`, `not`, `~`, `ref` | kanan |\n| 3 | `as` | kiri |\n| 4 | `*` `/` `%` | kiri |\n| 5 | `+` `-` | kiri |\n| 6 | `<<` `>>` | kiri |\n| 7 | `&` | kiri |\n| 8 | `^` | kiri |\n| 9 | `\\|` | kiri |\n| 10 | `<` `<=` `>` `>=` `==` `!=` `is` `in` | **non-asosiatif** |\n| 11 | `and` | kiri |\n| 12 | `or` | kiri |\n| 13 | `..` `..=` | non-asosiatif |\n| 14 | `=` `+=` `-=` `*=` `/=` `%=` dst. | kanan (statement) |"
     },
     {
       "id": "G2-PRD-6-SHORT",
       "source": "PRD:6",
       "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
-      "requirement_description": "Evaluasi short-circuit mempertahankan perilaku ownership yang diuji.",
-      "source_excerpt": "Untuk builtin integer signed maupun unsigned, `/` dan `%` dengan pembagi nol menghasilkan **defect runtime deterministik yang tidak dapat dipulihkan**, baik debug maupun release. Aturan yang sama berlaku pada `/=` dan"
+      "requirement_description": "and/or tidak mengevaluasi operan kanan ketika hasil sudah pasti. Pengecualian ekspresi divisor nol yang tidak dievaluasi merujuk aturan ini, bukan aturan defect duplikat.",
+      "source_excerpt": "- `and`/`or` short-circuit (operan kanan tidak dievaluasi jika hasil sudah pasti)."
+    },
+    {
+      "id": "G2-PRD-6-ASSOCIATIVITY",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Tingkat 1–9 dan 11–12 mengikuti kiri/kanan pada tabel. Prioritas dimiliki PRECEDENCE; comparison, range, dan assignment memiliki pemilik sendiri.",
+      "source_excerpt": "| 1 | postfix: `.`, `()`, `[]`, `!` | kiri |\n| 2 | unary: `-`, `not`, `~`, `ref` | kanan |\n| 3 | `as` | kiri |\n| 4 | `*` `/` `%` | kiri |\n| 5 | `+` `-` | kiri |\n| 6 | `<<` `>>` | kiri |\n| 7 | `&` | kiri |\n| 8 | `^` | kiri |\n| 9 | `\\|` | kiri |\n| 10 | `<` `<=` `>` `>=` `==` `!=` `is` `in` | **non-asosiatif** |\n| 11 | `and` | kiri |\n| 12 | `or` | kiri |"
+    },
+    {
+      "id": "G2-PRD-6-RANGE-NONASSOC",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Operator .. dan ..= non-asosiatif, terpisah dari comparison non-asosiatif.",
+      "source_excerpt": "| 13 | `..` `..=` | non-asosiatif |"
+    },
+    {
+      "id": "G2-PRD-6-ASSIGN-RIGHT",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Operator assignment pada tingkat 14 berasosiatif kanan; status statement dimiliki ASSIGN-STATEMENT.",
+      "source_excerpt": "| 14 | `=` `+=` `-=` `*=` `/=` `%=` dst. | kanan (statement) |"
+    },
+    {
+      "id": "G2-PRD-6-ASSIGN-STATEMENT",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Assignment = dan compound assignment merupakan statement pada tabel, bukan expression; associativity kanan dimiliki ASSIGN-RIGHT.",
+      "source_excerpt": "| 14 | `=` `+=` `-=` `*=` `/=` `%=` dst. | kanan (statement) |"
+    },
+    {
+      "id": "G2-PRD-6-DIV-ZERO-COMPOUND",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Aturan defect integer divisor nol juga berlaku untuk /= dan %=; bukan bukti bahwa PR23 sudah diterima.",
+      "source_excerpt": "Aturan yang sama berlaku pada `/=` dan `%=`."
+    },
+    {
+      "id": "G2-PRD-6-DIV-ZERO-CONTEXT",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Literal nol, ekspresi konstan dan nilai dinamis tidak mendapat penolakan kompilasi khusus; jika konteksnya sah dan dievaluasi, runtime berhenti sebelum div/rem invalid. Batas konteks lama termasuk static literal-only tetap berlaku; operand yang tidak dievaluasi dirujuk ke SHORT.",
+      "source_excerpt": "Pembagi berupa literal nol, hasil ekspresi konstan, maupun nilai dinamis tidak mendapat kebijakan penolakan kompilasi khusus: bila ekspresi itu sah menurut aturan konteks yang sudah ada dan benar-benar dievaluasi, eksekusi menghentikan proses sebelum operasi pembagian/remainder yang tidak valid."
+    },
+    {
+      "id": "G2-PRD-6-DIV-ZERO-TERMINATION",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Defect menulis diagnostik divisor nol ke stderr dan exit nonzero, tanpa nilai atau kelanjutan; unwind/destructor cleanup dan nomor exit/signal lintas platform tidak dijanjikan.",
+      "source_excerpt": "Defect menulis diagnostik pembagi nol ke stderr dan menghentikan proses dengan status nonzero; tidak menghasilkan nilai, tidak melanjutkan eksekusi, dan tidak menjanjikan unwind atau destructor cleanup. Nomor exit/signal bukan kontrak lintas platform."
+    },
+    {
+      "id": "G2-PRD-6-DIV-ZERO-LLVM",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Lowering tidak boleh menyerahkan operand tidak valid kepada LLVM, termasuk operasi yang akhirnya tidak dijalankan. Ini kewajiban keselamatan lowering, bukan penerimaan runtime policy.",
+      "source_excerpt": "Lowering tidak boleh menyerahkan operand tidak valid kepada LLVM, termasuk pada operasi yang akhirnya tidak dijalankan."
+    },
+    {
+      "id": "G2-PRD-6-FLOAT-IEEE",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Operasi floating-point tetap IEEE-754; kebijakan defect integer divisor nol tidak diterapkan pada float.",
+      "source_excerpt": "Operasi floating-point tetap mengikuti IEEE-754; aturan defect integer ini tidak diterapkan pada float."
+    },
+    {
+      "id": "G2-PRD-6-OP-STAGING",
+      "source": "PRD:6",
+      "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+      "requirement_description": "Grup A berisi arithmetic/unary/not/comparison/logical, B compound, C bitwise integer, D as/is/in/range. Urutan tahap bukan acceptance setiap operator; aturan operator dimiliki ID semantik masing-masing.",
+      "source_excerpt": "| A | `+ - * / %`, unary `-`, `not`, perbandingan, `and`, `or` |\n| B | compound assignment |\n| C | bitwise (`& \\| ^ ~ << >>`), hanya tipe integer |\n| D | `as`, `is`, `in`, range |"
     },
     {
       "id": "G2-PRD-7-CHAR",
       "source": "PRD:7",
       "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
-      "requirement_description": "Range[T] menerima T integer atau Char; penerimaan irisan Char harus dibuktikan terpisah dari range integer.",
-      "source_excerpt": "- `a..b` eksklusif di ujung; `a..=b` inklusif. Keduanya bertipe `Range[T]`, `T` integer atau `Char`."
+      "requirement_description": "Char adalah salah satu T yang diperbolehkan pada Range[T]; atom ini hanya cabang tipe Char. Integer/generic Range dimiliki RANGE-TYPE.",
+      "source_excerpt": "`T` integer atau `Char`."
     },
     {
       "id": "G2-PRD-7-RANGE",
       "source": "PRD:7",
       "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
-      "requirement_description": "`..` bersifat eksklusif dan `..=` inklusif pada range integer yang diuji.",
-      "source_excerpt": "- `a..b` eksklusif di ujung; `a..=b` inklusif. Keduanya bertipe `Range[T]`, `T` integer atau `Char`."
+      "requirement_description": "Endpoint .. eksklusif dan ..= inklusif; penerimaan hanya bentuk Range[Int32] pada fixture. Domain tipe dan konsistensi iterasi/in/slicing dimiliki RANGE-TYPE/RANGE-USES.",
+      "source_excerpt": "`a..b` eksklusif di ujung; `a..=b` inklusif."
     },
     {
       "id": "G2-PRD-7-SCAN",
       "source": "PRD:7",
       "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
-      "requirement_description": "Index scan yang diuji dimulai dari nol dengan tipe integer yang ditentukan.",
+      "requirement_description": "Pada slice scan Range[Int32] yang diuji, index bertipe USize dan mulai nol; kewajiban iterable apa pun dimiliki SCAN-ANY-ITERABLE.",
       "source_excerpt": "- `scan item, i over xs`: `i` bertipe `USize`, mulai 0, berlaku untuk iterable apa pun."
     },
     {
       "id": "G2-PRD-7-U8",
       "source": "PRD:7",
       "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
-      "requirement_description": "Range UInt8 inklusif dengan batas diterima pada irisan yang diuji.",
-      "source_excerpt": "| Overflow pada range inklusif | Algoritma \"periksa dulu, naikkan kemudian\" + tes batas tipe |"
+      "requirement_description": "Range UInt8 inklusif pada maksimum 255 harus selesai tanpa overflow yang menyebabkan loop berulang; penerimaan hanya observasi terminasi/count fixture, bukan pembuktian algoritma pre-increment.",
+      "source_excerpt": "- Iterasi inklusif: periksa batas sebelum menaikkan penghitung, sehingga `0..=255_UInt8` selesai."
+    },
+    {
+      "id": "G2-PRD-7-RANGE-TYPE",
+      "source": "PRD:7",
+      "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+      "requirement_description": "Bentuk eksklusif dan inklusif sama-sama Range[T]; domain integer/generic berada di sini dan cabang Char merujuk G2-PRD-7-CHAR. Ini tidak menerima seluruh lebar atau generic dari fixture Int32.",
+      "source_excerpt": "Keduanya bertipe `Range[T]`, `T` integer atau `Char`."
+    },
+    {
+      "id": "G2-PRD-7-RANGE-USES",
+      "source": "PRD:7",
+      "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+      "requirement_description": "Satu tipe Range dipakai untuk iterasi, operator in dan slicing. Aturan endpoint/safety slicing tetap dimiliki §14, bukan diduplikasi di sini.",
+      "source_excerpt": "- Satu tipe dipakai untuk iterasi, `in`, dan slicing."
+    },
+    {
+      "id": "G2-PRD-7-SCAN-ANY-ITERABLE",
+      "source": "PRD:7",
+      "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+      "requirement_description": "Berlaku untuk iterable apa pun adalah kewajiban domain scan; tipe USize dan index awal nol pada Range[Int32] dimiliki SCAN.",
+      "source_excerpt": "berlaku untuk iterable apa pun."
+    },
+    {
+      "id": "G2-PRD-7-LEXER-DOT",
+      "source": "PRD:7",
+      "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+      "requirement_description": "Titik setelah digit bagian angka hanya bila diikuti digit; 0..10 menjadi token 0, .., 10. Matriks syntax L368 mencakup 1.5, 1..5, 1., x.0.1; lexer proyeksi x.0.1 memiliki pemilik G2-PRD-8-PROJECTION-LEXER.",
+      "source_excerpt": "Lexer: titik setelah digit dianggap bagian angka **hanya bila diikuti digit**. Jadi `0..10` dilex sebagai `0`, `..`, `10`."
+    },
+    {
+      "id": "G2-PRD-7-LEXER-INCLUSIVE",
+      "source": "PRD:7",
+      "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+      "requirement_description": "Lexer menyediakan token ..=; acceptance tokenisasi dipisahkan dari observasi iterasi inklusif.",
+      "source_excerpt": "Token `..=` ditambahkan."
+    },
+    {
+      "id": "G2-PRD-7-RANGE-INCLUSIVE-STEP",
+      "source": "PRD:7",
+      "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+      "requirement_description": "Iterasi inklusif memeriksa batas sebelum menaikkan penghitung. Observasi UInt8 terminasi/count dimiliki U8, bukan bukti langsung urutan algoritma.",
+      "source_excerpt": "- Iterasi inklusif: periksa batas sebelum menaikkan penghitung, sehingga `0..=255_UInt8` selesai."
     },
     {
       "id": "G2-PRD-8-NESTED",
       "source": "PRD:8",
       "source_anchor": "cat-northstar/PRD.md#8-tuple",
-      "requirement_description": "Destructuring plain bertingkat bekerja pada fixture yang terbatas.",
-      "source_excerpt": "- Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4. Nested binding pattern seperti `val ((a, b), c) = t` untuk tuple plain, konkret, non-view/non-owned **[sudah]**. Nested"
+      "requirement_description": "Nested binding pattern pada tuple plain, konkret, non-view/non-owned diterima hanya untuk pola fixture; base destructuring dimiliki DESTRUCTURE-BASE.",
+      "source_excerpt": "- Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4. Nested binding pattern seperti `val ((a, b), c) = t` untuk tuple plain, konkret, non-view/non-owned **[sudah]**. Nested destructuring atas field owned/view/generic, partial moves, dan assignment tetap belum didukung."
     },
     {
       "id": "G2-PRD-8-OWNED",
       "source": "PRD:8",
       "source_anchor": "cat-northstar/PRD.md#8-tuple",
-      "requirement_description": "Fixture menunjukkan penghancuran tuple owned untuk shape yang tepat itu.",
-      "source_excerpt": "- Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4. Nested binding pattern seperti `val ((a, b), c) = t` untuk tuple plain, konkret, non-view/non-owned **[sudah]**. Nested"
+      "requirement_description": "Destructuring menghabiskan tuple owned. Slice yang diterima hanya transfer/cleanup tuple Anchor[Int32] yang dieksekusi fixture, bukan pembuktian semua larangan source-reuse. Waktu drop wildcard dimiliki WILDCARD-DROP.",
+      "source_excerpt": "Destructuring **menghabiskan** tuple (milik penuh)."
     },
     {
       "id": "G2-PRD-8-PARTIAL",
       "source": "PRD:8",
       "source_anchor": "cat-northstar/PRD.md#8-tuple",
       "requirement_description": "Partial move tetap tidak didukung untuk nested owned/view; guard PR22 tidak mengaktifkan partial move.",
-      "source_excerpt": "- Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4. Nested binding pattern seperti `val ((a, b), c) = t` untuk tuple plain, konkret, non-view/non-owned **[sudah]**. Nested"
+      "source_excerpt": "Nested destructuring atas field owned/view/generic, partial moves, dan assignment tetap belum didukung."
     },
     {
       "id": "G2-PRD-8-PICK",
       "source": "PRD:8",
       "source_anchor": "cat-northstar/PRD.md#8-tuple",
-      "requirement_description": "Pattern tuple pick yang terbatas berhasil diparse dan di-lower.",
-      "source_excerpt": "- Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4. Nested binding pattern seperti `val ((a, b), c) = t` untuk tuple plain, konkret, non-view/non-owned **[sudah]**. Nested"
+      "requirement_description": "Pattern tuple pada pick diterima hanya untuk plain concrete fixture yang diuji; bukan seluruh grammar nested atau owned/view.",
+      "source_excerpt": "- Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4. Nested binding pattern seperti `val ((a, b), c) = t` untuk tuple plain, konkret, non-view/non-owned **[sudah]**. Nested destructuring atas field owned/view/generic, partial moves, dan assignment tetap belum didukung."
     },
     {
       "id": "G2-PRD-8-PLAIN",
       "source": "PRD:8",
       "source_anchor": "cat-northstar/PRD.md#8-tuple",
-      "requirement_description": "Sintaks tuple plain berbeda dari grouping pada irisan yang diuji.",
-      "source_excerpt": "- Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4. Nested binding pattern seperti `val ((a, b), c) = t` untuk tuple plain, konkret, non-view/non-owned **[sudah]**. Nested"
+      "requirement_description": "Koma setelah expression dalam kurung membentuk tuple; tanpa koma tetap grouping. Ini pemilik literal/grouping; tipe, singleton, Unit dan proyeksi memiliki ID sendiri.",
+      "source_excerpt": "- Parser: `(` expr diikuti koma membentuk tuple; tanpa koma tetap grouping."
     },
     {
       "id": "G2-PRD-8-SINGLETON-UNIT",
       "source": "PRD:8",
       "source_anchor": "cat-northstar/PRD.md#8-tuple",
-      "requirement_description": "(a,) membentuk tuple satu elemen; (a) tanpa koma adalah grouping.",
-      "source_excerpt": "- Parser: `(` expr diikuti koma membentuk tuple; tanpa koma tetap grouping."
+      "requirement_description": "Tuple satu elemen ditulis (a,). Nama ID historis dipertahankan; Unit hanya dimiliki G2-PRD-8-UNIT dan grouping tanpa koma dimiliki PLAIN.",
+      "source_excerpt": "tuple satu elemen `(a,)`"
     },
     {
       "id": "G2-PRD-8-UNIT",
       "source": "PRD:8",
       "source_anchor": "cat-northstar/PRD.md#8-tuple",
       "requirement_description": "Literal () adalah Unit, terpisah dari tuple satu elemen.",
-      "source_excerpt": "- Tipe `(T, U)`, literal `(a, b)`, tuple satu elemen `(a,)`, `()` = `Unit`."
+      "source_excerpt": "`()` = `Unit`."
     },
     {
       "id": "G2-PRD-8-WILDCARD-DROP",
       "source": "PRD:8",
       "source_anchor": "cat-northstar/PRD.md#8-tuple",
-      "requirement_description": "Destructuring menghabiskan tuple owned; elemen _ dibebaskan pada statement destructuring tersebut, bukan pada akhir blok.",
-      "source_excerpt": "- Destructuring **menghabiskan** tuple (milik penuh). Elemen `_` dibebaskan di statement itu juga."
+      "requirement_description": "Elemen wildcard _ dibebaskan pada statement destructuring yang sama; konsumsi tuple owned dimiliki OWNED, bukan aturan ganda di sini.",
+      "source_excerpt": "Elemen `_` dibebaskan di statement itu juga."
+    },
+    {
+      "id": "G2-PRD-8-TYPE",
+      "source": "PRD:8",
+      "source_anchor": "cat-northstar/PRD.md#8-tuple",
+      "requirement_description": "Tipe tuple ditulis (T, U); terpisah dari tuple literal, grouping, singleton dan Unit.",
+      "source_excerpt": "Tipe `(T, U)`"
+    },
+    {
+      "id": "G2-PRD-8-PROJECTION",
+      "source": "PRD:8",
+      "source_anchor": "cat-northstar/PRD.md#8-tuple",
+      "requirement_description": "Akses tuple memakai t.0, t.1; hanya proyeksi plain dan rantai nested yang benar-benar dipakai fixture diterima, bukan seluruh index/owned moves.",
+      "source_excerpt": "- Akses `t.0`, `t.1`."
+    },
+    {
+      "id": "G2-PRD-8-PROJECTION-LEXER",
+      "source": "PRD:8",
+      "source_anchor": "cat-northstar/PRD.md#8-tuple",
+      "requirement_description": "Setelah titik lexer menerima integer sebagai proyeksi; x.0.1 menjadi dua proyeksi, bukan float 0.1. Contoh daftar syntax §7 L368 merujuk atom ini, bukan owner lexical duplikat.",
+      "source_excerpt": "- Lexer: setelah `.`, terima integer sebagai proyeksi; `x.0.1` dipecah menjadi dua proyeksi, bukan float `0.1`."
+    },
+    {
+      "id": "G2-PRD-8-DESTRUCTURE-BASE",
+      "source": "PRD:8",
+      "source_anchor": "cat-northstar/PRD.md#8-tuple",
+      "requirement_description": "val (a, b) = t dan wildcard _ tersedia pada destructuring dasar. Penerimaan hanya plain tuple pada fixture dan satu penolakan source-reuse sesudah destructuring; nested/pick/owned memiliki ID terpisah.",
+      "source_excerpt": "Destructuring `val (a, b) = t` dan pattern tuple di `pick`, memakai `_` dari bagian 4."
+    },
+    {
+      "id": "G2-PRD-8-LINT-SHAPE",
+      "source": "PRD:8",
+      "source_anchor": "cat-northstar/PRD.md#8-tuple",
+      "requirement_description": "Lint menyarankan shape untuk tuple dengan lebih dari tiga elemen; ini saran diagnostik, bukan pelarangan sintaks tuple.",
+      "source_excerpt": "Lint: tuple dengan lebih dari 3 elemen disarankan jadi shape"
     },
     {
       "id": "G2-PRD-9-BORROW-NEG",
       "source": "PRD:9",
       "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
-      "requirement_description": "Receiver borrowed yang dibuang pada fixture telah diuji dan ditolak.",
-      "source_excerpt": "- `ref mut[s]` **ditolak di v1** dengan pesan yang menjelaskan alasannya. Didaftarkan di daftar tertunda dengan syarat: bukti eksklusivitas peminjaman mutable."
+      "requirement_description": "Pinjaman tidak boleh menggantung setelah pemilik temporary dibuang. Konteks keselamatan L410/L428; ini irisan penolakan temporary-owner tertentu, bukan aturan ref mut[s] L420 atau semua receiver borrowed.",
+      "source_excerpt": "**Cara kerja:** per fungsi, compiler membangun graf alur kontrol (CFG), menghitung *liveness* tiap `ref` (analisis mundur: apakah nilainya masih akan dipakai), lalu menandai pinjaman aktif dari pembuatannya sampai pemakaian terakhir. Konflik = pinjaman mutable yang tumpang tindih dengan pinjaman lain, atau pemilik dipindah/diubah selagi pinjaman masih hidup."
     },
     {
       "id": "G2-PRD-9-DATAFLOW",
       "source": "PRD:9",
       "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
-      "requirement_description": "Pemeriksaan borrow berbasis dataflow/liveness, bukan klaim yang hanya berlaku pada block.",
-      "source_excerpt": "> C@ tidak memakai anotasi lifetime bergaya `'a`. Compiler memeriksa pinjaman dengan **analisis aliran data (dataflow)**: sebuah pinjaman hidup sampai pemakaian terakhirnya di alur kontrol, bukan sampai akhir blok."
+      "requirement_description": "Pinjaman hidup sampai pemakaian terakhir pada alur kontrol, bukan akhir blok; CFG/liveness per fungsi L410 menjelaskan cara kerja. Overlap mutable dan owner-move/mutate mempunyai pemilik konflik terpisah.",
+      "source_excerpt": "Compiler memeriksa pinjaman dengan **analisis aliran data (dataflow)**: sebuah pinjaman hidup sampai pemakaian terakhirnya di alur kontrol, bukan sampai akhir blok."
     },
     {
       "id": "G2-PRD-9-ELISION-MULTI",
       "source": "PRD:9",
       "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
       "requirement_description": "Saat hubungan ref hasil dengan beberapa parameter ref ambigu, hubungan dinyatakan dengan nama scope [s].",
-      "source_excerpt": "> C@ tidak memakai anotasi lifetime bergaya `'a`. Compiler memeriksa pinjaman dengan **analisis aliran data (dataflow)**: sebuah pinjaman hidup sampai pemakaian terakhirnya di alur kontrol, bukan sampai akhir blok."
+      "source_excerpt": "fn pick_longer[s](a: ref[s] Str, b: ref[s] Str) -> ref[s] Str { ... }   // dua parameter ref: wajib nama"
     },
     {
       "id": "G2-PRD-9-ELISION-SINGLE",
@@ -649,25 +796,67 @@
       "source_excerpt": "- `ref mut[s]` **ditolak di v1** dengan pesan yang menjelaskan alasannya. Didaftarkan di daftar tertunda dengan syarat: bukti eksklusivitas peminjaman mutable."
     },
     {
+      "id": "G2-PRD-9-MUTABLE-OVERLAP",
+      "source": "PRD:9",
+      "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+      "requirement_description": "Pinjaman mutable yang tumpang tindih dengan pinjaman lain adalah konflik; berbeda dari liveness last-use dan larangan owner-move/mutate.",
+      "source_excerpt": "pinjaman mutable yang tumpang tindih dengan pinjaman lain"
+    },
+    {
+      "id": "G2-PRD-9-OWNER-MOVE",
+      "source": "PRD:9",
+      "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+      "requirement_description": "Memindahkan owner selagi pinjaman masih hidup adalah konflik; bukan klaim pemeriksaan CFG sudah lengkap.",
+      "source_excerpt": "pemilik dipindah/diubah selagi pinjaman masih hidup."
+    },
+    {
+      "id": "G2-PRD-9-OWNER-MUTATE",
+      "source": "PRD:9",
+      "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+      "requirement_description": "Mengubah owner selagi pinjaman masih hidup adalah konflik; owner-move memiliki atom terpisah.",
+      "source_excerpt": "pemilik dipindah/diubah selagi pinjaman masih hidup."
+    },
+    {
+      "id": "G2-PRD-9-NO-LIFETIME-ANNOTATION",
+      "source": "PRD:9",
+      "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+      "requirement_description": "C@ tidak memakai anotasi lifetime bergaya apostrof a; elision umum dan nama scope ambigu tetap dimiliki ELISION-SINGLE/ELISION-MULTI.",
+      "source_excerpt": "C@ tidak memakai anotasi lifetime bergaya `'a`."
+    },
+    {
+      "id": "G2-PRD-9-SAFE-SUITE",
+      "source": "PRD:9",
+      "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+      "requirement_description": "Kriteria Safe v1 adalah penolakan suite use-after-move, dangling ref, mutable alias, read-before-init dan OOB. Perilaku tiap kategori tetap pada owner semantiknya; ini gerbang bukti, bukan klaim bukti matematis.",
+      "source_excerpt": "| Klaim \"Safe\" dibaca sebagai bukti matematis | Rumusan diganti dengan **suite tes negatif**: use-after-move, dangling ref, aliasing mutable, baca sebelum init, indeks di luar batas. Kriteria Safe v1 = seluruh suite itu ditolak |"
+    },
+    {
       "id": "G2-PRD-10-ASSIGN",
       "source": "PRD:10",
       "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
-      "requirement_description": "Compound assignment membaca field sehingga owner yang belum diinisialisasi tidak boleh dipakai.",
-      "source_excerpt": "**Risiko → penutup:** hampir nol. Analisis *definite initialization* (memastikan setiap jalur mengisi sebelum membaca) sudah ada dan teruji."
+      "requirement_description": "Compound assignment membaca field sehingga owner meter yang belum diinisialisasi tidak boleh dipakai; slice ini hanya kasus field fixture.",
+      "source_excerpt": "**Aturan:** `var x: T` boleh tanpa nilai, tetapi dibaca sebelum diisi = error (sudah dilakukan compiler). Klaim \"nol otomatis\" dihapus dari §24."
     },
     {
       "id": "G2-PRD-10-READ",
       "source": "PRD:10",
       "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
-      "requirement_description": "Local yang belum diinisialisasi tidak secara implisit bernilai nol dan tidak boleh dibaca.",
+      "requirement_description": "Membaca local sebelum diisi adalah error; penerimaan hanya count: Int32 pada count += 1, bukan penerimaan all-path definite initialization.",
       "source_excerpt": "**Aturan:** `var x: T` boleh tanpa nilai, tetapi dibaca sebelum diisi = error (sudah dilakukan compiler). Klaim \"nol otomatis\" dihapus dari §24."
     },
     {
       "id": "G2-PRD-10-LATER-ASSIGN",
       "source": "PRD:10",
       "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
-      "requirement_description": "`var x: T` boleh tanpa initializer; assignment kemudian menetapkan nilai yang boleh dibaca.",
+      "requirement_description": "var x: T boleh tanpa initializer; pada contoh linear count di PRD, assignment count = 0 diikuti pembacaan lolos check. Tidak mengklaim definite-init setiap jalur.",
       "source_excerpt": "**Aturan:** `var x: T` boleh tanpa nilai, tetapi dibaca sebelum diisi = error (sudah dilakukan compiler). Klaim \"nol otomatis\" dihapus dari §24."
+    },
+    {
+      "id": "G2-PRD-10-DEFAULT-API",
+      "source": "PRD:10",
+      "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
+      "requirement_description": "API nilai default eksplisit melalui Tipe.default() dengan kontrak Default adalah item tertunda. Nama kontrak Default tetap kanonik G2-PRD-20-DEFAULT; tidak menduplikasi keputusan penamaannya.",
+      "source_excerpt": "Nilai default eksplisit lewat kontrak `Default` dengan `Tipe.default()` dicatat sebagai item tertunda."
     },
     {
       "id": "G2-PRD-11-CHAR",

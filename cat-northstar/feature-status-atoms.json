@@ -564,14 +564,69 @@
   "G2-PRD-6-SHORT": {
     "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
     "fixtures": [
-      "claw/tests/native/fixtures/revise_operator_short_circuit_ownership.cat"
+      "claw/tests/native/fixtures/revise_operator_short_circuit_ownership.cat",
+      "claw/tests/native/fixtures/revise_operator_groups_ab.cat"
     ],
     "assertions": [
       {
         "path": "claw/tests/native/run_native_tests.sh",
         "text": "if [[ \"$short_circuit_ownership_stdout\" != \"held\" ]]; then"
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$operator_groups_stdout\" != $'-2\\n-2\\n5\\n4\\n14\\ntrue\\n5\\ntrue\\n99\\n99\\ntrue\\nfalse\\ntrue\\nfalse\\ntrue' ]]; then"
       }
     ]
+  },
+  "G2-PRD-6-ASSOCIATIVITY": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-RANGE-NONASSOC": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-ASSIGN-RIGHT": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-ASSIGN-STATEMENT": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-DIV-ZERO-COMPOUND": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-DIV-ZERO-CONTEXT": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-DIV-ZERO-TERMINATION": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-DIV-ZERO-LLVM": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-FLOAT-IEEE": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-OP-STAGING": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
   },
   "G2-PRD-7-CHAR": {
     "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
@@ -613,6 +668,36 @@
         "text": "if [[ \"$uint8_range_stdout\" != \"$expected_uint8_range_stdout\" ]]; then"
       }
     ]
+  },
+  "G2-PRD-7-RANGE-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-RANGE-USES": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-SCAN-ANY-ITERABLE": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-LEXER-DOT": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-LEXER-INCLUSIVE": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-RANGE-INCLUSIVE-STEP": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
   },
   "G2-PRD-8-NESTED": {
     "source_anchor": "cat-northstar/PRD.md#8-tuple",
@@ -688,6 +773,50 @@
     "fixtures": [],
     "assertions": []
   },
+  "G2-PRD-8-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-8-PROJECTION": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_tuples.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$tuples_stdout\" != \"$expected_tuples_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-8-PROJECTION-LEXER": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-8-DESTRUCTURE-BASE": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_tuple_destructuring.cat",
+      "claw/tests/frontend/fixtures/revise_bad_tuple_destructuring_reuse.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"plain tuple destructuring with wildcard and singleton patterns\" \"$SCRIPT_DIR/../native/fixtures/revise_tuple_destructuring.cat\""
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"tuple destructuring consumes the source tuple\" \"$FIXTURE_DIR/revise_bad_tuple_destructuring_reuse.cat\" \"Use of moved value -> pair\""
+      }
+    ]
+  },
+  "G2-PRD-8-LINT-SHAPE": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
   "G2-PRD-9-BORROW-NEG": {
     "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
     "fixtures": [
@@ -716,6 +845,31 @@
     "assertions": []
   },
   "G2-PRD-9-REFMUT": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-MUTABLE-OVERLAP": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-OWNER-MOVE": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-OWNER-MUTATE": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-NO-LIFETIME-ANNOTATION": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-SAFE-SUITE": {
     "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
     "fixtures": [],
     "assertions": []
@@ -755,6 +909,11 @@
         "text": "if result.returncode == 0:"
       }
     ]
+  },
+  "G2-PRD-10-DEFAULT-API": {
+    "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
+    "fixtures": [],
+    "assertions": []
   },
   "G2-PRD-11-CHAR": {
     "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
