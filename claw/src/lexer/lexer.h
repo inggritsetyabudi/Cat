@@ -38,6 +38,7 @@ enum class TokenKind {
     CharLiteral,
     CharError,
     DocComment,
+    CommentError,
 
     // Special
     Eof,
@@ -63,6 +64,9 @@ private:
     size_t line = 1;
     size_t column = 1;
     size_t braceDepth = 0;
+    bool unterminatedBlockComment = false;
+    size_t unterminatedBlockCommentLine = 1;
+    size_t unterminatedBlockCommentColumn = 1;
 
     char peek() const;
     char peekAhead(size_t offset) const;

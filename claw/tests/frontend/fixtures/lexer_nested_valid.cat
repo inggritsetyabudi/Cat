@@ -1,0 +1,28 @@
+/* Closed comments retain the lexer's existing nesting behavior. */
+choice Route { left right }
+fn choose(flag: Bool) -> Int32 {
+    if flag { 1 } else/* adjacent */if false { 2 } else { 7 }
+}
+fn/* adjacent */main() -> Int32 {
+    val values: Array[Int32, 3] = [1,/* outer /* inner */ */2,3]
+    var total: Int32 = 0
+    scan item, i over values {
+        if i == 1 { skip }
+        total += item
+    }
+    println(total)
+    val route: Route = right
+    println(pick route { left { 1 } right { choose(false) } })
+    var count: Int32 = 0
+    loop {
+        count += 1
+        if count == 2 { stop }
+    }
+    println(count/* adjacent */)
+    println("/* not a comment */")
+    val marker: Char = '/'
+    val quotient: Int32 = 8 / /* not an operator */ 2
+    if marker != '/' or quotient != 4 { return 1 }
+    // /* line comments do not open block comments
+    return /* outer /* inner */ */ 0
+}/* closed at EOF */

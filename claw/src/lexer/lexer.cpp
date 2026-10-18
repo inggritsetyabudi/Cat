@@ -39,6 +39,8 @@ bool Lexer::skipBlockComment() {
         return false;
     }
 
+    const size_t startLine = line;
+    const size_t startColumn = column;
     advance();
     advance();
     size_t depth = 1;
@@ -56,6 +58,11 @@ bool Lexer::skipBlockComment() {
             continue;
         }
         advance();
+    }
+    if (depth > 0) {
+        unterminatedBlockComment = true;
+        unterminatedBlockCommentLine = startLine;
+        unterminatedBlockCommentColumn = startColumn;
     }
     return true;
 }
@@ -352,6 +359,14 @@ std::vector<Token> Lexer::tokenize() {
     while (!isAtEnd()) {
         skipWhitespace();
         if (isAtEnd()) {
+            if (unterminatedBlockComment) {
+                tokens.push_back(makeToken(
+                    TokenKind::CommentError,
+                    "Unterminated block comment.",
+                    unterminatedBlockCommentLine,
+                    unterminatedBlockCommentColumn,
+                    2));
+            }
             break;
         }
 
