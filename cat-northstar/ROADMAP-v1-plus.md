@@ -66,7 +66,7 @@ Jika stage2 dan stage3 identik (*fixed point*), compiler terbukti konsisten deng
 
 **Tujuan:** menghasilkan kode saat kompilasi tanpa mengorbankan keterbacaan.
 
-```
+```cat proposal
 rewrite repeat!(n: Int32, body: Block) {
     scan _i over 0..n { body }
 }
@@ -111,7 +111,7 @@ fn main() -> Int32 {
 
 **Thread terstruktur**, memakai `scope` yang sudah ada sehingga pinjaman ke stack aman:
 
-```
+```cat proposal
 fn sum_parts(data: ref Span[Int32]) -> Int32 {
     val (left, right) = data.split_at(data.len() / 2)
     scope s {
@@ -150,7 +150,7 @@ static counter: Mutex[Int32] = Mutex.new(0)     // global mutable hanya lewat ti
 
 Memindahkan nilai antar thread **memindahkan kepemilikannya**, sehingga tidak ada data yang dipakai bersama.
 
-```
+```cat proposal
 val (tx, rx) = channel[Int32]()
 spawn[s](producer, tx)               // tx dipindahkan ke producer
 scan msg over rx { println(msg) }    // berhenti saat semua pengirim selesai

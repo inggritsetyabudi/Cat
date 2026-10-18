@@ -114,7 +114,7 @@ The active CI matrix builds Release Claw with Clang on **Linux** and **Windows M
 
 Implemented slices include revised syntax, workspace checks, typed errors, tested ownership and scoped-type paths, LLVM/native compilation, integer and character ranges, selected fixed arrays, string escapes, and documentation comments. The [implementation status](docs/STATUS.md) records the boundaries and points to evidence.
 
-Still incomplete are the full approved collection and builtin surface, general dataflow borrow checking, complete raw/FFI support, broad aggregate lowering, f-strings, and the remaining release gates. **Arena remains pending/experimental**; this documentation does not promote it to a supported feature. The proposed borrowed `Str` / owned `String` split is not part of this `main` baseline.
+Still incomplete are the full approved collection and builtin surface, general dataflow borrow checking, complete raw/FFI support, broad aggregate lowering, f-strings, and the remaining release gates. **Arena remains pending/experimental**; this documentation does not promote it to a supported feature. The borrowed `Str` / owned `String` foundation from PR #21 is present on main `e7789c6`; its bounded ownership evidence and exclusions are recorded in the [G2 feature inventory](cat-northstar/FEATURE-STATUS.md), not a claim of full string-library acceptance.
 
 ## Documentation
 

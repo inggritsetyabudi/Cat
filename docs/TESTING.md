@@ -99,6 +99,8 @@ The runner executes:
 
 A successful run ends with `All C@ test suites passed successfully!`. The scripts use `set -euo pipefail` where applicable and return non-zero on missing tools/compiler, unexpected diagnostics, golden-output differences, or failed runtime assertions.
 
+The PRD documentation runner also validates the [G2 inventory](../cat-northstar/FEATURE-STATUS.md) and runs its unit/end-to-end negative tests. These checks require one canonical label per row, unique stable IDs, classified source headings, well-formed fields, and bounded implementation/evidence metadata. They do not infer language semantics from prose or prove that a cited fixture is sufficient: independent review must still check the claim against the fixture and runner assertions. Skipped PRD fences remain explicitly untested compiler examples.
+
 ## Running one suite
 
 All runners accept the same `CLAW_EXE` environment variable. For example:

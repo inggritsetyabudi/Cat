@@ -214,6 +214,8 @@ std::string LlvmEmitter::emitStaticGlobals() {
                 const std::string storageType = stripViewPrefix(stat->type);
                 if (storageType == "Int32" || storageType == "Char") {
                     llvmVal = stat->value;
+                } else if (storageType == "Float32" || storageType == "Float64") {
+                    llvmVal = llvmFloatConstant(stat->value, storageType);
                 } else if (storageType == "Bool") {
                     llvmVal = stat->value == "true" ? "1" : "0";
                 } else if (storageType == "Str") {

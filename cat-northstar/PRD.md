@@ -6,11 +6,16 @@
 
 **Cara membaca**
 
+- **Status G2 kanonik:** lihat [inventaris fitur atomik](FEATURE-STATUS.md). Setiap irisan yang dapat diuji mandiri memiliki tepat satu label di sana; heading gabungan bukan unit penerimaan. Bukti implementasi dan status doc-test dicatat terpisah. Penerimaan compiler tidak berarti bebas bug atau layak produksi.
+- **Kewenangan desain:** reasoning, brainstorming, dan usulan perbaikan proaktif diperbolehkan. Keputusan yang telah diratifikasi dan PRD tetap otoritatif; usulan baru wajib jelas sebagai usulan, dan perubahan semantik material membutuhkan ratifikasi Setya sebelum implementasi.
 - ✅ = sudah kamu putuskan di percakapan ini.
 - 🟦 = status usulan saat dokumen disusun; keputusan tersebut kini telah diratifikasi sebagaimana catatan di atas. Simbol ini bukan status implementasi.
 - Label fence menunjukkan dukungan compiler saat ini, bukan status persetujuan desain: `cat proposal` berarti contoh sintaks belum didukung; status keputusan dan staging versi tetap ditentukan oleh teks bagian dan roadmap.
 - Nama file/baris compiler dikutip dari proposal; bagian "cara kerja" menjelaskan desain dan bukan bukti implementasi.
 - Contoh diagnostik adalah **target** pesan error, bukan output compiler asli.
+
+- `[sudah]`, `[parsial]`, dan keterangan acceptance dalam teks lama adalah metadata historis batas implementasi, bukan label G2 tambahan. Untuk status terkini gunakan irisan, bukti, dan sisa pada ledger; catatan historis tidak dihapus atau dianggap ratifikasi baru.
+- Frasa historis seperti "keputusan terbuka", "rumusan PRD yang diusulkan", dan "PRD lama belum diubah" merekam konteks penyusunan. Untuk keputusan yang tercakup ratifikasi 11 Oktober, frasa itu tidak membuka kembali keputusan; staging dan proposal roadmap yang sungguh belum diratifikasi tetap terpisah.
 
 ---
 
@@ -99,7 +104,7 @@ error: shape 'Config' tidak boleh dibuat dengan literal di luar modulnya
 | Boilerplate `new` di v0.x | Dicatat sebagai utang; `@constructor` adalah syarat v1 (bagian 15) |
 | Fungsi dengan banyak parameter sulit dibaca tanpa label | (a) lint peringatan jika parameter > 4; (b) language server menampilkan nama parameter sebagai inlay hint; (c) tipe berbeda untuk nilai berbeda, misalnya `Port` bukan `Int32` |
 | Idiom "struct opsi" terhalang aturan literal | Dicatat di daftar tertunda: bila (a)–(c) tidak cukup, pertimbangkan modifier `open shape` untuk shape data murni (semua field `share`, tanpa invariant) |
-| Contoh PRD lama (`Buffer(data: ...)`, `Circle(x: ...)`, `Vector2(...)`, `Config(host: ...)`, dan `Node(data: 1, next: None)` di bagian Arena) | Ditulis ulang ke `Tipe.new(...)`; doc-test menangkap yang terlewat |
+| Contoh PRD lama (`Buffer(data: ...)`, `Circle(x: ...)`, `Vector2(...)`, `Config(host: ...)`, dan `Node(data: 1, next: None)` di bagian Arena) | Arah migrasi ke `Tipe.new(...)`; cuplikan pengganti parsial ada di [GLOBAL-EXAMPLES.md](GLOBAL-EXAMPLES.md). Validator leksikal bukan bukti migrasi penuh atau acceptance compiler |
 
 ---
 
@@ -305,6 +310,16 @@ fn load(p: Str) -> Result[Config, String] {
 - `is` hanya untuk `ref`, membandingkan alamat.
 - Compound assignment mengevaluasi sisi kiri **sekali**: `a[f()] += 1` memanggil `f` satu kali.
 
+**Pembagi nol — keputusan 18 Oktober 2026 (otorisasi Setya)**
+
+Untuk builtin integer signed maupun unsigned, `/` dan `%` dengan pembagi nol menghasilkan **defect runtime deterministik yang tidak dapat dipulihkan**, baik debug maupun release. Aturan yang sama berlaku pada `/=` dan `%=`. Pembagi berupa literal nol, hasil ekspresi konstan, maupun nilai dinamis tidak mendapat kebijakan penolakan kompilasi khusus: bila ekspresi itu sah menurut aturan konteks yang sudah ada dan benar-benar dievaluasi, eksekusi menghentikan proses sebelum operasi pembagian/remainder yang tidak valid. Ekspresi dalam cabang atau operan short-circuit yang tidak dievaluasi tidak menimbulkan defect. Aturan literal-only pada initializer `static` dan pembatasan konteks lain tidak dilonggarkan.
+
+Defect menulis diagnostik pembagi nol ke stderr dan menghentikan proses dengan status nonzero; tidak menghasilkan nilai, tidak melanjutkan eksekusi, dan tidak menjanjikan unwind atau destructor cleanup. Nomor exit/signal bukan kontrak lintas platform. Lowering tidak boleh menyerahkan operand tidak valid kepada LLVM, termasuk pada operasi yang akhirnya tidak dijalankan. Kebijakan ini mempertahankan Safe (tidak ada undefined behavior) dan Simple (satu aturan untuk konstanta/dinamis dan kedua profil), tanpa mengubah sintaks.
+
+Operasi floating-point tetap mengikuti IEEE-754; aturan defect integer ini tidak diterapkan pada float. Overflow signed `MIN / -1` dan `MIN % -1` tetap mengikuti §19: debug defect, release quotient MIN dan remainder 0. Ini bukan perubahan aturan overflow yang sudah diratifikasi.
+
+**Batas penerimaan:** keputusan ini selaras dengan arah implementasi PR #23, tetapi PR tersebut masih terbuka dan belum menjadi bukti penerimaan pada `main`; ledger mencatat pembagi nol sebagai keputusan, bukan penerimaan compiler. Profil target debug dan kepatuhan overflow tetap harus diuji terpisah.
+
 **Bertahap**
 
 | Grup | Isi |
@@ -419,7 +434,7 @@ fn pick_longer[s](a: ref[s] Str, b: ref[s] Str) -> ref[s] Str { ... }   // dua p
 
 **Aturan:** `var x: T` boleh tanpa nilai, tetapi dibaca sebelum diisi = error (sudah dilakukan compiler). Klaim "nol otomatis" dihapus dari §24.
 
-**Status sintaks:** `[diterima compiler]` untuk aturan inisialisasi yang diuji pada irisan ini; ini bukan klaim bahwa gerbang v1 atau kualitas production-grade telah tercapai.
+**Status sintaks:** aturan inisialisasi pada dua doc-test di bawah dicatat sebagai irisan tersendiri di [ledger G2](FEATURE-STATUS.md); bukan penerimaan seluruh analisis dataflow atau gerbang v1.
 
 ```cat
 fn main() -> Int32 {
@@ -454,6 +469,8 @@ Nilai default eksplisit lewat kontrak `Default` dengan `Tipe.default()` dicatat 
 | `Char` | Satu Unicode scalar value (U+0000–U+10FFFF tanpa surrogate), bertipe 32-bit; lexer men-decode UTF-8 |
 | Escape | `\n \t \r \\ \' \" \0 \u{1F600}` |
 | `Float128` | Literal diparse dengan `llvm::APFloat`, tipe LLVM `fp128` |
+
+**Status compiler literal float:** konversi target langsung untuk `Float32`/`Float64`, validasi sebelum lowering, serta materialisasi lokal dan `static` **[sudah]** pada irisan yang diuji. Konversi bersama menerima nilai finite termasuk subnormal dan nol dengan eksponen; overflow serta nilai nonzero yang membulat ke nol ditolak. Literal tanpa konteks tetap default `Float64` setelah inferensi, bukan sebelum konteks operator diperiksa. Ini tidak menambahkan konversi implisit antar-lebar float atau inferensi baru antar-cabang. `Float128` tetap keputusan v0.4 yang **belum diimplementasikan**, bukan dukungan yang dapat disimpulkan dari nama/layout tipe. Lihat [bukti dan batas irisan](../changelog/2026-10-18-target-direct-float-literals.md); milestone v0.4 belum selesai.
 
 ```cat proposal
 val big   = 1_000_000
@@ -657,3 +674,19 @@ shape Point {
 4. **Batas Fast untuk gerbang v1**: selisih waktu ≤ 10% dari C setara (dikompilasi dengan clang -O3) pada benchmark inti.
 5. **Closure**: capture default meminjam (`ref`), `move` untuk mengambil kepemilikan; `return` di dalam closure keluar dari closure.
 6. **Penulisan konstanta `static`**: huruf kecil, mengikuti aturan huruf umum.
+
+### Contoh entrypoint kanonis dan varian sah (G6)
+
+Contoh kanonis berikut mengembalikan kode keluar `Int32` dengan `return 0` eksplisit. Fence ini diuji sendiri oleh doc-test.
+
+```cat
+fn main() -> Int32 { return 0 }
+```
+
+**Varian sah — Unit:** return type yang dihilangkan berarti `Unit`. Contoh ini berada dalam fence terpisah dan juga diuji sendiri; kelulusan contoh Int32 tidak dipakai sebagai bukti varian Unit.
+
+```cat
+fn main() {}
+```
+
+Bukti ini hanya `claw check` untuk dua signature di atas, bukan matriks exit-code native atau semua aturan entrypoint. [Contoh migrasi bernama](GLOBAL-EXAMPLES.md) merupakan pendamping dokumentasi, bukan acceptance compiler.
