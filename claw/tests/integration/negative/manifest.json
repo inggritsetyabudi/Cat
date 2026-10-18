@@ -5,7 +5,7 @@
   {"name":"if_branch_type_mismatch","diagnostic":"Incompatible branch types in if expression: Int32 and ref Str.","line":2,"column":20},
   {"name":"if_missing_else","diagnostic":"'if' as a value requires an 'else' branch.","line":2,"column":20},
   {"name":"try_var_initializer","diagnostic":"`try` is only allowed in a `val` initializer. Use `val t = try ...` and then `var x = t`.","line":10,"column":5},
-  {"name":"try_return_expression","diagnostic":"`try` shorthand requires the current function to return Result[T, E].","line":10,"column":5},
+  {"name":"try_shorthand_unit_function","diagnostic":"`try` shorthand requires the current function to return Result[T, E].","line":10,"column":5},
   {"name":"try_error_mismatch","diagnostic":"`try` shorthand error type mismatch: expected Int32, got String","line":6,"column":5},
   {"name":"result_must_use","diagnostic":"Unused Result[Int32, String] value. Handle it with `try`, `pick`, or bind it to `_` explicitly if you intend to ignore it.","line":10,"column":5},
   {"name":"numeric_array_heterogeneous","diagnostic":"Fixed Array literal elements must have type Int32; got ref Str.","line":2,"column":22},
