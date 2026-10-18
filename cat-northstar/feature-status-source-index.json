@@ -8,22 +8,50 @@
       "id": "G2-PRD-0-DOC",
       "source": "PRD:0",
       "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
-      "requirement_description": "Fence yang dapat dieksekusi diperiksa terpisah dari fence proposal dan teks.",
-      "source_excerpt": "1. **Doc-test.** Fence `cat` wajib lolos `claw check`; `cat error: ...` wajib ditolak dengan diagnostik yang dicantumkan. Fence `cat proposal` dan `text` dilewati serta dihitung secara eksplisit; fence tanpa label atau"
+      "requirement_description": "Fence `cat` wajib lolos `claw check`. Kategori skip/count dan kegagalan label adalah governance kanonik G2-PLAN-G1, bukan penerimaan bahasa.",
+      "source_excerpt": "Fence `cat` wajib lolos `claw check`"
     },
     {
       "id": "G2-PRD-0-ERROR",
       "source": "PRD:0",
       "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
-      "requirement_description": "Fence error harus ditolak dengan fragmen diagnostik yang telah ditentukan.",
-      "source_excerpt": "1. **Doc-test.** Fence `cat` wajib lolos `claw check`; `cat error: ...` wajib ditolak dengan diagnostik yang dicantumkan. Fence `cat proposal` dan `text` dilewati serta dihitung secara eksplisit; fence tanpa label atau"
+      "requirement_description": "`cat error: ...` wajib ditolak dengan diagnostik yang dicantumkan; pemetaan klasifikasi fence tetap dirujuk ke G2-PLAN-G1, bukan diduplikasi.",
+      "source_excerpt": "`cat error: ...` wajib ditolak dengan diagnostik yang dicantumkan."
+    },
+    {
+      "id": "G2-PRD-0-STATUS-SEPARATION",
+      "source": "PRD:0",
+      "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+      "requirement_description": "Tag doc-test tidak menyatakan fitur selesai; dukungan compiler dan staging versi dibaca dari milestone dan bukti implementasi.",
+      "source_excerpt": "2. **Status keputusan dan implementasi terpisah.** Tag doc-test tidak menyatakan bahwa fitur sudah selesai; dukungan compiler dan staging versi harus dibaca dari milestone serta bukti implementasi."
+    },
+    {
+      "id": "G2-PRD-0-NEGATIVE-TESTS",
+      "source": "PRD:0",
+      "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+      "requirement_description": "Selain program positif, program yang harus ditolak dicatat bersama pesan errornya.",
+      "source_excerpt": "3. **Tes negatif.** Selain program yang harus lolos, ada daftar program yang **harus ditolak** beserta pesan errornya. Untuk slogan Safe, inilah buktinya."
+    },
+    {
+      "id": "G2-PRD-0-TABLE-DRIVEN",
+      "source": "PRD:0",
+      "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+      "requirement_description": "Tabel presedensi dan grammar pattern menjadi sumber kebenaran; parser dibangun dari tabel, bukan sebaliknya.",
+      "source_excerpt": "4. **Tabel sebagai satu-satunya sumber kebenaran.** Presedensi operator dan grammar pattern ditulis sebagai tabel, dan parser dibangun dari tabel itu (bukan sebaliknya)."
+    },
+    {
+      "id": "G2-PRD-0-DEFERRED-REGISTER",
+      "source": "PRD:0",
+      "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+      "requirement_description": "Setiap hal yang ditunda mencatat keputusan sementara, versi target, dan syarat selesai.",
+      "source_excerpt": "5. **Daftar keputusan tertunda.** Setiap hal yang ditunda punya tiga kolom: keputusan sementara, versi target, dan syarat selesai."
     },
     {
       "id": "G2-PRD-1-NEW",
       "source": "PRD:1",
       "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
-      "requirement_description": "Modul asing membangun shape melalui `Tipe.new(...)`.",
-      "source_excerpt": "**Cara kerja compiler:** parser menerima literal hanya sebagai `Nama { field: expr }` (sudah ada). Pemeriksaan di sema: semua field terisi, tidak ada field ganda, tipe cocok, dan **modul pemanggil sama dengan modul"
+      "requirement_description": "Dari luar modul pendefinisi, konstruksi shape hanya melalui `Tipe.new(...)`; kewajiban generator `@constructor` dirujuk ke G2-PRD-15-ANNOTATION-CONSTRUCTOR.",
+      "source_excerpt": "- Dari luar modul, satu-satunya cara adalah `Point.new(...)`."
     },
     {
       "id": "G2-PRD-1-POS",
@@ -43,50 +71,50 @@
       "id": "G2-PRD-1-SHAPE-FIELDS",
       "source": "PRD:1",
       "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
-      "requirement_description": "Literal shape harus mengisi setiap field yang dideklarasikan.",
-      "source_excerpt": "| Idiom \"struct opsi\" terhalang aturan literal | Dicatat di daftar tertunda: bila (a)–(c) tidak cukup, pertimbangkan modifier `open shape` untuk shape data murni (semua field `share`, tanpa invariant) |"
+      "requirement_description": "Semua field shape harus terisi; aturan ini berasal dari pemeriksaan sema, terpisah dari locality, field ganda, dan tipe field.",
+      "source_excerpt": "Pemeriksaan di sema: semua field terisi, tidak ada field ganda, tipe cocok, dan **modul pemanggil sama dengan modul definisi shape**."
     },
     {
       "id": "G2-PRD-1-SHAPE-DUPLICATE",
       "source": "PRD:1",
       "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
       "requirement_description": "Satu field tidak boleh muncul ganda dalam literal shape.",
-      "source_excerpt": "**Cara kerja compiler:** parser menerima literal hanya sebagai `Nama { field: expr }` (sudah ada). Pemeriksaan di sema: semua field terisi, tidak ada field ganda, tipe cocok, dan **modul pemanggil sama dengan modul"
+      "source_excerpt": "Pemeriksaan di sema: semua field terisi, tidak ada field ganda, tipe cocok, dan **modul pemanggil sama dengan modul definisi shape**."
     },
     {
       "id": "G2-PRD-1-SHAPE-TYPE",
       "source": "PRD:1",
       "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
       "requirement_description": "Tipe ekspresi pengisi field harus cocok dengan tipe field yang dideklarasikan.",
-      "source_excerpt": "**Cara kerja compiler:** parser menerima literal hanya sebagai `Nama { field: expr }` (sudah ada). Pemeriksaan di sema: semua field terisi, tidak ada field ganda, tipe cocok, dan **modul pemanggil sama dengan modul"
+      "source_excerpt": "Pemeriksaan di sema: semua field terisi, tidak ada field ganda, tipe cocok, dan **modul pemanggil sama dengan modul definisi shape**."
     },
     {
       "id": "G2-PRD-2-ARRAY-ASSIGN",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
-      "requirement_description": "Elemen array berukuran tetap yang mutable hanya dapat disimpan dalam batas.",
-      "source_excerpt": "| Const generics besar | Tahap 1 hanya N literal; fungsi yang menerima panjang berapa pun memakai `Span[T]` |"
+      "requirement_description": "Store index pada fixed Array mutable memeriksa batas sebelum penyimpanan pada irisan yang diuji. L152 adalah konteks cek batas, bukan spesifikasi lengkap assignment.",
+      "source_excerpt": "| Cek batas indeks dinamis | Dibuang optimizer bila terbukti aman; `scan` tidak butuh cek |"
     },
     {
       "id": "G2-PRD-2-ARRAY-I32",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
-      "requirement_description": "`[a]` menyatakan `Array[T,N]` berukuran tetap; irisan ini mencakup elemen Int32.",
+      "requirement_description": "`[a]` dibaca sebagai `Array[T,N]`; irisan penerimaan ini hanya mencakup fixture Int32, bukan semua lebar tipe atau semua kontrak Array.",
       "source_excerpt": "| `[1, 2, 3]` | `Array[Int32, 3]` |"
     },
     {
       "id": "G2-PRD-2-ARRAY-OOB",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
-      "requirement_description": "Index pada array berukuran tetap tetap menegakkan penolakan demi keselamatan batas.",
-      "source_excerpt": "- **Tipe** (huruf kapital): `Array[T, N]` (panjang tetap, N bagian dari tipe), `Span[T]` (view tanpa kepemilikan), `Vec[T]`, `Set[T]`, `Map[K, V]`."
+      "requirement_description": "Read index fixed Array menegakkan batas pada irisan yang diuji; L152 memberi konteks cek batas, bukan matriks lengkap.",
+      "source_excerpt": "| Cek batas indeks dinamis | Dibuang optimizer bila terbukti aman; `scan` tidak butuh cek |"
     },
     {
       "id": "G2-PRD-2-ARRAY-U8",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
       "requirement_description": "Panjang array berukuran tetap merupakan bagian dari tipe; irisan ini mencakup UInt8.",
-      "source_excerpt": "- **Tipe** (huruf kapital): `Array[T, N]` (panjang tetap, N bagian dari tipe), `Span[T]` (view tanpa kepemilikan), `Vec[T]`, `Set[T]`, `Map[K, V]`."
+      "source_excerpt": "`Array[T, N]` (panjang tetap, N bagian dari tipe)"
     },
     {
       "id": "G2-PRD-2-COLLECTION-KEYWORD",
@@ -99,8 +127,8 @@
       "id": "G2-PRD-2-CONST-N",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
-      "requirement_description": "`N` pada `Array[T,N]` harus merupakan konstanta compile-time dan mismatch panjang literal ditolak.",
-      "source_excerpt": "- Sema: semua elemen satu tipe; kunci `map` dan elemen `set` harus punya kontrak hash dan kesamaan; literal `Array` meng-infer panjang dari jumlah elemen."
+      "requirement_description": "N adalah bagian tipe Array (L115) dan konstanta saat kompilasi (ringkasan L42); tahap 1 hanya N literal (L151). Inferensi panjang dimiliki G2-PRD-2-ARRAY-INFER-LENGTH, argumen integer G2-PRD-2-INTEGER-TYPE-ARG, mismatch G2-PRD-2-ARRAY-LENGTH-MISMATCH.",
+      "source_excerpt": "| Const generics besar | Tahap 1 hanya N literal; fungsi yang menerima panjang berapa pun memakai `Span[T]` |"
     },
     {
       "id": "G2-PRD-2-EMPTY",
@@ -114,175 +142,322 @@
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
       "requirement_description": "Kunci Map dan elemen Set harus memiliki kontrak kesamaan selain hash.",
-      "source_excerpt": "- Sema: semua elemen satu tipe; kunci `map` dan elemen `set` harus punya kontrak hash dan kesamaan; literal `Array` meng-infer panjang dari jumlah elemen."
+      "source_excerpt": "kunci `map` dan elemen `set` harus punya kontrak hash dan kesamaan"
     },
     {
       "id": "G2-PRD-2-HASH-EQUALITY",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
       "requirement_description": "Kunci Map dan elemen Set harus memiliki kontrak hash; ini tidak menetapkan urutan iterasi atau kebijakan collision baru.",
-      "source_excerpt": "- Sema: semua elemen satu tipe; kunci `map` dan elemen `set` harus punya kontrak hash dan kesamaan; literal `Array` meng-infer panjang dari jumlah elemen."
+      "source_excerpt": "kunci `map` dan elemen `set` harus punya kontrak hash dan kesamaan"
     },
     {
       "id": "G2-PRD-2-HOMOGENEITY",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
       "requirement_description": "Elemen satu literal koleksi harus satu tipe; kunci Map dan value Map masing-masing memiliki tipe seragam.",
-      "source_excerpt": "- Sema: semua elemen satu tipe; kunci `map` dan elemen `set` harus punya kontrak hash dan kesamaan; literal `Array` meng-infer panjang dari jumlah elemen."
+      "source_excerpt": "semua elemen satu tipe"
     },
     {
       "id": "G2-PRD-2-MAP",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
-      "requirement_description": "`map{key: nilai}` adalah literal Map dengan tipe key dan value.",
-      "source_excerpt": "- `vec`, `set`, `map` adalah kata cadangan, jadi `vec[`, `set(`, `map{` selalu dibaca sebagai literal dan tidak bentrok dengan indexing, pemanggilan fungsi, atau literal shape."
+      "requirement_description": "`map{key: nilai}` adalah literal `Map` dengan tipe key dan value; atom ini tidak mengklaim hash/equality atau inferensi kosong.",
+      "source_excerpt": "| `map{1: 10, 2: 20}` | `Map[Int32, Int32]` |"
     },
     {
       "id": "G2-PRD-2-QUEUE",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
-      "requirement_description": "Queue tetap merupakan API umum dan tidak diberi bentuk literal secara diam-diam.",
-      "source_excerpt": "- `.new()` dan `.from()` untuk Vec/Set/Map dihapus dari PRD. Contoh PRD (Buffer, Arena, dst.) ditulis ulang. Koleksi lain seperti `Queue` tetap `Queue.new()` sampai bentuk literalnya ditentukan."
+      "requirement_description": "Penghapusan `.new()`/`.from()` untuk Vec/Set/Map tidak menghapus atau mengubah Queue: Queue tetap `Queue.new()` sampai bentuk literal ditentukan.",
+      "source_excerpt": "Koleksi lain seperti `Queue` tetap `Queue.new()` sampai bentuk literalnya ditentukan."
     },
     {
       "id": "G2-PRD-2-SET",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
       "requirement_description": "`set(...)` adalah literal Set yang berbeda dari Map dan Vec.",
-      "source_excerpt": "- Literal kosong (`vec[]`, `set()`, `map{}`) butuh tipe yang bisa dikenali dari anotasi, parameter, atau tipe return."
+      "source_excerpt": "| `set(1, 2, 3)` | `Set[Int32]` |"
     },
     {
       "id": "G2-PRD-2-VEC",
       "source": "PRD:2",
       "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
       "requirement_description": "`vec[...]` berbeda dari Array berukuran tetap dan memiliki identitas Vec.",
-      "source_excerpt": "- **Tipe** (huruf kapital): `Array[T, N]` (panjang tetap, N bagian dari tipe), `Span[T]` (view tanpa kepemilikan), `Vec[T]`, `Set[T]`, `Map[K, V]`."
+      "source_excerpt": "| `vec[1, 2, 3]` | `Vec[Int32]` |"
+    },
+    {
+      "id": "G2-PRD-2-ARRAY-INFER-LENGTH",
+      "source": "PRD:2",
+      "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+      "requirement_description": "Panjang `Array` diinfer dari jumlah elemen literal.",
+      "source_excerpt": "literal `Array` meng-infer panjang dari jumlah elemen."
+    },
+    {
+      "id": "G2-PRD-2-INTEGER-TYPE-ARG",
+      "source": "PRD:2",
+      "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+      "requirement_description": "Argumen tipe dapat berupa literal integer, misalnya `Array[UInt8, 4]`.",
+      "source_excerpt": "- Argumen tipe boleh berupa literal integer (`Array[UInt8, 4]`)."
+    },
+    {
+      "id": "G2-PRD-2-COLLECTION-CONSTRUCTOR-REMOVAL",
+      "source": "PRD:2",
+      "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+      "requirement_description": "`.new()` dan `.from()` untuk Vec/Set/Map dihapus dari PRD dan contoh lama ditulis ulang; ini atom terpisah dari Queue yang tetap ditunda.",
+      "source_excerpt": "`.new()` dan `.from()` untuk Vec/Set/Map dihapus dari PRD."
+    },
+    {
+      "id": "G2-PRD-2-SPAN-TYPE",
+      "source": "PRD:2",
+      "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+      "requirement_description": "`Span[T]` adalah view tanpa kepemilikan dan menjadi bentuk untuk fungsi yang menerima panjang berapa pun.",
+      "source_excerpt": "`Span[T]` (view tanpa kepemilikan)"
+    },
+    {
+      "id": "G2-PRD-2-ARRAY-LENGTH-MISMATCH",
+      "source": "PRD:2",
+      "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+      "requirement_description": "Konteks sumber menyatakan N bagian tipe dan inferensi jumlah elemen (L115/L141); penolakan mismatch di sini adalah irisan implementasi teruji, bukan kutipan aturan penolakan eksplisit yang tidak ada.",
+      "source_excerpt": "`Array[T, N]` (panjang tetap, N bagian dari tipe)"
     },
     {
       "id": "G2-PRD-3-EXHAUST",
       "source": "PRD:3",
       "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
-      "requirement_description": "Pick yang menghasilkan nilai harus exhaustive.",
-      "source_excerpt": "- `pick` sebagai nilai wajib exhaustive (sudah dicek sema)."
+      "requirement_description": "`pick` sebagai nilai wajib exhaustive.",
+      "source_excerpt": "`pick` sebagai nilai wajib exhaustive (sudah dicek sema)."
     },
     {
       "id": "G2-PRD-3-IF",
       "source": "PRD:3",
       "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
-      "requirement_description": "`if` yang menghasilkan nilai memerlukan `else` dan nilai branch yang kompatibel.",
-      "source_excerpt": "**Cara kerja compiler:** AST mendapat node `IfExpr` dan `PickExpr`. Sema menyatukan tipe cabang. LLVM: tiap cabang `br` ke blok gabungan yang memakai instruksi `phi` (memilih nilai sesuai cabang asal)."
+      "requirement_description": "Fixture native menerima nilai `if` dengan `else` pada tail, return, dan initializer.",
+      "source_excerpt": "- Boleh jadi nilai di posisi: initializer, argumen, operan, operan `return`, dan ekor blok."
     },
     {
       "id": "G2-PRD-3-NEVER",
       "source": "PRD:3",
       "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
-      "requirement_description": "Branch return atau defect dapat menyatu dengan branch bernilai sebagai `Never`.",
-      "source_excerpt": "- Tipe semua cabang harus sama. Cabang yang berakhir `return` atau defect bertipe `Never` (tipe \"tidak pernah kembali\"), cocok dengan tipe apa pun."
+      "requirement_description": "Cabang yang berakhir `return` atau defect bertipe `Never` kompatibel dengan tipe apa pun.",
+      "source_excerpt": "Cabang yang berakhir `return` atau defect bertipe `Never` (tipe \"tidak pernah kembali\"), cocok dengan tipe apa pun."
     },
     {
       "id": "G2-PRD-3-PICK",
       "source": "PRD:3",
       "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
-      "requirement_description": "Ekspresi pick yang diuji menghasilkan nilai dengan typing branch.",
-      "source_excerpt": "| Ambiguitas statement vs expression di akhir blok | Satu aturan: konstruksi terakhir di blok yang tipe harapannya bukan `Unit` adalah nilai; selain itu statement. Diuji kedua arah |"
+      "requirement_description": "Fixture native menerima `pick` bernilai pada return, initializer, dan cabang terminal yang diuji.",
+      "source_excerpt": "- Boleh jadi nilai di posisi: initializer, argumen, operan, operan `return`, dan ekor blok."
+    },
+    {
+      "id": "G2-PRD-3-POSITION",
+      "source": "PRD:3",
+      "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+      "requirement_description": "Konstruktor boleh menjadi nilai pada initializer, argumen, operan, operan `return`, dan ekor blok.",
+      "source_excerpt": "Boleh jadi nilai di posisi: initializer, argumen, operan, operan `return`, dan ekor blok."
+    },
+    {
+      "id": "G2-PRD-3-IF-ELSE",
+      "source": "PRD:3",
+      "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+      "requirement_description": "`if` sebagai nilai wajib memiliki `else`; aturan ini berdiri sendiri dari bentuk `else if`.",
+      "source_excerpt": "`if` sebagai nilai wajib punya `else`."
+    },
+    {
+      "id": "G2-PRD-3-IF-ELSE-IF",
+      "source": "PRD:3",
+      "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+      "requirement_description": "Rantai `else if` ditulis langsung sebagai bagian dari expression `if`.",
+      "source_excerpt": "`else if` ditulis langsung."
+    },
+    {
+      "id": "G2-PRD-3-BRANCH-TYPE",
+      "source": "PRD:3",
+      "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+      "requirement_description": "Semua cabang harus bertipe sama; ini terpisah dari kewajiban `else`.",
+      "source_excerpt": "Tipe semua cabang harus sama."
     },
     {
       "id": "G2-PRD-4-BUILTIN",
       "source": "PRD:4",
       "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
-      "requirement_description": "Nama scalar builtin yang tertutup menerima pelipatan case ASCII kanonis.",
+      "requirement_description": "Hanya scalar builtin tertutup yang menerima variasi case ASCII; alias ikut diterima.",
       "source_excerpt": "| Nama builtin scalar dari daftar tertutup di bawah | Ejaan canonical; pencocokan ASCII case-insensitive | `Int32`, `int32`, `INT32` |"
     },
     {
       "id": "G2-PRD-4-LAST-WILDCARD",
       "source": "PRD:4",
       "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
-      "requirement_description": "Wildcard `_` dapat menutup pola yang belum dicocokkan dan, bila dipakai sebagai arm, harus menjadi arm terakhir.",
-      "source_excerpt": "- `_` sebagai cabang sendiri berarti tangkap-semua: wajib terakhir dan membuat `pick` exhaustive. Cabang yang tak terjangkau memberi peringatan."
+      "requirement_description": "`_` sebagai cabang sendiri adalah catch-all, wajib terakhir, dan membuat `pick` exhaustive.",
+      "source_excerpt": "`_` sebagai cabang sendiri berarti tangkap-semua: wajib terakhir dan membuat `pick` exhaustive."
     },
     {
       "id": "G2-PRD-4-PATTERN",
       "source": "PRD:4",
       "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
-      "requirement_description": "Interpretasi pattern diarahkan oleh tipe; `_` adalah catch-all.",
-      "source_excerpt": "- Di posisi bertipe lain (angka, string, tuple, dst.), nama huruf kecil adalah binding."
+      "requirement_description": "Varian tanpa data ditulis sebagai tag. Binding, wildcard dan tag berpayload mempunyai atom terpisah; pattern tuple tetap kanonik pada G2-PRD-8-PICK.",
+      "source_excerpt": "tag                   // varian tanpa data"
     },
     {
       "id": "G2-PRD-4-UNREACHABLE",
       "source": "PRD:4",
       "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
-      "requirement_description": "Arm setelah wildcard atau pola yang sudah menutup domain ditandai unreachable warning, bukan bukti exhaustiveness baru.",
-      "source_excerpt": "**Cara kerja compiler:** parser Pattern rekursif; sema menentukan tipe tiap posisi lalu memutuskan tag atau binding. Exhaustiveness dihitung dengan algoritma matriks pola (memecah per varian sampai semua kasus"
+      "requirement_description": "Cabang setelah wildcard atau pola yang menutup domain diberi unreachable warning.",
+      "source_excerpt": "Cabang yang tak terjangkau memberi peringatan."
     },
     {
       "id": "G2-PRD-4-USER",
       "source": "PRD:4",
       "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
-      "requirement_description": "Nama tipe buatan pengguna tetap peka terhadap case.",
-      "source_excerpt": "Daftar scalar yang case-insensitive hanya `Bool`, `Char`, `Unit`, `Int8`/`Int16`/`Int32`/`Int64`/`Int128`, `UInt8`/`UInt16`/`UInt32`/`UInt64`/`UInt128`, `USize`, `Float32`/`Float64`/`Float128`, serta alias `Int`,"
+      "requirement_description": "Referensi tipe buatan pengguna tetap case-sensitive; penerimaan hanya penolakan point terhadap shape Point. Kewajiban kapital deklarasi dimiliki G2-PRD-4-TYPE-CAPITAL.",
+      "source_excerpt": "Ini tidak mengubah case sensitivity nama tipe buatan pengguna, parameter generic, constructor container, varian, field, fungsi, maupun identifier lain."
     },
     {
       "id": "G2-PRD-4-VARIANT",
       "source": "PRD:4",
       "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
-      "requirement_description": "Variant choice pengguna menggunakan huruf kecil; ketidaksesuaian case ditolak.",
+      "requirement_description": "Varian choice buatan pengguna wajib huruf kecil; exception kapital tertutup bukan untuk choice pengguna.",
       "source_excerpt": "| Varian choice buatan pengguna | huruf kecil | `circle`, `rect`, `none` |"
+    },
+    {
+      "id": "G2-PRD-4-CONSTRUCTOR-CASE",
+      "source": "PRD:4",
+      "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+      "requirement_description": "Konstruktor tipe generic dan builtin non-scalar memerlukan kapital di awal dan tetap case-sensitive.",
+      "source_excerpt": "| Konstruktor tipe generic dan builtin non-scalar | Kapital di awal | `Array`, `Range`, `Vec`, `Result` |"
+    },
+    {
+      "id": "G2-PRD-4-RESULT-VARIANTS",
+      "source": "PRD:4",
+      "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+      "requirement_description": "Hanya `Ok`, `Fail`, `Some`, dan `None` boleh memakai kapital sebagai exception tertutup.",
+      "source_excerpt": "Pengecualian huruf kapital untuk varian tetap terbatas pada `Ok`, `Fail`, `Some`, dan `None`."
+    },
+    {
+      "id": "G2-PRD-4-LOWERCASE-IDENT",
+      "source": "PRD:4",
+      "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+      "requirement_description": "Variabel, fungsi, field, modul, dan kategori nama lain memerlukan huruf kecil di awal.",
+      "source_excerpt": "Compiler tetap memaksakan kapital di awal untuk deklarasi nama tipe dan huruf kecil di awal untuk kategori nama lain;"
+    },
+    {
+      "id": "G2-PRD-4-WILDCARD-NOBIND",
+      "source": "PRD:4",
+      "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+      "requirement_description": "`_` membuang nilai dan tidak pernah membuat binding.",
+      "source_excerpt": "Pattern := _                     // buang nilai, tidak pernah mengikat nama"
+    },
+    {
+      "id": "G2-PRD-4-NONVARIANT-NOFALLBACK",
+      "source": "PRD:4",
+      "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+      "requirement_description": "Di posisi bertipe choice, nama harus varian tipe itu; nama non-varian adalah error dan bukan binding diam-diam.",
+      "source_excerpt": "Di posisi bertipe `choice`, sebuah nama **harus** varian dari tipe itu. Bukan varian = error: \"`nome` bukan varian dari `Shape`; untuk tangkap-semua pakai `_`\". Tidak ada fallback diam-diam menjadi binding."
+    },
+    {
+      "id": "G2-PRD-4-BINDING-NONCHOICE",
+      "source": "PRD:4",
+      "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+      "requirement_description": "Pada posisi bertipe angka, string, tuple, dan tipe non-choice lain, nama huruf kecil diinterpretasikan sebagai binding.",
+      "source_excerpt": "Di posisi bertipe lain (angka, string, tuple, dst.), nama huruf kecil adalah binding."
+    },
+    {
+      "id": "G2-PRD-4-PATTERN-PAYLOAD",
+      "source": "PRD:4",
+      "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+      "requirement_description": "Varian berdata memakai tag(Pattern, ...); setiap payload adalah Pattern rekursif. Staging A/B L240 tidak dinaikkan menjadi penerimaan nested pattern.",
+      "source_excerpt": "tag(Pattern, ...)     // varian dengan data"
+    },
+    {
+      "id": "G2-PRD-4-TYPE-CAPITAL",
+      "source": "PRD:4",
+      "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+      "requirement_description": "Nama deklarasi shape, choice dan contract buatan pengguna berawal kapital; ini terpisah dari uji referensi Point/point.",
+      "source_excerpt": "| Nama tipe buatan pengguna: shape, choice, contract | Kapital di awal | `Point`, `Shape` |"
+    },
+    {
+      "id": "G2-PRD-4-SCALAR-ALIAS",
+      "source": "PRD:4",
+      "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+      "requirement_description": "Alias Int menjadi Int64, UInt menjadi UInt64 dan Float menjadi Float64; ejaan internal tetap canonical.",
+      "source_excerpt": "ejaan internal tetap canonical, dengan alias `Int` → `Int64`, `UInt` → `UInt64`, dan `Float` → `Float64`."
     },
     {
       "id": "G2-PRD-5-ELSE",
       "source": "PRD:5",
       "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
-      "requirement_description": "Jalur `else` berakhir dengan `Never`.",
+      "requirement_description": "Form penuh `else err { ... }` wajib membuat blok failure bertipe `Never`; ini adalah keputusan umum, bukan penerimaan semua terminator.",
       "source_excerpt": "- Form penuh `else err { ... }`: blok wajib berakhir bertipe `Never` (`return`, defect, `break`, `continue`)."
     },
     {
       "id": "G2-PRD-5-ELSE-NONTERMINAL",
       "source": "PRD:5",
       "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
-      "requirement_description": "Blok failure try else yang tidak menghentikan jalur kontrol ditolak.",
-      "source_excerpt": "**Status implementasi (2026-10-11):** §5 tetap parsial sambil menunggu acceptance gate yang relevan. Repro awal menemukan bahwa `try` tidak mengonsumsi `Result` owned (reuse berujung UAF/double-free) serta shorthand"
+      "requirement_description": "Pada irisan yang diuji, blok failure `try ... else` yang hanya menjalankan `println` lalu jatuh ke akhir blok ditolak karena jalur kontrol tidak berhenti; ini bukan penerimaan seluruh terminator `Never`.",
+      "source_excerpt": "- Form penuh `else err { ... }`: blok wajib berakhir bertipe `Never` (`return`, defect, `break`, `continue`)."
     },
     {
       "id": "G2-PRD-5-IDENTITY",
       "source": "PRD:5",
       "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
-      "requirement_description": "Dua tipe nominal bernama sama dari modul berbeda bukan error type identik untuk shorthand try.",
-      "source_excerpt": "**Status implementasi (2026-10-11):** §5 tetap parsial sambil menunggu acceptance gate yang relevan. Repro awal menemukan bahwa `try` tidak mengonsumsi `Result` owned (reuse berujung UAF/double-free) serta shorthand"
+      "requirement_description": "Pada irisan yang diuji, dua `Problem[String]` bernama sama tetapi didefinisikan di modul berbeda tidak diperlakukan sebagai error type identik; alias import tidak menghapus identitas nominal lintas modul.",
+      "source_excerpt": "- Shorthand (tanpa `else`): error type `E` harus **identik** dengan error type fungsi pemanggil."
     },
     {
       "id": "G2-PRD-5-INIT",
       "source": "PRD:5",
       "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
-      "requirement_description": "Initializer val yang diuji membuka Result pada jalur sukses/gagal.",
-      "source_excerpt": "| Nilai owned `Result` pada jalur sukses/gagal `try` | Implementasi dan tes source-reuse, OIR/drop, serta native ASan/LSan lulus; independent review READY, acceptance masih menunggu |"
+      "requirement_description": "Pada fixture native yang dikutip, `val x = try ...` membuka satu `Result` pada sukses/gagal dan nilai sukses dapat dipropagasikan atau ditangani lokal.",
+      "source_excerpt": "- `try` hanya sebagai initializer `val`: `val x = try <ekspresi bertipe Result>`."
     },
     {
       "id": "G2-PRD-5-OWNED",
       "source": "PRD:5",
       "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
-      "requirement_description": "Jalur try yang diuji mentransfer payload Result owned tepat satu kali.",
-      "source_excerpt": "**Status implementasi (2026-10-11):** §5 tetap parsial sambil menunggu acceptance gate yang relevan. Repro awal menemukan bahwa `try` tidak mengonsumsi `Result` owned (reuse berujung UAF/double-free) serta shorthand"
+      "requirement_description": "Pada fixture owned yang diuji, jalur sukses/gagal memindahkan payload Anchor[String]/String termasuk temporary dan shadowing. Status deskriptif L272 bukan bukti mandiri; stdout dan ASan runner membatasi penerimaan.",
+      "source_excerpt": "Ownership move dan payload transfer `Ok`/`Fail` kini diterapkan."
     },
     {
       "id": "G2-PRD-5-RETURN-REJECT",
       "source": "PRD:5",
       "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
-      "requirement_description": "try bukan ekspresi umum; return try ditolak.",
-      "source_excerpt": "- `var x = try` tetap ditolak. Tulis `val t = try f()` lalu `var x = t`."
+      "requirement_description": "`try` bukan ekspresi umum pada irisan parser yang diuji: `return try step()` ditolak sebagai `Expected expression.`",
+      "source_excerpt": "- `try` hanya sebagai initializer `val`: `val x = try <ekspresi bertipe Result>`."
     },
     {
       "id": "G2-PRD-5-SINGLE-TRY",
       "source": "PRD:5",
       "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
-      "requirement_description": "Satu shorthand `try` menerima tepat satu `Result[T,E]`; ia mengembalikan `T` pada Ok atau keluar melalui else pada Fail, tanpa chaining implisit.",
-      "source_excerpt": "**Status implementasi (2026-10-11):** §5 tetap parsial sambil menunggu acceptance gate yang relevan. Repro awal menemukan bahwa `try` tidak mengonsumsi `Result` owned (reuse berujung UAF/double-free) serta shorthand"
+      "requirement_description": "Satu `try` membuka tepat satu lapisan `Result`; rangkaian/nesting eksplisit memakai beberapa initializer `val`, tetapi belum ada penerimaan mandiri untuk seluruh aturan ini.",
+      "source_excerpt": "- Satu `try` membuka tepat satu `Result`. Rangkaian `Result` ditulis sebagai beberapa `val ... = try`."
     },
     {
       "id": "G2-PRD-5-VAR-REJECT",
       "source": "PRD:5",
       "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
-      "requirement_description": "try hanya boleh sebagai initializer val; initializer var ditolak.",
-      "source_excerpt": "- `try` hanya sebagai initializer `val`: `val x = try <ekspresi bertipe Result>`."
+      "requirement_description": "Hanya bentuk `var value = try step(flag)` yang diuji dan ditolak; aturan ini tidak memperluas klaim ke semua deklarasi `var` atau assignment setelah initializer.",
+      "source_excerpt": "- `var x = try` tetap ditolak. Tulis `val t = try f()` lalu `var x = t`."
+    },
+    {
+      "id": "G2-PRD-5-IDENTITY-GENERIC",
+      "source": "PRD:5",
+      "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+      "requirement_description": "Pada irisan yang diuji, nominal error type yang sama dengan argumen generic berbeda (`Problem[String]` versus `Problem[Int32]`) ditolak oleh shorthand `try`; ini bukan klaim identitas type-system secara umum.",
+      "source_excerpt": "- Shorthand (tanpa `else`): error type `E` harus **identik** dengan error type fungsi pemanggil."
+    },
+    {
+      "id": "G2-PRD-5-ERROR-MISMATCH",
+      "source": "PRD:5",
+      "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+      "requirement_description": "Pada irisan yang diuji, shorthand menolak `step() -> Result[Int32, String]` di fungsi yang mengharapkan `Result[Int32, Int32]`; `E` yang berbeda bukan identik.",
+      "source_excerpt": "- Shorthand (tanpa `else`): error type `E` harus **identik** dengan error type fungsi pemanggil."
+    },
+    {
+      "id": "G2-PRD-5-ERROR-IDENTITY",
+      "source": "PRD:5",
+      "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+      "requirement_description": "Tanpa else, error type E harus identik dengan error type fungsi pemanggil. Slice negatif nominal, generic dan String/Int32 memiliki ID evidence terpisah.",
+      "source_excerpt": "- Shorthand (tanpa `else`): error type `E` harus **identik** dengan error type fungsi pemanggil."
     },
     {
       "id": "G2-PRD-6-BITWISE-INT",
@@ -1016,8 +1191,8 @@
       "id": "G2-PLAN-G1",
       "source": "PLAN:G1",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
-      "requirement_description": "Pemetaan PLAN tersebut tepat untuk perubahan teks v0.1; hal itu bukan implikasi bahwa compiler telah selesai.",
-      "source_excerpt": "**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom"
+      "requirement_description": "Semua code block diberi tepat satu kategori: `cat`, `cat error:`, `cat proposal`, atau `text`; `cat`/`cat error:` dieksekusi sesuai kontraknya, `cat proposal`/`text` dilewati dan dihitung, sedangkan tanpa label atau label tak dikenal menggagalkan runner. Ini governance dokumentasi, bukan penerimaan compiler.",
+      "source_excerpt": "| G1 | Tag semua blok kode (`cat`, `cat error:`, `cat proposal`, `text`) | v0.1 |"
     },
     {
       "id": "G2-PLAN-G2",

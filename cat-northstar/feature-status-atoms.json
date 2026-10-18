@@ -9,6 +9,26 @@
     "fixtures": [],
     "assertions": []
   },
+  "G2-PRD-0-STATUS-SEPARATION": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-0-NEGATIVE-TESTS": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-0-TABLE-DRIVEN": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-0-DEFERRED-REGISTER": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
   "G2-PRD-1-NEW": {
     "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
     "fixtures": [],
@@ -162,6 +182,43 @@
     "fixtures": [],
     "assertions": []
   },
+  "G2-PRD-2-ARRAY-INFER-LENGTH": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-INTEGER-TYPE-ARG": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-COLLECTION-CONSTRUCTOR-REMOVAL": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-SPAN-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-ARRAY-LENGTH-MISMATCH": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_fixed_array_length_mismatch.cat",
+      "claw/tests/frontend/fixtures/revise_bad_fixed_array_uint8_length.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"fixed-array annotation length mismatch\" \"$FIXTURE_DIR/revise_bad_fixed_array_length_mismatch.cat\" \\\n  \"Array literal has 3 element(s), but the expected type is Array[Int32, 2].\""
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"UInt8 fixed-array annotation length mismatch\" \\\n  \"$FIXTURE_DIR/revise_bad_fixed_array_uint8_length.cat\" \\\n  \"Array literal has 3 element(s), but the expected type is Array[UInt8, 2].\""
+      }
+    ]
+  },
   "G2-PRD-3-EXHAUST": {
     "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
     "fixtures": [],
@@ -195,6 +252,33 @@
         "text": "if [[ \"$if_pick_values_stdout\" != \"$expected_if_pick_values_stdout\" ]]; then"
       }
     ]
+  },
+  "G2-PRD-3-POSITION": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_if_pick_values.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$if_pick_values_stdout\" != \"$expected_if_pick_values_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-3-IF-ELSE": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-3-IF-ELSE-IF": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-3-BRANCH-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [],
+    "assertions": []
   },
   "G2-PRD-4-BUILTIN": {
     "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
@@ -238,14 +322,64 @@
   "G2-PRD-4-VARIANT": {
     "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
     "fixtures": [
-      "claw/tests/frontend/fixtures/revise_bad_choice_variant_case.cat"
+      "claw/tests/frontend/fixtures/revise_bad_choice_variant_case.cat",
+      "claw/tests/frontend/fixtures/revise_bad_case_custom_variant.cat"
     ],
     "assertions": [
       {
         "path": "claw/tests/frontend/run_frontend_tests.sh",
         "text": "run_check_fail \"test_frontend/revise_bad_choice_variant_case.cat\" \"$FIXTURE_DIR/revise_bad_choice_variant_case.cat\" \"must start with a lowercase letter\""
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_case_custom_variant.cat\" \"$FIXTURE_DIR/revise_bad_case_custom_variant.cat\" \"Choice variant 'Ok' must start with a lowercase letter\""
       }
     ]
+  },
+  "G2-PRD-4-CONSTRUCTOR-CASE": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-RESULT-VARIANTS": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-LOWERCASE-IDENT": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-WILDCARD-NOBIND": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-NONVARIANT-NOFALLBACK": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-BINDING-NONCHOICE": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-PATTERN-PAYLOAD": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-TYPE-CAPITAL": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-SCALAR-ALIAS": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
   },
   "G2-PRD-5-ELSE": {
     "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
@@ -331,6 +465,35 @@
         "text": "run_check_fail \"test_frontend/revise_bad_try_var.cat\" \"$FIXTURE_DIR/revise_bad_try_var.cat\" '`try` is only allowed in a `val` initializer.'"
       }
     ]
+  },
+  "G2-PRD-5-IDENTITY-GENERIC": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_try_alias_generic_mismatch/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"try error alias with mismatched generic argument\" \"$FIXTURE_DIR/revise_bad_try_alias_generic_mismatch\" '`try` shorthand error type mismatch'"
+      }
+    ]
+  },
+  "G2-PRD-5-ERROR-MISMATCH": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_try_error_type.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"shorthand try with a different error type\" \"$FIXTURE_DIR/revise_bad_try_error_type.cat\" '`try` shorthand error type mismatch: expected Int32, got String'"
+      }
+    ]
+  },
+  "G2-PRD-5-ERROR-IDENTITY": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [],
+    "assertions": []
   },
   "G2-PRD-6-BITWISE-INT": {
     "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
