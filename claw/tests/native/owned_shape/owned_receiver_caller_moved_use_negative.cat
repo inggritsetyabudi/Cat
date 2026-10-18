@@ -1,0 +1,10 @@
+shape Inner { text: String }
+implements Inner {
+    fn consume(self) -> Int32 { 0 }
+}
+fn main() -> Int32 {
+    val source = Inner { text: String.from("source") }
+    val status = source.consume()
+    println(source.text.as_str())
+    return status
+}

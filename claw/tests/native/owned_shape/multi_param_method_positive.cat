@@ -1,0 +1,12 @@
+shape Chooser { value: String }
+implements Chooser {
+    fn choose(self, code: Int32, text: String) -> String {
+        return text
+    }
+}
+fn main() -> Int32 {
+    val chooser = Chooser { value: String.from("value") }
+    val result = chooser.choose(7, String.from("chosen"))
+    println(result.as_str())
+    return 0
+}

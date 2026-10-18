@@ -1,0 +1,13 @@
+shape Part { text: String }
+contract AddBorrowedOwned {
+    fn add(self: ref, other: Part) -> Int32
+}
+implements Part with AddBorrowedOwned {
+    fn add(self: ref, other: Part) -> Int32 { 0 }
+}
+fn main() -> Int32 {
+    val root = Part { text: String.from("root") }
+    val bad = root + root
+    println(bad)
+    return 0
+}

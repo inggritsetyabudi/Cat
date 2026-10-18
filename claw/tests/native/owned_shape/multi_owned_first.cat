@@ -1,0 +1,12 @@
+shape Triple {
+    left: String,
+    middle: String,
+    right: String,
+    plain: Int32,
+}
+fn main() -> Int32 {
+    val source = Triple { plain: 7, right: String.from("right"), middle: String.from("middle"), left: String.from("left") }
+    val taken = source.left
+    println(taken.as_str())
+    return 0
+}

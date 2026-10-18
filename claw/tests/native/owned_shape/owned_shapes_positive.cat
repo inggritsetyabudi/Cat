@@ -1,0 +1,79 @@
+shape Triple {
+    first: String,
+    second: String,
+    third: String,
+}
+shape Inner { text: String }
+shape Outer { inner: Inner, label: String }
+choice Route {
+    left
+    right
+}
+fn make() -> Triple {
+    Triple { third: String.from("third"), first: String.from("first"), second: String.from("second") }
+}
+fn take(value: Triple) -> Triple {
+    println(value.first.as_str())
+    value
+}
+fn inspect(value: ref Triple) {
+    println(value.second.as_str())
+}
+fn early(flag: Bool) -> String {
+    val owner = make()
+    if flag { return owner.second.clone() }
+    owner.third.clone()
+}
+fn main() -> Int32 {
+    val source = make()
+    val copied_first = source.first.clone()
+    val copied_second = source.second.clone()
+    val copied_third = source.third.clone()
+    println(copied_first.as_str())
+    println(copied_second.as_str())
+    println(copied_third.as_str())
+    println(source.first.as_str())
+    println(source.second.as_str())
+    println(source.third.as_str())
+    inspect(ref source)
+    scope alias_scope {
+        val alias = ref source
+        val copied_alias = alias.first.clone()
+        println(copied_alias.as_str())
+        println(alias.third.as_str())
+    }
+    val moved_source = source
+    println(moved_source.second.as_str())
+    val nested = Outer { label: String.from("outer"), inner: Inner { text: String.from("inner") } }
+    println(nested.inner.text.as_str())
+    println(nested.label.as_str())
+    val moved = take(Triple { first: String.from("param"), second: String.from("p2"), third: String.from("p3") })
+    println(moved.first.as_str())
+    val branch = if true { Triple { first: String.from("branch"), second: String.from("b2"), third: String.from("b3") } } else { make() }
+    println(branch.first.as_str())
+    val route: Route = right()
+    val picked = pick route { left { make() } right { make() } }
+    println(picked.third.as_str())
+    scope cleanup {
+        val scoped = make()
+        println(scoped.third.as_str())
+    }
+    println(early(true).as_str())
+    println(early(false).as_str())
+    var i: Int32 = 0
+    loop i < 2 {
+        val loop_owner = make()
+        i += 1
+        if i == 1 {
+            println(loop_owner.first.as_str())
+            skip
+        }
+        println(loop_owner.second.as_str())
+        stop
+    }
+    var replacement = Outer { inner: Inner { text: String.from("old") }, label: String.from("kept") }
+    replacement.inner = Inner { text: String.from("new") }
+    println(replacement.inner.text.as_str())
+    println(replacement.label.as_str())
+    return 0
+}

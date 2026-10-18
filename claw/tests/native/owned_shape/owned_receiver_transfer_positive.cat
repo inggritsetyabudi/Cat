@@ -1,0 +1,15 @@
+shape Inner { left: String, right: String }
+implements Inner {
+    fn consume(self) -> String {
+        return self.left.clone()
+    }
+}
+fn make_with_owned_arg(value: String) -> Inner {
+    Inner { left: value, right: String.from("right") }
+}
+fn main() -> Int32 {
+    val local_string = String.from("temporary")
+    val result = make_with_owned_arg(local_string).consume()
+    println(result.as_str())
+    return 0
+}
