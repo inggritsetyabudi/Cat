@@ -42,4 +42,4 @@ I/O menggunakan byte dan decode UTF-8 ketat: sumber tidak pernah ditulis ulang, 
 
 Mode `--check` hanya membaca dan membandingkan byte exact, gagal bila hasil hilang atau usang. [`claw/tests/docs/run_doc_tests.sh`](../claw/tests/docs/run_doc_tests.sh) menjalankan check ini, regresi generator, dan pemeriksaan UTF-8 ketat atas keenam dokumen sumber/arsip yang sudah ada di folder ini. Runner tersebut dipanggil suite penuh dan CI Linux serta Windows UCRT64; CI tidak memperbaiki atau meregenerasi file diam-diam.
 
-Penyelesaian G7 tidak menerima G2 atau seluruh v0.1: audit D/G2 pada matriks penerimaan tetap menunggu. Tidak ada perubahan pada Arena, fitur bahasa, staging v0.4+, versi, atau kebijakan rilis.
+Gate inventarisasi, klasifikasi, dan bukti G2 sudah ditutup di `main`, sebagaimana dicatat dalam [changelog penutupan G2](../changelog/2026-10-19-g2-inventory-gate-closure.md). Penutupan gate tersebut bukan klaim kelengkapan compiler atau penerimaan seluruh v0.1; penyelesaian G7 juga tidak memberikan penerimaan versi. Tidak ada perubahan pada Arena, fitur bahasa, staging v0.4+, versi, atau kebijakan rilis.

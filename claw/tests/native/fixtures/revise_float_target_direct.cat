@@ -1,0 +1,89 @@
+choice FloatRoute {
+    narrow(value: Float64)
+    wide(value: Float64)
+}
+
+fn pass32(value: Float32) -> Float32 {
+    return value
+}
+
+fn pass64(value: Float64) -> Float64 {
+    return value
+}
+
+fn choose(flag: Bool) -> Float64 {
+    if flag {
+        1.5
+    } else {
+        2.5
+    }
+}
+
+fn pick_value(route: FloatRoute) -> Float64 {
+    pick route {
+        narrow(value) {
+            value
+        }
+        wide(value) {
+            value
+        }
+    }
+}
+
+fn main() -> Int32 {
+    val one32: Float32 = 1.0_float32
+    val one32_mixed: FlOaT32 = 1.0_fLoAt32
+    val one64: Float64 = 1.0_float64
+    val one64_alias: fLoAt = 1.0_fLoAt
+    val inferred32 = 1.5_float32
+    val inferred64 = 2.5
+    val separated32: Float32 = 1_000.5_float32
+    val exponent64: Float64 = 6.25e-2_float64
+    val max32: Float32 = 3.4028234663852886e38_float32
+    val max32_boundary_below: Float32 = 340282356779733661637539395458142568447.0_Float32
+    val min_normal32: Float32 = 1.1754943508222875e-38_float32
+    val subnormal32: Float32 = 1.401298464324817e-45_float32
+    val max64: Float64 = 1.7976931348623157e308_float64
+    val min_normal64: Float64 = 2.2250738585072014e-308_float64
+    val subnormal64: Float64 = 4.9406564584124654e-324_float64
+    val tie32: Float32 = 1.000000059604644775390625_Float32
+    val above_tie32: Float32 = 1.000000059604644775390625000000000000000001_Float32
+    val rounded64: Float64 = 1.0000000000000002_Float64
+    val neg_zero32: Float32 = -0.0_Float32
+    val neg_zero64: Float64 = -0.0_Float64
+    val signed32: Float32 = -1.5_Float32
+    val signed64: Float64 = -2.5_Float64
+    val returned32 = pass32(1.25_Float32)
+    val returned64 = pass64(2.25)
+    val chosen = choose(true)
+    val picked = pick_value(wide(3.5))
+    val integer_context: Int32 = 42
+    val integer_as_float: Float32 = 42
+    val radix_as_float: Float32 = 0xFF_Float32
+    val zero_exp_decimal: Float64 = 0.0e1_Float64
+    val zero_exp_negative: Float32 = 0e-9999_Float32
+    val zero_exp_huge: Float64 = 0e9999_Float64
+    val zero_exp_separator: Float64 = 0.0e9_999_Float64
+    val negative_zero_huge: Float32 = -0e9999_Float32
+    val narrow: Float32 = 1.25_Float32
+    val narrow_plus = narrow + 1.0
+    val one_plus_narrow = 1.0 + narrow
+
+    if one32 == one32_mixed and one64 == one64_alias and inferred32 == 1.5_Float32 and
+       inferred64 == 2.5 and separated32 == 1000.5_Float32 and exponent64 == 0.0625_Float64 and
+       max32 > min_normal32 and max32_boundary_below == max32 and min_normal32 > subnormal32 and
+       max64 > min_normal64 and min_normal64 > subnormal64 and tie32 == one32 and
+       above_tie32 > tie32 and rounded64 > one64 and signed32 < 0.0_Float32 and
+       signed64 < 0.0_Float64 and returned32 == 1.25_Float32 and returned64 == 2.25 and
+       chosen == 1.5 and picked == 3.5 and integer_context == 42 and
+       integer_as_float == 42.0_Float32 and radix_as_float == 255.0_Float32 and
+       zero_exp_decimal == 0.0_Float64 and zero_exp_negative == 0.0_Float32 and
+       zero_exp_huge == 0.0_Float64 and zero_exp_separator == 0.0_Float64 and
+       negative_zero_huge == 0.0_Float32 and narrow_plus == 2.25_Float32 and one_plus_narrow == 2.25_Float32 and
+       neg_zero32 == 0.0_Float32 and neg_zero64 == 0.0_Float64 {
+        println("float-target-direct-ok")
+        return 0
+    }
+    println("float-target-direct-fail")
+    return 1
+}

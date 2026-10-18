@@ -166,6 +166,11 @@ run_check_fail "range operators are non-associative" "$FIXTURE_DIR/revise_bad_in
 run_check_fail "range comparisons are not implicit membership" "$FIXTURE_DIR/revise_bad_range_comparison.cat" 'Range values support `in` membership only'
 run_check_fail "trailing decimal dot remains a single-dot projection" "$FIXTURE_DIR/revise_bad_trailing_decimal_dot.cat" "Type 'IntLiteral' does not expose fields."
 run_check_pass "plain tuple literals, types, projections, and branch values" "$SCRIPT_DIR/../native/fixtures/revise_tuples.cat"
+run_check_pass "inline value composition in builtin/user calls, nested branches, pick, widths, and owned Strings" "$SCRIPT_DIR/../native/fixtures/revise_inline_value_composition.cat"
+run_check_fail "inline if branches reject incompatible types" "$FIXTURE_DIR/revise_bad_inline_incompatible_branch.cat" "Incompatible branch types in if expression: Int32 and String."
+run_check_fail "inline if values require an else branch" "$FIXTURE_DIR/revise_bad_inline_missing_else.cat" "'if' as a value requires an 'else' branch."
+run_check_fail "concrete Unit parameters retain branch expected-type checking" "$FIXTURE_DIR/revise_bad_inline_unit_arg.cat" "Branch type mismatch in if expression: expected Unit, got integer literal."
+python3 "$SCRIPT_DIR/run_inline_value_errors.py" "$CLAW_EXE"
 run_check_fail "nested tuple projection assignment remains unsupported" "$FIXTURE_DIR/revise_bad_nested_tuple_assignment.cat" "Member assignment requires mutable storage or a ref mut view."
 run_check_fail "tuple projection index out of range" "$FIXTURE_DIR/revise_bad_tuple_projection.cat" "Tuple projection index 2 is out of range"
 run_check_fail "tuple fields without a safe destructor remain rejected" "$FIXTURE_DIR/revise_bad_tuple_owned_field.cat" "Tuple fields must be concrete plain values or Anchor[T] with concrete plain T"

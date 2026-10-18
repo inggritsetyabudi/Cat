@@ -1,0 +1,5 @@
+fn main() {
+    println(if true {
+        1
+    })
+}

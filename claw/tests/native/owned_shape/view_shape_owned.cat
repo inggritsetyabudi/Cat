@@ -1,0 +1,13 @@
+view shape Carrier[s] {
+    owned: String,
+    borrowed: ref[s] Str,
+}
+fn main() -> Int32 {
+    val source = "borrowed"
+    scope s {
+        val carrier = Carrier { owned: String.from("owned"), borrowed: ref[s] source }
+        val taken = carrier.owned
+        println(taken.as_str())
+    }
+    return 0
+}

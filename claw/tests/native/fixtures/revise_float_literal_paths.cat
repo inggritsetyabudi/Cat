@@ -1,0 +1,27 @@
+static ratio: Float32 = 1.25
+static zero: Float64 = 0e9999
+static radix: Float32 = 0xFF
+static tiny: Float64 = 4.9406564584124654e-324
+
+fn maybe_value(value: Maybe[Float64]) -> Float64 {
+    pick value { Some(number) { number } None { 0.0 } }
+}
+fn main() -> Int32 {
+    val pair = (1.25, -2.5)
+    val (first, second) = pair
+    val owner = Anchor.new(-1.5)
+    val number: Maybe[Float64] = Some(2.5)
+    val extracted = maybe_value(number)
+    val route: Maybe[Float64] = None
+    var assigned: Float32 = 0.0
+    assigned = 1.5
+    val contextual: Float32 = if true { 1.5 } else { 2.5 }
+    val picked: Float32 = pick route { Some(value) { 1.5 } None { 2.5 } }
+    -0.0
+    if zero == 0.0 and radix == 255.0_Float32 and tiny > 0.0 and first == 1.25 and second == -2.5 and ratio == 1.25_Float32 and
+       extracted == 2.5 and assigned == 1.5_Float32 and
+       contextual == 1.5_Float32 and picked == 2.5_Float32 {
+        return 0
+    }
+    return 1
+}

@@ -1,0 +1,12 @@
+
+fn step(flag: Bool) -> Result[Int32, String] {
+    if flag {
+        return Ok(7)
+    }
+    return Fail(String.from("bad"))
+}
+
+fn bad(flag: Bool) {
+    val value = try step(flag)
+    println(value)
+}

@@ -1,8 +1,10 @@
 # Implementation status
 
-Cat is under active development. This page describes `main` at implementation baseline **`6b17b68`**, not a tagged release, completed milestone, stable ABI, or production certification. Documentation-only updates do not advance that implementation baseline.
+Cat is under active development. This page describes `main` at implementation baseline **`e7789c6efedff677b81c2f883fe8498e32c30554`**, not a tagged release, completed milestone, stable ABI, or production certification. Documentation-only updates do not advance that implementation baseline.
 
 The guiding standards are **Fast, Safe, Simple**. The [approved PRD](../cat-northstar/PRD.md) defines design; compiler code, tests, and dated [changelogs](../changelog/README.md) establish implementation. Frontend acceptance, LLVM lowering, and native execution are different levels of evidence.
+
+The [G2 feature inventory](../cat-northstar/FEATURE-STATUS.md) is the canonical per-slice label ledger. This overview is explanatory, not a second status inventory. G2 and the v0.1–v0.3 maturity gates remain open pending the residuals recorded there; accepted compiler slices are neither bug-free nor production certification.
 
 ## Available slices and their limits
 
@@ -32,7 +34,9 @@ Broad raw/FFI support, full operator/contract/annotation coverage, closures, gen
 
 **Arena remains pending/experimental.** Historical code or runtime support does not establish a complete supported Arena language contract. The official fixed-pool profile is staged after v1 in the [roadmap](../cat-northstar/ROADMAP-v1-plus.md). This documentation does not alter Arena code, design, or acceptance status.
 
-The proposed **borrowed `Str` / owned `String` split in PR #21 is not on this `main` baseline**. None of its new API, ownership behavior, or tests is presented here as available.
+The **borrowed `Str` / owned `String` foundation from PR #21 is on this main baseline**. Literal `Str` uses static borrowed UTF-8 storage; `String.from`, `as_str`, explicit clone/move and tested recursive cleanup are bounded by the [ownership changelog](../changelog/2026-10-17-str-string-ownership.md). Generic collection storage for `Str`/`String`, arbitrary owned projection/partial moves, interpolation and text-conversion contracts are not implied by that foundation.
+
+PRs [#22](https://github.com/inggritsetyabudi/Cat/pull/22), [#23](https://github.com/inggritsetyabudi/Cat/pull/23), [#24](https://github.com/inggritsetyabudi/Cat/pull/24), [#25](https://github.com/inggritsetyabudi/Cat/pull/25), and [#26](https://github.com/inggritsetyabudi/Cat/pull/26) were open at the G2 baseline audit. Their partial-move protection, division/remainder edges, target-direct float literals, integration/oracle evidence, and Ringkas generator are not credited to main. The [acceptance matrix on PR #25](https://github.com/inggritsetyabudi/Cat/blob/2be9c492d8e2852aef48329c86b636ea8e266376/docs/v0.1-v0.3-acceptance-matrix.md) is a pinned review reference, not a file or acceptance result on main.
 
 ## Milestones are not release claims
 

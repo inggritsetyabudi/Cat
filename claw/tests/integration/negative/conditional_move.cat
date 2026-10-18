@@ -1,0 +1,13 @@
+fn consume(value: Anchor[String]) -> Bool {
+    return true
+}
+
+fn maybe_move(flag: Bool) -> Int32 {
+    val anchor = Anchor.new(String.from("held"))
+    val result = flag or consume(anchor)
+    return 0
+}
+
+fn main() -> Int32 {
+    return maybe_move(true)
+}

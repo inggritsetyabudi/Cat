@@ -6,4 +6,8 @@ REPO_DIR="$(cd -- "$SCRIPT_DIR/../../.." && pwd)"
 
 python3 "$REPO_DIR/tools/generate_prd_summary.py" --check
 PYTHONDONTWRITEBYTECODE=1 python3 "$SCRIPT_DIR/test_prd_summary.py"
+python3 "$SCRIPT_DIR/validate_feature_status.py" --root "$REPO_DIR"
+python3 "$SCRIPT_DIR/feature_status_examples.py" --root "$REPO_DIR"
+# Includes mini-repository subprocess E2E coverage as well as validator unit tests.
+python3 -m unittest discover -s "$SCRIPT_DIR" -p 'test_feature_status*.py' -v
 python3 "$SCRIPT_DIR/run_doc_tests.py" "$REPO_DIR/cat-northstar/PRD.md"

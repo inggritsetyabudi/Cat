@@ -1,0 +1,68 @@
+choice TextRoute {
+    left(value: String)
+    right(value: String)
+}
+
+fn choose(flag: Bool) -> TextRoute {
+    if flag { left(String.from("left")) } else { right(String.from("right")) }
+}
+
+fn consume(route: TextRoute) -> Int32 {
+    pick route {
+        left(text) {
+            println(text)
+            10
+        }
+        right(text) {
+            println(text)
+            20
+        }
+    }
+}
+
+fn read(flag: Bool) -> Result[Int32, String] {
+    if flag { return Ok(7) }
+    return Fail(String.from("missing"))
+}
+
+fn load(flag: Bool) -> Result[Int32, String] {
+    val value = try read(flag)
+    return Ok(value + 1)
+}
+
+fn main() -> Int32 {
+    println(consume(choose(true)))
+    println(consume(choose(false)))
+    val result = load(false)
+    pick result {
+        Ok(value) { println(value) }
+        Fail(error) { println(error) }
+    }
+    val owner = if false { String.from("unused") } else { String.from("AéB") }
+    val view = owner.as_str()
+    pick view.get(1..3) {
+        Some(part) { println(part) }
+        None { println("bad") }
+    }
+    pick view.get(2..3) {
+        Some(part) { println(part) }
+        None { println("boundary") }
+    }
+    println(if true { view } else { view })
+    scan ch, i over '\u{D7FF}'..='\u{E000}' {
+        println(i)
+        println(if ch == '\u{D7FF}' { 1 } else { 2 })
+    }
+    scan value, i over 254_UInt8..=255_UInt8 {
+        println(value)
+        println(i)
+    }
+    var count: Int32 = 0
+    loop count < 4 {
+        count += 1
+        if count == 2 { skip }
+        if count == 4 { stop }
+        println(count)
+    }
+    return 0
+}

@@ -1,0 +1,202 @@
+choice Route {
+    left(value: Int32)
+    right(value: Int32)
+}
+
+shape Pair { numerator: Int32, denominator: Int32 }
+
+fn denom(mode: Int32) -> Int32 {
+    if mode == 0 { 0 } else { 2 }
+}
+
+share fn implicit_tail(mode: Int32) -> Int32 { 9 / denom(mode) }
+
+fn divide(a: Int32, b: Int32) -> Int32 { a / b }
+share fn argument_nesting(mode: Int32) -> Int32 { divide(18, denom(mode)) }
+
+share fn if_selected(mode: Int32, flag: Bool) -> Int32 {
+    18 / if flag { denom(mode) } else { denom(mode) }
+}
+
+share fn if_selected_other(mode: Int32) -> Int32 { if_selected(mode, false) }
+
+share fn pick_selected(mode: Int32, route: Route) -> Int32 {
+    18 / pick route {
+        left(value) { denom(mode) + value - value }
+        right(value) { denom(mode) + value - value }
+    }
+}
+
+share fn pick_selected_other(mode: Int32) -> Int32 { pick_selected(mode, right(7)) }
+
+share fn and_or_short(mode: Int32, flag: Bool) -> Int32 {
+    val d = if flag and false {
+        0
+    } else if flag or true {
+        denom(mode)
+    } else {
+        0
+    }
+    18 / d
+}
+
+share fn loop_paths(mode: Int32) -> Int32 {
+    var total: Int32 = 0
+    scan item over 0..2 {
+        if item == 1 { total = total + (18 / denom(mode)) }
+    }
+    total
+}
+
+share fn loop_condition(mode: Int32) -> Int32 {
+    var i: Int32 = 0
+    var total: Int32 = 0
+    loop i < 1 {
+        total = total + (18 / denom(mode))
+        i += 1
+    }
+    total
+}
+
+share fn scan_body(mode: Int32) -> Int32 {
+    var total: Int32 = 0
+    scan item over 0..2 {
+        total = total + (18 / denom(mode))
+    }
+    total
+}
+
+share fn tuple_projection(mode: Int32) -> Int32 {
+    val pair: (Int32, Int32) = (18, denom(mode))
+    pair.0 / pair.1
+}
+
+share fn shape_field(mode: Int32) -> Int32 {
+    val pair = Pair { numerator: 18, denominator: denom(mode) }
+    pair.numerator / pair.denominator
+}
+
+share fn array_int32(mode: Int32) -> Int32 {
+    val values: Array[Int32, 2] = [18, denom(mode)]
+    values[0] / values[1]
+}
+
+share fn array_uint8(mode: Int32) -> Int32 {
+    val values: Array[UInt8, 2] = [18_UInt8, if mode == 0 { 0_UInt8 } else { 2_UInt8 }]
+    val result = values[0] / values[1]
+    if result == 9_UInt8 { 9 } else { 0 }
+}
+
+fn min_denom(mode: Int32) -> Int32 { if mode == 0 { -1 } else { 1 } }
+
+share fn min_binary(mode: Int32) -> Int32 {
+    -2147483648 / min_denom(mode)
+}
+
+share fn min_remainder(mode: Int32) -> Int32 {
+    -2147483648 % min_denom(mode)
+}
+
+fn next_index(counter: ref mut Span[Int32]) -> USize {
+    counter[0] += 1
+    0
+}
+
+fn rhs(counter: ref mut Span[Int32], mode: Int32) -> Int32 {
+    counter[0] += 1
+    denom(mode)
+}
+
+share fn span_div(values: ref mut Span[Int32], counter: ref mut Span[Int32], mode: Int32) -> Int32 {
+    values[next_index(counter)] /= rhs(counter, mode)
+    if values[0] == 9 and counter[0] == 2 { 1 } else { 0 }
+}
+
+share fn span_rem(values: ref mut Span[Int32], counter: ref mut Span[Int32], mode: Int32) -> Int32 {
+    values[next_index(counter)] %= rhs(counter, mode)
+    if values[0] == 1 and counter[0] == 2 { 1 } else { 0 }
+}
+
+share fn span_min_div(values: ref mut Span[Int32], counter: ref mut Span[Int32], mode: Int32) -> Int32 {
+    values[next_index(counter)] /= if mode == 0 { -1 } else { 1 }
+    if mode == 0 and values[0] == -2147483648 and counter[0] == 1 { 1 }
+    else if mode != 0 and values[0] == -2147483648 and counter[0] == 1 { 1 } else { 0 }
+}
+
+share fn span_min_rem(values: ref mut Span[Int32], counter: ref mut Span[Int32], mode: Int32) -> Int32 {
+    values[next_index(counter)] %= if mode == 0 { -1 } else { 1 }
+    if mode == 0 and values[0] == 0 and counter[0] == 1 { 1 }
+    else if mode != 0 and values[0] == 0 and counter[0] == 1 { 1 } else { 0 }
+}
+
+// Keep choices and Bool values inside Cat rather than guessing their C ABI.
+share fn if_selected_first(mode: Int32) -> Int32 { if_selected(mode, true) }
+share fn pick_selected_first(mode: Int32) -> Int32 { pick_selected(mode, left(7)) }
+share fn and_or_first(mode: Int32) -> Int32 { and_or_short(mode, true) }
+
+share fn short_and_skip(mode: Int32) -> Int32 {
+    if mode != 0 and (18 / denom(mode) == 9) { 1 }
+    else if mode == 0 { 1 } else { 0 }
+}
+share fn short_or_skip(mode: Int32) -> Int32 {
+    if mode == 0 or (18 % denom(mode) == 0) { 1 } else { 0 }
+}
+share fn short_and_eval(mode: Int32) -> Int32 {
+    if mode >= 0 and (18 / denom(mode) == 9) { 1 } else { 0 }
+}
+share fn short_or_eval(mode: Int32) -> Int32 {
+    if mode < 0 or (19 % denom(mode) == 1) { 1 } else { 0 }
+}
+share fn branch_value(mode: Int32) -> Int32 {
+    val value = if mode >= 0 { 18 / denom(mode) } else { 19 % denom(mode) }
+    if value == 9 { 1 } else { 0 }
+}
+share fn branch_skip(mode: Int32) -> Int32 {
+    val value = if mode == 0 { 9 } else { 18 / denom(mode) }
+    if value == 9 { 1 } else { 0 }
+}
+share fn picked_value(mode: Int32) -> Int32 {
+    val route: Route = left(18)
+    val value = pick route {
+        left(value) { value / denom(mode) }
+        right(value) { value % denom(mode) }
+    }
+    if value == 9 { 1 } else { 0 }
+}
+share fn loop_guard(mode: Int32) -> Int32 {
+    var i: Int32 = 0
+    loop i < 1 and (18 / denom(mode) == 9) { i += 1 }
+    if i == 1 { 1 } else { 0 }
+}
+share fn implicit_remainder(mode: Int32) -> Int32 { 19 % denom(mode) }
+share fn array_uint8_remainder(mode: Int32) -> Int32 {
+    val values: Array[UInt8, 2] = [19_UInt8, if mode == 0 { 0_UInt8 } else { 2_UInt8 }]
+    if values[0] % values[1] == 1_UInt8 { 1 } else { 0 }
+}
+share fn nested_arithmetic(mode: Int32) -> Int32 {
+    val result = divide(18 / denom(mode) + 2, denom(mode))
+    if result == 5 { 1 } else { 0 }
+}
+
+share fn picked_remainder(mode: Int32) -> Int32 {
+    val route: Route = right(19)
+    val result = pick route {
+        left(value) { value / denom(mode) }
+        right(value) { value % denom(mode) }
+    }
+    if result == 1 { 1 } else { 0 }
+}
+share fn branch_remainder(mode: Int32) -> Int32 {
+    val result = if mode >= 0 { 19 % denom(mode) } else { 18 / denom(mode) }
+    if result == 1 { 1 } else { 0 }
+}
+share fn array_store(mode: Int32) -> Int32 {
+    var values: Array[Int32, 1] = [0]
+    values[0] = 18 / denom(mode)
+    if values[0] == 9 { 1 } else { 0 }
+}
+share fn field_store(mode: Int32) -> Int32 {
+    var pair = Pair { numerator: 19, denominator: denom(mode) }
+    pair.numerator = pair.numerator % pair.denominator
+    if pair.numerator == 1 { 1 } else { 0 }
+}

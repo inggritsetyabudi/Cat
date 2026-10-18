@@ -1,0 +1,70 @@
+choice Route {
+    left(value: Int32)
+    right(value: Int32)
+}
+
+fn read(flag: Bool) -> Result[Int32, String] {
+    if flag {
+        return Ok(7)
+    }
+    return Fail(String.from("missing"))
+}
+
+fn unwrap(flag: Bool) -> Result[Int32, String] {
+    val value = try read(flag)
+    return Ok(value + 1)
+}
+
+fn borrowed_head(text: ref Str) -> Maybe[ref Str] {
+    return text.get(0..1)
+}
+
+fn choose(route: Route, fallback: Int32) -> Int32 {
+    pick route {
+        left(value) { value }
+        right(value) { if value > 0 { value } else { fallback } }
+    }
+}
+
+fn sum_array(values: Array[Int32, 3]) -> Int32 {
+    var total: Int32 = 0
+    scan item, i over values {
+        total += item
+        if i == 1 { skip }
+    }
+    return total
+}
+
+fn mutate_array() -> Int32 {
+    var values: Array[Int32, 3] = [1, 2, 3]
+    values[1] = if true { 8 } else { 9 }
+    var total: Int32 = 0
+    scan item over values { total += item }
+    return total
+}
+
+fn nested_tuple() -> Int32 {
+    val pair: (Int32, (Int32, Int32)) = (4, (5, 6))
+    val (first, (second, third)) = pair
+    return first + second + third
+}
+
+fn main() -> Int32 {
+    println(choose(left(9), 99))
+    println(choose(right(-2), 11))
+    println(sum_array([4, 5, 6]))
+    println(mutate_array())
+    println(nested_tuple())
+    val result = unwrap(true)
+    pick result {
+        Ok(value) { println(value) }
+        Fail(error) { println(error) }
+    }
+    val text: Str = "AéB"
+    pick borrowed_head(ref text) {
+        Some(part) { println(part) }
+        None { println("none") }
+    }
+    println(if false { 1 } else { 2 })
+    return 0
+}

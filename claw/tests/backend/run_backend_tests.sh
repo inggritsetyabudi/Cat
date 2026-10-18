@@ -51,12 +51,13 @@ nested_scoped_workspace_ll="$ARTIFACT_DIR/revise_nested_scoped_workspace.ll"
 str_search_ll="$ARTIFACT_DIR/revise_str_search_methods.ll"
 implements_ll="$ARTIFACT_DIR/revise_implements.ll"
 if_pick_values_ll="$ARTIFACT_DIR/revise_if_pick_values.ll"
+inline_value_composition_ll="$ARTIFACT_DIR/revise_inline_value_composition.ll"
 try_contract_ll="$ARTIFACT_DIR/revise_try_contract.ll"
 int8_range_ll="$ARTIFACT_DIR/revise_int8_range.ll"
 int16_range_ll="$ARTIFACT_DIR/revise_int16_range.ll"
 wide_range_ll="$ARTIFACT_DIR/revise_wide_integer_ranges.ll"
 int128_range_ll="$ARTIFACT_DIR/revise_int128_uint128_ranges.ll"
-rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll" "$if_pick_values_ll"
+rm -f "$result_ll" "$maybe_ll" "$scope_ll" "$anchor_ll" "$anchor_choice_ll" "$view_shape_ll" "$scoped_type_ll" "$nested_scoped_ll" "$nested_scoped_workspace_ll" "$str_search_ll" "$implements_ll" "$if_pick_values_ll" "$inline_value_composition_ll"
 rm -f "$try_contract_ll" "$int8_range_ll" "$int16_range_ll" "$int128_range_ll"
 
 run_llvm "test_backend/revise_result_llvm.cat" "$BACKEND_FIXTURE_DIR/revise_result_llvm.cat" "$result_ll"
@@ -155,6 +156,24 @@ if [[ "$if_pick_values_output" != *'br i1'* ]] ||
    [[ "$if_pick_values_output" != *'load i32'* ]] ||
    [[ "$if_pick_values_output" != *'call void @"claw.runtime.anchor.free"'* ]]; then
   echo "if/pick value LLVM output did not contain branch/result storage and choice switch markers" >&2
+  exit 1
+fi
+
+run_llvm "test_native/revise_inline_value_composition.cat" "$SCRIPT_DIR/../native/fixtures/revise_inline_value_composition.cat" "$inline_value_composition_ll"
+inline_value_output="$(tr -d '\r' < "$inline_value_composition_ll")"
+if [[ "$inline_value_output" == *'call void @"claw.runtime.println.void"'* ]] ||
+   [[ "$inline_value_output" == *'declare void @"claw.runtime.println.void"'* ]] ||
+   [[ "$inline_value_output" == *'void (void)'* ]] ||
+   [[ "$inline_value_output" != *'call void @"claw.runtime.println.i32"(i32 '* ]] ||
+   [[ "$inline_value_output" != *'call void @"claw.runtime.println.u8"(i8 zeroext '* ]] ||
+   [[ "$inline_value_output" != *'call void @"claw.runtime.println.buffer"(ptr '* ]] ||
+   [[ "$inline_value_output" != *'call i32 @"revise_inline_value_composition::bump"(i32 '* ]] ||
+   [[ "$inline_value_output" != *'call i32 @"revise_inline_value_composition::pick_number"('* ]] ||
+   [[ "$inline_value_output" != *'call i8 @"revise_inline_value_composition::take_byte"(i8 '* ]] ||
+   [[ "$inline_value_output" != *'call i32 @"revise_inline_value_composition::consume_text"(ptr '* ]] ||
+   [[ "$inline_value_output" != *'call void @"revise_inline_value_composition::direct_pick_left"()'* ]] ||
+   [[ "$inline_value_output" != *'call void @"revise_inline_value_composition::direct_pick_right"()'* ]]; then
+  echo "inline value composition LLVM output contained an invalid void println or omitted typed builtin/user/pick/owned calls" >&2
   exit 1
 fi
 

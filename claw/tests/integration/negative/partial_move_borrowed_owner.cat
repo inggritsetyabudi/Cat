@@ -1,0 +1,7 @@
+fn main() -> Int32 {
+    val owner = String.from("owned")
+    val view = owner.as_str()
+    val moved = owner
+    println(view)
+    return 0
+}

@@ -1,0 +1,13 @@
+shape Part { text: String }
+contract AddBorrowed {
+    fn add(self: ref, other: ref Part) -> Part
+}
+implements Part with AddBorrowed {
+    fn add(self: ref, other: ref Part) -> Part { Part { text: self.text.clone() } }
+}
+fn main() -> Int32 {
+    val root = Part { text: String.from("root") }
+    val result = root + root
+    println(result.text.as_str())
+    return 0
+}

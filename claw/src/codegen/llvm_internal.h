@@ -22,6 +22,9 @@ namespace claw::codegen {
 
 using namespace claw::frontend;
 
+// One target-directed materialization path for local and static float literals.
+std::string llvmFloatConstant(std::string_view rawText, std::string_view typeName);
+
 template <typename... Ts>
 struct Overloaded : Ts... {
     using Ts::operator()...;

@@ -2,6 +2,7 @@
 
 #include "analysis/types.h"
 
+#include <cstdint>
 #include <optional>
 #include <string>
 
@@ -19,6 +20,13 @@ struct ParsedIntegerLiteral {
     unsigned radix = 10;
 };
 
+struct ParsedFloatLiteral {
+    // Native target IEEE bits; Float32 occupies the low 32 bits, not LLVM's
+    // textual encoding of an exactly promoted double-precision value.
+    std::uint64_t bits = 0;
+    unsigned bitWidth = 0;
+};
+
 ResolvedType makeIntegerLiteralType();
 ResolvedType makeFloatLiteralType();
 bool isFloatLiteralType(const ResolvedType& type);
@@ -28,6 +36,11 @@ bool isFloatTypeName(const std::string& name);
 NumericLiteralParts splitNumericLiteralText(const std::string& text);
 ParsedIntegerLiteral parseIntegerLiteralText(const std::string& text);
 bool isValidFloatLiteralText(const std::string& text);
+// Converts normalized decimal magnitude (no suffix/separators) directly to the
+// target. Finite subnormals and exact zero are valid; nonzero rounded to zero is not.
+std::optional<ParsedFloatLiteral> parseFloatLiteralTarget(
+    const std::string& magnitude,
+    const std::string& targetName);
 std::optional<ResolvedType> resolveNumericLiteralSuffixType(const std::string& suffix);
 bool integerLiteralFitsTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target);
 bool integerLiteralFitsNegatedTarget(const std::string& magnitude, const std::string& targetName, const TargetSpec& target);

@@ -1,8 +1,8 @@
 # C@ Implementation Specification (Baseline Subset)
 
-**Baseline:** `main` at `6b17b68`
+**Baseline:** `main` at `e7789c6efedff677b81c2f883fe8498e32c30554`
 
-**Document date:** 2026-10-17
+**Document date:** 2026-10-18
 
 **Status:** implementation reference for the supported subset; not an amended PRD and not a frozen v1 language specification
 
@@ -55,6 +55,10 @@ fn main() -> Int32 {
 
 Function types, closures, broad generic function surfaces, and arbitrary ABI combinations are outside this bounded reference unless a named fixture covers them. Direct calls, the signatures used by ownership/scoped tests, and the native paths above are supported.
 
+`if` and `pick` values may be passed directly as call arguments; no intermediate `val` is required. Concrete parameter types still guide branch and literal checking. The dynamic parameter of builtin `print`/`println` supplies no expected type, so its argument must infer its own type. The [inline composition regression](claw/tests/native/fixtures/revise_inline_value_composition.cat) covers direct and nested branches, `UInt8` parameters, typed tuple/array arguments, terminating branches, and owned `String` cleanup.
+
+Builtin `print` and `println` require exactly one argument and only accept the current native runtime's scalar, string/slice, buffer, and pointer-handle domains; this is not general aggregate formatting. `Unit`, tuple, array, range, shape, choice, and `Float128` values are rejected at the argument's source location before LLVM/native generation. Unsupported print arguments must not merely pass `check` and fail later at the LLVM compiler or linker. A `Never` argument may terminate without making the print call. The [rejection matrix](claw/tests/frontend/run_inline_value_errors.py) checks diagnostics, source locations, and absence of generated artifacts across `check`, OIR, LLVM, and native build. This boundary does not prohibit supported aggregates as arguments to ordinary typed functions.
+
 ## Operators and expression boundaries
 
 The implemented expression subset includes arithmetic, comparisons, `not`/`and`/`or`, indexing, ranges, direct calls, assignment/compound assignment in tested forms, and `if`/`pick` values. The [operator A–B slice](changelog/2026-10-11-v0.2-operator-groups-a-b.md) establishes the following relative precedence, from stronger to weaker:
@@ -70,6 +74,10 @@ The implemented expression subset includes arithmetic, comparisons, `not`/`and`/
 
 Assignment is a statement, not a chainable value expression. `+=`, `-=`, `*=`, `/=`, and `%=` have supported identifier/field paths, with a separate bounded mutable `Span[Int32]` indexed path. Bitwise operators, `as` casts, `is`, postfix `!`, and a complete overload system must not be inferred from the approved future operator table. `in` and ranges have their own implemented slices. Unsupported operand/type combinations remain errors rather than implicit conversions.
 
+Built-in integer `/` and `%`, including the supported `/=` and `%=` paths, check the evaluated divisor before division or remainder, for `Int8`–`Int128`, `UInt8`–`UInt128`, `USize`, and the `Int`/`UInt` aliases. A zero divisor is a non-recoverable runtime defect: stderr receives `fatal: integer division or remainder by zero; divisor must be nonzero`, followed by a newline, and the process aborts with a nonzero status. No result is produced, execution does not continue, and there is no stack unwinding or promised destructor cleanup. The numeric exit code is platform-dependent. This also applies to literal or locally constant zero expressions when executed; an unevaluated short-circuit operand or branch does not fail. Static initializers still require a single literal, so a static arithmetic expression is rejected at compile time by the existing rule.
+
+The current native target has only the optimized `clang -O2` profile. Its signed `MIN / -1` result wraps to `MIN`, and `MIN % -1` is `0`, including compound forms, without passing an invalid pair to LLVM `sdiv`/`srem`. This follows the PRD's release-overflow policy; ordinary nonzero results and unsigned arithmetic are unchanged. The PRD's debug-overflow defect requirement remains staged with target debug profiles: building the compiler itself with CMake Debug or relinking its IR at `-O0` does **not** select a Cat debug profile. No profile flag or debug/unwind implementation is added here. Floating-point division retains IEEE-754 behavior without integer guards; valid `Float32`/`Float64` arithmetic remains unchanged. `Float128` lowering remains outside the supported backend subset. Custom operator methods are not changed. See the [integer division/remainder change](changelog/2026-10-18-integer-division-by-zero.md) for evidence and boundaries.
+
 `..` creates an exclusive range and `..=` an inclusive range. `in` and `scan` require compatible element and endpoint types. `if` used as a value requires `else`, and all reachable branch values must have a compatible type. `pick` used as a value must be exhaustive. The implementation supports the tested short-circuit and ownership boundaries; arbitrary expression combinations, dynamic dispatch, and a complete operator-overload library are not promised.
 
 `loop { ... }` repeats unconditionally; `loop condition { ... }` repeats while its condition is true. `stop` exits and `skip` advances to the next iteration. `scan item over iterable` visits a supported iterable; the optional second binding in `scan item, i over iterable` is its zero-based `USize` index.
@@ -77,6 +85,8 @@ Assignment is a statement, not a chainable value expression. `+=`, `-=`, `*=`, `
 ## Shapes, choices, and casing
 
 A nominal shape is declared with `shape Name { ... }`. Its literal form (`Name { field: value }`) is restricted to the module that defines the shape; callers use the tested constructor/API form such as `Name.new(...)` when available. Borrowed fields are not permitted in ordinary shapes. A `choice` uses lowercase user-defined variants, while `Result` and `Maybe` retain the fixed capitalized variants `Ok`, `Fail`, `Some`, and `None`.
+
+Shapes with owned `String` fields retain recursive cleanup and whole-shape ownership transfer. Consuming an owned field through a projection, such as `val text = pair.first`, is rejected: per-field partial-move state and selective drop scheduling are not implemented. This boundary includes nested and temporary projections, owned method receivers, and owned operands of supported operator methods; method bodies are checked as well. Read or borrow the field, call `pair.first.clone()` for a separate owned `String`, or move the complete shape instead. Projections through a borrowed owner remain views, not ownership transfers. Plain-field reads and non-consuming owned-field access remain supported. This is a compiler limitation, not a claim that the PRD forbids partial moves for shapes; it does not add shape destructuring.
 
 Pattern names are interpreted from the expected type: in a `choice`, a name must be a declared variant, not an accidental binding; `_` is the catch-all. In other typed positions, a lowercase name can bind a value. Tuple and nested patterns are supported only in the tested forms, and non-exhaustive or unreachable `pick` branches are errors.
 
@@ -157,6 +167,8 @@ The tracked module fixture is [`revise_module_aliases`](claw/tests/frontend/fixt
 
 The compiler has tested LLVM emission and native linking for single-file revised programs, root-entry workspaces, direct calls, arithmetic, tuples, fixed arrays, integer/character ranges, `Result`/`Maybe` control flow, scoped references, and `Anchor` paths named by the suites. The native profile is the tested `clang -O2` path; this document does not promise selectable debug/release profiles or alternate backends.
 
-The following remain bounded, incomplete, or staged: Arena; the PR21 owned `String`/borrowed `Str` split (not merged on `main`); general lifetime inference; borrowed fields in normal shapes; `ref mut[s]`; full `Vec`/`Map`/`Set`/`Queue` literal and method surfaces; complete imported-workspace native coverage; broad raw/FFI lowering; threading, channels, macros, and self-hosting. Arena has no supported API guarantee here. PR21 is not part of this baseline and is not used as evidence.
+The PR #21 borrowed `Str` / owned `String` foundation is on this baseline. String literals are static borrowed `Str`; `String.from` explicitly copies into owned storage, `as_str` borrows from the owner, and clone/move/cleanup follow the tested [ownership slice](changelog/2026-10-17-str-string-ownership.md). Generic collection storage of `Str`/`String` remains rejected pending borrow/drop propagation. No implicit borrowed-to-owned conversion, interpolation, or arbitrary owned projection is implied. Per-slice labels and evidence are maintained in the [G2 inventory](cat-northstar/FEATURE-STATUS.md).
+
+The following remain bounded, incomplete, or staged: Arena; general lifetime inference; borrowed fields in normal shapes; `ref mut[s]`; full `Vec`/`Map`/`Set`/`Queue` literal and method surfaces; complete imported-workspace native coverage; broad raw/FFI lowering; threading, channels, macros, and self-hosting. Arena has no supported API guarantee here. Open PRs #22–#26 are not part of this implementation baseline.
 
 Future documentation changes must first be backed by implementation and tests, then recorded in a dated changelog entry. This reference intentionally describes the current supported subset rather than declaring v1 complete.

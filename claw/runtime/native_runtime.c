@@ -60,6 +60,14 @@ void* claw_runtime_string_alloc(int64_t capacity) __asm__(CLAW_RT_ASM(claw.runti
 void claw_runtime_string_copy(void* destination, const unsigned char* source, int64_t length) __asm__(CLAW_RT_ASM(claw.runtime.string.copy));
 void claw_runtime_string_free(void* ptr) __asm__(CLAW_RT_ASM(claw.runtime.string.free));
 
+_Noreturn void claw_runtime_division_by_zero(void) __asm__(CLAW_RT_ASM(claw.runtime.defect.division_by_zero));
+
+_Noreturn void claw_runtime_division_by_zero(void) {
+    fputs("fatal: integer division or remainder by zero; divisor must be nonzero\n", stderr);
+    fflush(stderr);
+    abort();
+}
+
 void* claw_runtime_anchor_alloc(int64_t size) {
     const size_t request = size <= 0 ? 1u : (size_t)size;
     void* ptr = malloc(request);
