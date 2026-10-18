@@ -6,11 +6,16 @@
 
 **Cara membaca**
 
+- **Status G2 kanonik:** lihat [inventaris fitur atomik](FEATURE-STATUS.md). Setiap irisan yang dapat diuji mandiri memiliki tepat satu label di sana; heading gabungan bukan unit penerimaan. Bukti implementasi dan status doc-test dicatat terpisah. Penerimaan compiler tidak berarti bebas bug atau layak produksi.
+- **Kewenangan desain:** reasoning, brainstorming, dan usulan perbaikan proaktif diperbolehkan. Keputusan yang telah diratifikasi dan PRD tetap otoritatif; usulan baru wajib jelas sebagai usulan, dan perubahan semantik material membutuhkan ratifikasi Setya sebelum implementasi.
 - ✅ = sudah kamu putuskan di percakapan ini.
 - 🟦 = status usulan saat dokumen disusun; keputusan tersebut kini telah diratifikasi sebagaimana catatan di atas. Simbol ini bukan status implementasi.
 - Label fence menunjukkan dukungan compiler saat ini, bukan status persetujuan desain: `cat proposal` berarti contoh sintaks belum didukung; status keputusan dan staging versi tetap ditentukan oleh teks bagian dan roadmap.
 - Nama file/baris compiler dikutip dari proposal; bagian "cara kerja" menjelaskan desain dan bukan bukti implementasi.
 - Contoh diagnostik adalah **target** pesan error, bukan output compiler asli.
+
+- `[sudah]`, `[parsial]`, dan keterangan acceptance dalam teks lama adalah metadata historis batas implementasi, bukan label G2 tambahan. Untuk status terkini gunakan irisan, bukti, dan sisa pada ledger; catatan historis tidak dihapus atau dianggap ratifikasi baru.
+- Frasa historis seperti "keputusan terbuka", "rumusan PRD yang diusulkan", dan "PRD lama belum diubah" merekam konteks penyusunan. Untuk keputusan yang tercakup ratifikasi 11 Oktober, frasa itu tidak membuka kembali keputusan; staging dan proposal roadmap yang sungguh belum diratifikasi tetap terpisah.
 
 ---
 
@@ -419,7 +424,7 @@ fn pick_longer[s](a: ref[s] Str, b: ref[s] Str) -> ref[s] Str { ... }   // dua p
 
 **Aturan:** `var x: T` boleh tanpa nilai, tetapi dibaca sebelum diisi = error (sudah dilakukan compiler). Klaim "nol otomatis" dihapus dari §24.
 
-**Status sintaks:** `[diterima compiler]` untuk aturan inisialisasi yang diuji pada irisan ini; ini bukan klaim bahwa gerbang v1 atau kualitas production-grade telah tercapai.
+**Status sintaks:** aturan inisialisasi pada dua doc-test di bawah dicatat sebagai irisan tersendiri di [ledger G2](FEATURE-STATUS.md); bukan penerimaan seluruh analisis dataflow atau gerbang v1.
 
 ```cat
 fn main() -> Int32 {

@@ -26,6 +26,8 @@ Runner berada di `claw/tests/docs/run_doc_tests.py`, dipanggil melalui `claw/tes
 
 ## 2. Perubahan global (berlaku di seluruh PRD)
 
+**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom terpisah. Satu label kanonik tidak menggantikan kolom tersebut. G2 belum ditutup hanya karena ledger/validator tersedia; perlu audit cakupan, review independen, dan CI Linux serta Windows UCRT64 pada head PR yang sama.
+
 | # | Perubahan | Versi |
 | --- | --- | --- |
 | G1 | Tag semua blok kode (`cat`, `cat error:`, `cat proposal`, `text`) | v0.1 |
@@ -41,7 +43,7 @@ Runner berada di `claw/tests/docs/run_doc_tests.py`, dipanggil melalui `claw/tes
 
 ## 3. Perubahan per bagian PRD
 
-Kolom **Versi** dibagi dua: *D* = teks PRD diubah, *K* = compiler mengimplementasikan.
+Kolom **Versi** dibagi dua: *D* = target perubahan teks PRD, *K* = target implementasi compiler, bukan bukti bahwa pekerjaan selesai. Nomor § pada tabel ini berasal dari struktur PRD terdahulu; pemetaan heading PRD aktif dan bukti atomiknya berada di [ledger G2](FEATURE-STATUS.md). Simbol keputusan historis dan metadata parsial tidak menjadi label G2 kedua.
 
 | § | Topik | Perubahan | Versi | Tes penerimaan |
 | --- | --- | --- | --- | --- |

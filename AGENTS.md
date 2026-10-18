@@ -113,8 +113,9 @@ These are part of the workflow for inspection and debugging.
 
 ## Documentation Discipline
 
-When a section of the PRD is implemented, mark it with `[sudah]`.
-When a design is still unresolved or intentionally staged, mark it with `[conflict]` and explain why.
+Use `cat-northstar/FEATURE-STATUS.md` as the canonical G2 ledger: exactly one label per independently testable slice, `[diusulkan]` for unratified design, `[diputuskan]` for ratified semantics not yet accepted by the compiler, or `[diterima compiler]` for the implemented/tested slice only. Record implementation scope, evidence, unresolved items, and non-compiler checks separately. Never infer bug-free or production-grade quality from compiler acceptance.
+Historical `[sudah]`, `[parsial]`, ✅/🟦, and version targets retain their explanatory history but are not additional canonical labels. Staged ratified semantics are not new proposals. Explain genuine conflicts without inventing ratification.
+Proactive language-design reasoning and proposals are authorized; approved decisions and PRDs remain authoritative. Clearly mark new proposals, and obtain Setya's ratification before implementing material semantic changes.
 
 Do not claim a feature is complete in docs unless the implementation and tests actually support it.
 
