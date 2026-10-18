@@ -199,6 +199,13 @@ void OwnershipChecker::check(RealmDecl* realm, const SemanticAnalyzer& semanticA
 void OwnershipChecker::checkDecl(Decl* decl) {
     if (auto* fn = dynamic_cast<FnDecl*>(decl)) {
         checkFnDecl(fn);
+    } else if (auto* impl = dynamic_cast<ImplementsDecl*>(decl)) {
+        // Methods are lowered as functions, but their bodies are not top-level
+        // declarations. Visit them here so ownership checks cover the same
+        // source paths that sema and OIR already analyze/lower.
+        for (auto& method : impl->methods) {
+            checkFnDecl(method.get());
+        }
     }
 }
 
@@ -210,8 +217,16 @@ void OwnershipChecker::checkFnDecl(FnDecl* fn) {
 
     const FunctionSignature* signature = semantic->lookupFunctionSignature(fn);
     if (signature) {
+        size_t nonSelfParamIdx = 0;
         for (size_t i = 0; i < fn->params.size(); ++i) {
-            const ResolvedType type = i < signature->paramTypes.size() ? signature->paramTypes[i] : makeUnknownType();
+            // FunctionSignature stores the method receiver separately from
+            // ordinary parameters. Keeping self out of paramTypes is also
+            // what OIR lowering does, so ownership must use the same shape.
+            const ResolvedType type = fn->params[i].isSelf
+                ? (signature->receiverType.has_value() ? *signature->receiverType : makeUnknownType())
+                : (nonSelfParamIdx < signature->paramTypes.size()
+                    ? signature->paramTypes[nonSelfParamIdx++]
+                    : makeUnknownType());
             defineTrackedVar(
                 fn->params[i].name,
                 TrackedVar{type, false, StorageState::Initialized, {}, std::nullopt});
@@ -1100,8 +1115,22 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
     }
 
     if (auto* binary = dynamic_cast<BinaryExpr*>(expr)) {
-        checkExpr(binary->left.get(), false);
+        std::string opMethod;
+        if (binary->op == "+") opMethod = "add";
+        else if (binary->op == "-") opMethod = "sub";
+        else if (binary->op == "*") opMethod = "mul";
+        else if (binary->op == "/") opMethod = "div";
+        else if (binary->op == "==" || binary->op == "!=") opMethod = "equal";
+        else if (binary->op == "<" || binary->op == ">" || binary->op == "<=" || binary->op == ">=") opMethod = "compare";
+
+        const ResolvedType leftType = typeOfExpr(binary->left.get());
+        const FunctionSignature* operatorSignature = nullptr;
+        if (!opMethod.empty() && !leftType.isUnknown()) {
+            operatorSignature = semantic->lookupFunctionSignature(leftType.name + "." + opMethod);
+        }
+
         if (binary->op == "and" || binary->op == "or") {
+            checkExpr(binary->left.get(), false);
             if (auto* literal = dynamic_cast<BoolExpr*>(binary->left.get())) {
                 const bool evaluatesRight = binary->op == "and" ? literal->value : !literal->value;
                 if (evaluatesRight) {
@@ -1129,6 +1158,40 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
             }
             return;
         }
+
+        if (operatorSignature != nullptr) {
+            // Binary operator lowering is an implicit method call. Apply the
+            // same receiver/argument ownership contract as checkCallExpr so
+            // an owned shape field cannot bypass the projection guard, and a
+            // by-value operand is consumed when its signature requires it.
+            const ResolvedType receiverType = operatorSignature->receiverType.value_or(makeUnknownType());
+            if (isBorrowCarrierType(receiverType)) {
+                acquireView(binary->left.get(), receiverType);
+                checkExpr(binary->left.get(), false);
+            } else {
+                checkExpr(binary->left.get(), receiverType.isOwned());
+            }
+
+            const ResolvedType parameterType = operatorSignature->paramTypes.empty()
+                ? makeUnknownType()
+                : operatorSignature->paramTypes.front();
+            if (isBorrowCarrierType(parameterType)) {
+                acquireView(binary->right.get(), parameterType);
+                checkExpr(binary->right.get(), false);
+                releaseView(binary->right.get(), parameterType);
+            } else {
+                checkExpr(binary->right.get(), parameterType.isOwned());
+            }
+            // Both operands remain live for the implicit call. In particular,
+            // the right operand must not move or mutably borrow the receiver
+            // while the left operand's view is still required by the callee.
+            if (isBorrowCarrierType(receiverType)) {
+                releaseView(binary->left.get(), receiverType);
+            }
+            return;
+        }
+
+        checkExpr(binary->left.get(), false);
         checkExpr(binary->right.get(), false);
         return;
     }
@@ -1167,13 +1230,30 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
             checkExpr(member->object.get(), false);
             return;
         }
+        // Ownership and drop scheduling track whole bindings, not field paths.
+        // Consuming the root here would suppress drops for its other fields;
+        // projecting from a temporary can instead drop the extracted payload.
+        if (isConsume && memberType.isOwned()) {
+            reportError(
+                member,
+                "Cannot move an owned shape field through projection; partial moves are not supported. "
+                "Hint: borrow the field, call `clone()` for an explicit copy, or move the complete shape.");
+            checkExpr(member->object.get(), false);
+            return;
+        }
         checkExpr(member->object.get(), isConsume && memberType.isOwned());
         return;
     }
 }
 
 void OwnershipChecker::checkCallExpr(CallExpr* call) {
-    checkExpr(call->callee.get(), false);
+    const auto methodSignature = resolveMethodSignature(call->callee.get());
+    // An owned receiver is checked below in its consuming context. Traversing
+    // the callee here as well would evaluate a temporary receiver's arguments
+    // twice, spuriously consuming an owned argument for a second time.
+    if (!methodSignature.has_value() || !methodSignature->receiverType.isOwned()) {
+        checkExpr(call->callee.get(), false);
+    }
 
     if (semantic != nullptr) {
         const auto constructorIt = semantic->result().choiceConstructors.find(call);
@@ -1200,7 +1280,6 @@ void OwnershipChecker::checkCallExpr(CallExpr* call) {
     }
 
     const FunctionSignature* signature = resolveCallSignature(call->callee.get());
-    const auto methodSignature = resolveMethodSignature(call->callee.get());
     if (!signature && !methodSignature.has_value()) {
         for (auto& arg : call->args) {
             checkExpr(arg.get(), false);
@@ -1214,6 +1293,11 @@ void OwnershipChecker::checkCallExpr(CallExpr* call) {
             if (methodSignature->receiverType.isView()) {
                 acquireView(member->object.get(), methodSignature->receiverType);
                 borrowedArgs.push_back({member->object.get(), methodSignature->receiverType});
+            } else if (methodSignature->receiverType.isOwned()) {
+                // An owned receiver is passed by value. Consume the complete
+                // receiver binding; do not attempt field-level bookkeeping
+                // (partial moves remain unsupported by the MemberExpr guard).
+                checkExpr(member->object.get(), true);
             }
         }
         signature = &methodSignature->function;

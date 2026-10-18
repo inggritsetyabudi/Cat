@@ -1,0 +1,11 @@
+# Menjaga tool native runner dalam root MSYS2 aktif
+
+CI follow-up `454f27588cf406219af78dc759fe49ffa8dd1356` kembali meluluskan Linux, tetapi Windows berhenti saat `grep` tidak menemukan log kontrak runner di `/tmp`, padahal redirection ke log itu telah dilakukan oleh shell induk. Setup hosted menggunakan instalasi MSYS2 dari action di area temporary drive D; native runner lama justru memprioritaskan `/c/msys64/ucrt64/bin` dan `/c/msys64/usr/bin`. Repo sebelumnya sudah mencatat masalah temporary path dari pemanggilan tool MSYS2 yang tidak dipin.
+
+Native runner kini, hanya pada MSYS/MinGW/Cygwin, memprioritaskan `/ucrt64/bin:/usr/bin` dari root MSYS yang sedang aktif. Ini menghindari memanggil Bash, mktemp, grep, atau toolchain dari instalasi C lain yang memetakan `/tmp` ke direktori Windows berbeda. Pemilihan PATH Linux tidak diubah. Path compiler eksplisit dan seluruh assertion kontrak handoff/ownership tetap dipertahankan; tidak ada tes yang dibuang atau disembunyikan.
+
+Perubahan terbatas pada pemilihan tool runner. Checker, runtime, ABI, Arena, dan semantik division tidak diubah. Hasil lokal dan hosted harus dibaca pada commit terbaru; kegagalan terdahulu tidak diberi label hijau lewat retry tanpa perubahan.
+
+Pemanggilan runner anak juga memakai `$BASH` yang sedang menjalankan induk, bukan mencari Bash lain lewat PATH. Ini mempertahankan namespace temporary shell pada invalid-path assertion dan eksekusi normal. Review independen merekomendasikan kombinasi active-root PATH dan active interpreter ini; log tidak mencatat executable/root lama secara lengkap, sehingga detail cross-install tetap dijelaskan sebagai diagnosis berbasis bukti yang tersedia, bukan reproduksi Windows lokal.
+
+Gerbang lokal final lulus: build disposable Linux Release baru, lalu seluruh `run_all_tests.sh` dengan `CLAW_REQUIRE_SANITIZERS=1` pada runner final termasuk `$BASH`; 27 negatives, 8 positives, dan 16 eksekusi sanitizer tetap lulus. Regresi PATH sintetis menyisipkan `uname` MSYS palsu serta `bash`/`grep`/`mktemp` salah-root yang sengaja exit 99 bila terpanggil; seluruh native suite lulus tanpa memanggil tool salah-root. Ini hanya menguji pemilihan PATH secara lokal, bukan klaim eksekusi Windows. Readiness hosted tetap menunggu kedua job pada head terbaru.

@@ -1,0 +1,12 @@
+shape Pair { left: String, right: String }
+shape Outer { inner: Pair, tail: String }
+fn extract(value: ref Outer) -> String {
+    // Borrowed-owner projection is valid here because clone is explicit.
+    return value.inner.left.clone()
+}
+fn main() -> Int32 {
+    val source = Outer { inner: Pair { left: String.from("left"), right: String.from("right") }, tail: String.from("tail") }
+    val taken = extract(ref source)
+    println(taken.as_str())
+    return 0
+}

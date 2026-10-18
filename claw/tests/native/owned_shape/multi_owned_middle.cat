@@ -1,0 +1,15 @@
+shape S {
+    plain: Int32,
+    left: String,
+    middle: String,
+    right: String,
+}
+fn make() -> S {
+    S { plain: 7, left: String.from("left"), middle: String.from("middle"), right: String.from("right") }
+}
+fn main() -> Int32 {
+    val s = make()
+        val x = s.middle
+        println(x.as_str())
+    return 0
+}
