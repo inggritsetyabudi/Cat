@@ -155,6 +155,38 @@ bool isRawAddressTypeName(const std::string& name) {
     return name == "Addr" || name == "RawPtr" || name == "RawMut";
 }
 
+bool isRuntimePrintableType(const ResolvedType& type) {
+    if (type.isUnknown() || type.name == "Never") {
+        return true;
+    }
+    // Runtime dispatch uses the underlying value type, including for borrowed
+    // arguments. Match llvmType's literal and view-prefix normalization rather
+    // than rejecting a supported scalar/string merely because it is borrowed.
+    if (type.name == "Str" || type.name == "String") {
+        return type.params.empty();
+    }
+    if (type.name == "Span" || type.name == "Vec") {
+        return type.params.size() == 1;
+    }
+    if (type.name == "CStr" || type.name == "OwnedCStr" || type.name == "Arena" ||
+        type.name == "Addr" || type.name == "RawPtr" || type.name == "RawMut" ||
+        type.name == "Fn" || type.name == "Anchor" || type.name == "Map" ||
+        type.name == "Set" || type.name == "Queue") {
+        return true;
+    }
+    if (!type.params.empty()) {
+        return false;
+    }
+    return type.name == "IntLiteral" || type.name == "FloatLiteral" ||
+        type.name == "Bool" || type.name == "Char" ||
+        type.name == "Int8" || type.name == "UInt8" ||
+        type.name == "Int16" || type.name == "UInt16" ||
+        type.name == "Int32" || type.name == "UInt32" ||
+        type.name == "Int64" || type.name == "UInt64" ||
+        type.name == "Int128" || type.name == "UInt128" ||
+        type.name == "USize" || type.name == "Float32" || type.name == "Float64";
+}
+
 std::string describeCalleeExpr(const Expr* expr) {
     if (auto* ident = dynamic_cast<const IdentExpr*>(expr)) {
         return ident->name;
@@ -1031,6 +1063,7 @@ void SemanticAnalyzer::registerPrelude() {
         signature.paramTypes.push_back(makeUnknownType());
         signature.returnType = makePlainType("Unit");
         signature.isExternal = true;
+        signature.isBuiltin = true;
 
         analysisResult.functionsByName[name] = signature;
 
@@ -1038,6 +1071,7 @@ void SemanticAnalyzer::registerPrelude() {
         sym->name = name;
         sym->kind = SymbolKind::Function;
         sym->isExternal = true;
+        sym->isBuiltin = true;
         sym->type = makeUnknownType(name);
         if (!scopes.define(name, sym)) {
             reportError("Duplicate prelude name: " + name);
@@ -2408,7 +2442,7 @@ void SemanticAnalyzer::applyBlockTailType(BlockStmt* block, const ResolvedType& 
         return;
     }
     const auto* actualType = lookupExprType(tail->expr.get());
-    if (actualType && (isIntegerLiteralType(*actualType) || canAssignType(*actualType, type))) {
+    if (actualType && (isNumericLiteralType(*actualType) || canAssignType(*actualType, type))) {
         analysisResult.exprTypes[tail->expr.get()] = type;
     }
 }
@@ -3320,6 +3354,14 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
     const ResolvedType* expectedType,
     bool allowNegativeIntegerMagnitude,
     bool valueRequired) {
+    // An unknown parameter (notably the intentionally dynamic `print`/`println`
+    // prelude parameter) is not a contextual type. Passing it into branch
+    // analysis makes an otherwise inferable inline if/pick collapse to Unknown,
+    // which later lowers as a void runtime argument. Preserve normal inference
+    // whenever the caller has no concrete expected type.
+    if (expectedType && expectedType->isUnknown()) {
+        expectedType = nullptr;
+    }
     ResolvedType type = makeUnknownType();
 
     if (dynamic_cast<BoolExpr*>(expr)) {
@@ -4291,7 +4333,12 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
                 }
             }
 
-            signature = lookupFunctionSignature(calleeIdent->name);
+            // A local binding shadows a same-named function, including a
+            // prelude builtin. Do not recover the hidden signature by name.
+            const auto resolvedCallee = lookupSymbol(calleeIdent->name);
+            if (!resolvedCallee || resolvedCallee->kind == SymbolKind::Function) {
+                signature = lookupFunctionSignature(calleeIdent->name);
+            }
             if (!signature) {
                 const auto sym = lookupSymbol(calleeIdent->name);
                 if (sym && sym->kind == SymbolKind::Function && sym->isExternal) {
@@ -4424,9 +4471,15 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
             reportError(call->callee.get(), typedExternalRawRequirementMessage(call->callee.get()));
         }
 
+        const auto* calleeIdent = dynamic_cast<const IdentExpr*>(call->callee.get());
+        const auto calleeSymbol = calleeIdent ? lookupSymbol(calleeIdent->name) : nullptr;
+        const bool isBuiltinPrint = signature && signature->isBuiltin && calleeSymbol &&
+            calleeSymbol->isBuiltin && calleeIdent &&
+            (calleeIdent->name == "print" || calleeIdent->name == "println");
+
         if (signature) {
             if (call->args.size() != signature->paramTypes.size()) {
-                if (!signature->isExternal || signature->paramTypes.size() != 1) {
+                if (isBuiltinPrint || !signature->isExternal || signature->paramTypes.size() != 1) {
                     const std::string calleeName = dynamic_cast<IdentExpr*>(call->callee.get())
                         ? dynamic_cast<IdentExpr*>(call->callee.get())->name
                         : describeCalleeExpr(call->callee.get());
@@ -4441,9 +4494,22 @@ ResolvedType SemanticAnalyzer::analyzeExpr(
             std::unordered_map<std::string, std::string> scopeBindings;
             for (size_t i = 0; i < call->args.size(); ++i) {
                 const ResolvedType* paramType = i < signature->paramTypes.size() ? &signature->paramTypes[i] : nullptr;
-                const ResolvedType argType = analyzeExpr(call->args[i].get(), paramType);
+                ResolvedType argType = analyzeExpr(call->args[i].get(), paramType);
+                if (isBuiltinPrint && isNumericLiteralType(argType)) {
+                    // Dynamic print parameters supply no concrete context.
+                    // Finish default literal inference, including range checks,
+                    // before the backend sees a literal-only pseudo-type.
+                    const ResolvedType inferredType = normalizeInferredLiteralType(argType);
+                    argType = analyzeExpr(call->args[i].get(), &inferredType);
+                }
                 if (argType.isOpaqueExternal()) {
                     reportError(call->args[i].get(), opaqueExternalValueUseMessage(argType, "call argument"));
+                    continue;
+                }
+                if (isBuiltinPrint && !isRuntimePrintableType(argType)) {
+                    reportError(
+                        call->args[i].get(),
+                        "Builtin '" + calleeIdent->name + "' cannot print value of type " + argType.describe() + ".");
                     continue;
                 }
                 if (rawDepth == 0 &&

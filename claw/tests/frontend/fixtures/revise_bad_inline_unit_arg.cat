@@ -1,0 +1,10 @@
+fn takes_unit(value: Unit) {
+}
+
+fn main() {
+    takes_unit(if true {
+        1
+    } else {
+        2
+    })
+}

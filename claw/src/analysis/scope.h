@@ -16,6 +16,7 @@ struct Symbol {
     SymbolKind kind = SymbolKind::Variable;
     bool isMutable = false;
     bool isExternal = false;
+    bool isBuiltin = false;
     bool isStatic = false;
     ResolvedType type;
     const BindingStmt* bindingDecl = nullptr;

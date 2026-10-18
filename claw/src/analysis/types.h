@@ -127,6 +127,7 @@ struct FunctionSignature {
     std::vector<std::string> scopeParams;
     std::optional<size_t> scopeReturnSourceParam;
     bool isExternal = false;
+    bool isBuiltin = false;
     std::optional<ExternalCallableInfo> externalInfo;
 };
 
