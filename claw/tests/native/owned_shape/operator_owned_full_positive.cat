@@ -1,0 +1,14 @@
+shape Part { text: String }
+contract AddOwned {
+    fn add(self, other: Part) -> Part
+}
+implements Part with AddOwned {
+    fn add(self, other: Part) -> Part { self }
+}
+fn main() -> Int32 {
+    val left = Part { text: String.from("left") }
+    val right = Part { text: String.from("right") }
+    val result = left + right
+    println(result.text.as_str())
+    return 0
+}

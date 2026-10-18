@@ -1,0 +1,13 @@
+shape Inner { left: String, right: String }
+shape Outer { inner: Inner, tail: String }
+implements Inner {
+    fn consume(self) -> Int32 {
+        println(self.left.as_str())
+        return 0
+    }
+}
+fn main() -> Int32 {
+    val source = Outer { inner: Inner { left: String.from("left"), right: String.from("right") }, tail: String.from("tail") }
+    println(source.inner.consume())
+    return 0
+}

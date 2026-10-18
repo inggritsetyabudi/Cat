@@ -1,0 +1,13 @@
+shape S { left: String, right: String }
+implements S {
+    fn new(source: S) -> S {
+        val taken = source.left
+        return S { left: taken, right: String.from("replacement") }
+    }
+}
+fn main() -> Int32 {
+    val source = S { left: String.from("left"), right: String.from("right") }
+    val value = S.new(source)
+    println(value.left.as_str())
+    return 0
+}

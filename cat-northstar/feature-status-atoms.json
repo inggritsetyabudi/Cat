@@ -1,0 +1,2934 @@
+{
+  "G2-PRD-0-DOC": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-0-ERROR": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-0-STATUS-SEPARATION": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-0-NEGATIVE-TESTS": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-0-TABLE-DRIVEN": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-0-DEFERRED-REGISTER": {
+    "source_anchor": "cat-northstar/PRD.md#0-pengaman-lintas-masalah-menutup-risiko-di-semua-bagian",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-1-NEW": {
+    "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-1-POS": {
+    "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-1-SHAPE": {
+    "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-1-SHAPE-FIELDS": {
+    "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-1-SHAPE-DUPLICATE": {
+    "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-1-SHAPE-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#1-konstruksi-shape-dan-named-arguments",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_nested_scoped_generic_field_mismatch.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_nested_scoped_generic_field_mismatch.cat\" \"$FIXTURE_DIR/revise_bad_nested_scoped_generic_field_mismatch.cat\" \"Shape literal field type mismatch for 'value': expected Name[outer], got Name[inner]\""
+      }
+    ]
+  },
+  "G2-PRD-2-ARRAY-ASSIGN": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_fixed_array_index_assignment.cat",
+      "claw/tests/native/fixtures/revise_fixed_array_index_assignment_oob.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$fixed_array_assignment_stdout\" != \"$expected_fixed_array_assignment_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$fixed_array_assignment_sanitized_stdout\" != \"$expected_fixed_array_assignment_stdout\" ]]; then"
+        ]
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$fixed_array_assignment_sanitized_stdout\" != \"$expected_fixed_array_assignment_stdout\" ]]; then"
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if \"$fixed_array_assignment_oob_output\" >/dev/null 2>&1; then"
+      }
+    ]
+  },
+  "G2-PRD-2-ARRAY-I32": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_fixed_array.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$fixed_array_stdout\" != \"$expected_fixed_array_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$fixed_array_sanitized_stdout\" != \"$expected_fixed_array_stdout\" ]]; then"
+        ]
+      }
+    ]
+  },
+  "G2-PRD-2-ARRAY-OOB": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_fixed_array_oob.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if \"$fixed_array_oob_output\" >/dev/null 2>&1; then"
+      }
+    ]
+  },
+  "G2-PRD-2-ARRAY-U8": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_fixed_array_uint8.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$uint8_fixed_array_stdout\" != \"$expected_uint8_fixed_array_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$uint8_fixed_array_sanitized_stdout\" != \"$expected_uint8_fixed_array_stdout\" ]]; then"
+        ]
+      }
+    ]
+  },
+  "G2-PRD-2-COLLECTION-KEYWORD": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-CONST-N": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-EMPTY": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-EQUALITY": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-HASH-EQUALITY": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-HOMOGENEITY": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-MAP": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-QUEUE": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-SET": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-VEC": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-ARRAY-INFER-LENGTH": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-INTEGER-TYPE-ARG": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-COLLECTION-CONSTRUCTOR-REMOVAL": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-SPAN-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-2-ARRAY-LENGTH-MISMATCH": {
+    "source_anchor": "cat-northstar/PRD.md#2-literal-koleksi-dan-panjang-array",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_fixed_array_length_mismatch.cat",
+      "claw/tests/frontend/fixtures/revise_bad_fixed_array_uint8_length.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"fixed-array annotation length mismatch\" \"$FIXTURE_DIR/revise_bad_fixed_array_length_mismatch.cat\" \\\n  \"Array literal has 3 element(s), but the expected type is Array[Int32, 2].\""
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"UInt8 fixed-array annotation length mismatch\" \\\n  \"$FIXTURE_DIR/revise_bad_fixed_array_uint8_length.cat\" \\\n  \"Array literal has 3 element(s), but the expected type is Array[UInt8, 2].\""
+      }
+    ]
+  },
+  "G2-PRD-3-EXHAUST": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-3-IF": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_if_pick_values.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$if_pick_values_stdout\" != \"$expected_if_pick_values_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-3-NEVER": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-3-PICK": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_if_pick_values.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$if_pick_values_stdout\" != \"$expected_if_pick_values_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-3-POSITION": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_if_pick_values.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$if_pick_values_stdout\" != \"$expected_if_pick_values_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-3-IF-ELSE": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-3-IF-ELSE-IF": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-3-BRANCH-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#3-if-dan-pick-sebagai-expression",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-BUILTIN": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_builtin_type_name_case.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"builtin scalar type names accept ASCII case variants\" \"$FIXTURE_DIR/revise_builtin_type_name_case.cat\""
+      }
+    ]
+  },
+  "G2-PRD-4-LAST-WILDCARD": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-PATTERN": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-UNREACHABLE": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-USER": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_builtin_user_type_case.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"user-defined Point type remains case-sensitive\" \"$FIXTURE_DIR/revise_bad_builtin_user_type_case.cat\" \"Unknown type: point\""
+      }
+    ]
+  },
+  "G2-PRD-4-VARIANT": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_choice_variant_case.cat",
+      "claw/tests/frontend/fixtures/revise_bad_case_custom_variant.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_choice_variant_case.cat\" \"$FIXTURE_DIR/revise_bad_choice_variant_case.cat\" \"must start with a lowercase letter\""
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_case_custom_variant.cat\" \"$FIXTURE_DIR/revise_bad_case_custom_variant.cat\" \"Choice variant 'Ok' must start with a lowercase letter\""
+      }
+    ]
+  },
+  "G2-PRD-4-CONSTRUCTOR-CASE": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-RESULT-VARIANTS": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-LOWERCASE-IDENT": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-WILDCARD-NOBIND": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-NONVARIANT-NOFALLBACK": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-BINDING-NONCHOICE": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-PATTERN-PAYLOAD": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-TYPE-CAPITAL": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-4-SCALAR-ALIAS": {
+    "source_anchor": "cat-northstar/PRD.md#4-aturan-huruf-dan-grammar-pattern-pick",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-5-ELSE": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-5-ELSE-NONTERMINAL": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_try_else_nonterminal.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"nonterminal try else block\" \"$FIXTURE_DIR/revise_bad_try_else_nonterminal.cat\" '`try ... else` failure block must terminate the current control path.'"
+      }
+    ]
+  },
+  "G2-PRD-5-IDENTITY": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_try_alias_cross_module/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"same nominal spelling in different modules\" \"$FIXTURE_DIR/revise_bad_try_alias_cross_module\" '`try` shorthand error type mismatch'"
+      }
+    ]
+  },
+  "G2-PRD-5-INIT": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_try_contract.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$try_contract_stdout\" != \"$expected_try_contract_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-5-OWNED": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_try_owned_result.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$try_owned_result_stdout\" != \"$expected_try_owned_result_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$try_owned_result_asan_stdout\" != \"$expected_try_owned_result_stdout\" ]]; then"
+        ]
+      }
+    ]
+  },
+  "G2-PRD-5-RETURN-REJECT": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_try_return_expr.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"try in return expression\" \"$FIXTURE_DIR/revise_bad_try_return_expr.cat\" 'Expected expression.'"
+      }
+    ]
+  },
+  "G2-PRD-5-SINGLE-TRY": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-5-VAR-REJECT": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_try_var.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_try_var.cat\" \"$FIXTURE_DIR/revise_bad_try_var.cat\" '`try` is only allowed in a `val` initializer.'"
+      }
+    ]
+  },
+  "G2-PRD-5-IDENTITY-GENERIC": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_try_alias_generic_mismatch/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"try error alias with mismatched generic argument\" \"$FIXTURE_DIR/revise_bad_try_alias_generic_mismatch\" '`try` shorthand error type mismatch'"
+      }
+    ]
+  },
+  "G2-PRD-5-ERROR-MISMATCH": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_try_error_type.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"shorthand try with a different error type\" \"$FIXTURE_DIR/revise_bad_try_error_type.cat\" '`try` shorthand error type mismatch: expected Int32, got String'"
+      }
+    ]
+  },
+  "G2-PRD-5-ERROR-IDENTITY": {
+    "source_anchor": "cat-northstar/PRD.md#5-bentuk-try-parsial-menunggu-acceptance",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-BITWISE-INT": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-COMPOUND": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_operator_index_compound.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$index_call_count\" != \"1\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-6-DIV-MIN": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-DIV-NONZERO": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_operator_groups_ab.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$operator_groups_stdout\" != $'-2\\n-2\\n5\\n4\\n14\\ntrue\\n5\\ntrue\\n99\\n99\\ntrue\\nfalse\\ntrue\\nfalse\\ntrue' ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-6-DIV-ZERO": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-IS-REF": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-NONASSOC": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-OP-GROUP": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_operator_groups_ab.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$operator_groups_stdout\" != $'-2\\n-2\\n5\\n4\\n14\\ntrue\\n5\\ntrue\\n99\\n99\\ntrue\\nfalse\\ntrue\\nfalse\\ntrue' ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-6-PRECEDENCE": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-SHORT": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_operator_short_circuit_ownership.cat",
+      "claw/tests/native/fixtures/revise_operator_groups_ab.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$short_circuit_ownership_stdout\" != \"held\" ]]; then"
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$operator_groups_stdout\" != $'-2\\n-2\\n5\\n4\\n14\\ntrue\\n5\\ntrue\\n99\\n99\\ntrue\\nfalse\\ntrue\\nfalse\\ntrue' ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-6-ASSOCIATIVITY": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-RANGE-NONASSOC": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-ASSIGN-RIGHT": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-ASSIGN-STATEMENT": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-DIV-ZERO-COMPOUND": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-DIV-ZERO-CONTEXT": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-DIV-ZERO-TERMINATION": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-DIV-ZERO-LLVM": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-FLOAT-IEEE": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-6-OP-STAGING": {
+    "source_anchor": "cat-northstar/PRD.md#6-operator-presedensi-asosiativitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-CHAR": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-RANGE": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_int32_range_scan.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$range_scan_stdout\" != \"$expected_range_scan_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-7-SCAN": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_int32_range_scan.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$range_scan_stdout\" != \"$expected_range_scan_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-7-U8": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_uint8_range.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$uint8_range_stdout\" != \"$expected_uint8_range_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-7-RANGE-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-RANGE-USES": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-SCAN-ANY-ITERABLE": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-LEXER-DOT": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-LEXER-INCLUSIVE": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-7-RANGE-INCLUSIVE-STEP": {
+    "source_anchor": "cat-northstar/PRD.md#7-range-dan-scan-item-i",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-8-NESTED": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_tuple_nested_destructuring.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$tuple_nested_destructuring_stdout\" != \"$expected_tuple_nested_destructuring_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$tuple_nested_destructuring_sanitizer_stdout\" != \"$expected_tuple_nested_destructuring_stdout\" ]]; then"
+        ]
+      }
+    ]
+  },
+  "G2-PRD-8-OWNED": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_tuple_owned_destructuring.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$tuple_owned_stdout\" != \"$expected_tuple_owned_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$tuple_owned_asan_stdout\" != \"$expected_tuple_owned_stdout\" ]]; then"
+        ]
+      }
+    ]
+  },
+  "G2-PRD-8-PARTIAL": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-8-PICK": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_tuple_pick.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$tuple_pick_stdout\" != \"$expected_tuple_pick_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-8-PLAIN": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_tuples.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$tuples_stdout\" != \"$expected_tuples_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-8-SINGLETON-UNIT": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-8-UNIT": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-8-WILDCARD-DROP": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-8-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-8-PROJECTION": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_tuples.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$tuples_stdout\" != \"$expected_tuples_stdout\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-8-PROJECTION-LEXER": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-8-DESTRUCTURE-BASE": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_tuple_destructuring.cat",
+      "claw/tests/frontend/fixtures/revise_bad_tuple_destructuring_reuse.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"plain tuple destructuring with wildcard and singleton patterns\" \"$SCRIPT_DIR/../native/fixtures/revise_tuple_destructuring.cat\""
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"tuple destructuring consumes the source tuple\" \"$FIXTURE_DIR/revise_bad_tuple_destructuring_reuse.cat\" \"Use of moved value -> pair\""
+      }
+    ]
+  },
+  "G2-PRD-8-LINT-SHAPE": {
+    "source_anchor": "cat-northstar/PRD.md#8-tuple",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-BORROW-NEG": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_discarded_borrowed_receiver.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"discarding a borrowed view from a temporary owner is rejected\" \"$FIXTURE_DIR/revise_bad_discarded_borrowed_receiver.cat\" \"Cannot discard a borrowed view whose owner is a temporary\""
+      }
+    ]
+  },
+  "G2-PRD-9-DATAFLOW": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-ELISION-MULTI": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-ELISION-SINGLE": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-REFMUT": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-MUTABLE-OVERLAP": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-OWNER-MOVE": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-OWNER-MUTATE": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-NO-LIFETIME-ANNOTATION": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-9-SAFE-SUITE": {
+    "source_anchor": "cat-northstar/PRD.md#9-lifetime-klaim-yang-akurat-dan-dataflow",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-10-ASSIGN": {
+    "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_operator_compound_field_uninitialized.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "if [[ \"$field_uninitialized_count\" != \"1\" ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-10-READ": {
+    "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_operator_compound_uninitialized.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_operator_compound_uninitialized.cat\" \"$FIXTURE_DIR/revise_bad_operator_compound_uninitialized.cat\" \"Use of uninitialized value -> count\""
+      }
+    ]
+  },
+  "G2-PRD-10-LATER-ASSIGN": {
+    "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
+    "fixtures": [
+      "cat-northstar/PRD.md"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/docs/run_doc_tests.py",
+        "text": "if result.returncode == 0:"
+      }
+    ]
+  },
+  "G2-PRD-10-DEFAULT-API": {
+    "source_anchor": "cat-northstar/PRD.md#10-inisialisasi-default",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-CHAR": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_char_out_of_range.cat",
+      "claw/tests/frontend/fixtures/revise_bad_char_surrogate.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"surrogate character escape\" \\\n  \"$FIXTURE_DIR/revise_bad_char_surrogate.cat\" \\\n  \"Unicode escape is not a valid Unicode scalar value.\""
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"character escape above U+10FFFF\" \\\n  \"$FIXTURE_DIR/revise_bad_char_out_of_range.cat\" \\\n  \"Unicode escape is not a valid Unicode scalar value.\""
+      }
+    ]
+  },
+  "G2-PRD-11-FLOAT-MATERIALIZE": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-FLOAT128": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-RADIX": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_integer_radix_literals.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$radix_literals_stdout\" != \"$expected_radix_literals_stdout\" ]]; then"
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if ! grep -Fq 'store i32 43981,' \"$radix_literals_ll\" ||"
+      }
+    ]
+  },
+  "G2-PRD-11-CHAR-WIDTH": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-CHAR-UTF8": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-CHAR-ESCAPE": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-FLOAT128-LLVM": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-RADIX-BINARY": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-RADIX-OCTAL": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-DECIMAL-SEPARATOR": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-SUFFIX": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-SUFFIX-CANONICAL": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-SUFFIX-FALLBACK": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-SUFFIX-INVALID": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-11-LITERAL-RANGE": {
+    "source_anchor": "cat-northstar/PRD.md#11-literal-numerik-dan-char",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-CONTAINER-STORAGE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DOC-ATTACH": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DOC-CLAW": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DOC-ORPHAN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DOC-PRIVATE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-ESCAPE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_string_escapes.cat",
+      "claw/tests/frontend/fixtures/revise_bad_string_unknown_escape.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if actual != expected:"
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"unknown ordinary string escape\" \\\n  \"$FIXTURE_DIR/revise_bad_string_unknown_escape.cat\" \\\n  \"Unknown escape sequence in string literal.\""
+      }
+    ]
+  },
+  "G2-PRD-12-FSTRING": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-SHAPE-STORAGE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STR-OWN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_string_temporary_cleanup.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$string_temporary_stdout\" != \"$expected_string_temporary_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$string_temporary_asan_stdout\" != \"$expected_string_temporary_stdout\" ]]; then"
+        ]
+      }
+    ]
+  },
+  "G2-PRD-12-STR-VIEW": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_string_owner.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$string_owner_stdout\" != \"$expected_string_owner_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$string_owner_sanitized_stdout\" != \"$expected_string_owner_stdout\" ]]; then"
+        ]
+      }
+    ]
+  },
+  "G2-PRD-12-STRING-CLONE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-MOVE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-STORAGE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-TEMP": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-OOM": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STR-ALIAS": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STR-LAYOUT": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-ALIAS": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-IMMUTABLE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-MOVE-ONLY": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-LAYOUT": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-SIZE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-ALIGN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-LITERAL-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-LITERAL-NOALLOC": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-LITERAL-NOCOPY": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-NO-IMPLICIT-OWNED": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-FROM": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-PARAM": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-RETURN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STR-NO-DESTRUCTOR": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STR-NO-FREE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-BORROW-INFER": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-VIEW-ESCAPE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-VIEW-AFTER-MOVE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-VIEW-AFTER-MUTATE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-TEMP-NO-STORE": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-TEMP-NO-RETURN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-TEMP-NO-JOIN": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-CONTAINER-OWNED": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-CHOICE-STRING": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-SHAPE-STRING": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-MAYBE-VIEW": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STATIC-NODISPATCH": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-EXPLICIT-ALLOC": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-LOCATION": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-REASON": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-HINT": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-COLOR": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-NO-COLOR": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-DIAG-WINDOWS": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-NO-RAW": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-STRING-BUILDER": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-12-FSTRING-MODES": {
+    "source_anchor": "cat-northstar/PRD.md#12-string-interpolasi-dan-komentar-dokumen",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-CONTRACT-LOCALITY": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-DUPLICATE": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-METHOD-LOCALITY": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_implements.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$implements_stdout\" != \"localhost\" ]]"
+      }
+    ]
+  },
+  "G2-PRD-13-OPERATOR": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-THIRD-MODULE": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-WITH": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-WITH-AND": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-WITH-OPTIONAL": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-WITH-KEYWORD": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-13-ORPHAN-GRAPH": {
+    "source_anchor": "cat-northstar/PRD.md#13-generic-contract-with-dan-lokasi-implements",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-GET": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_str_range_views.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$str_range_views_stdout\" != \"$expected_str_range_views_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$sanitized_str_range_views_stdout\" != \"$expected_str_range_views_stdout\" ]]; then"
+        ]
+      }
+    ]
+  },
+  "G2-PRD-14-SLICE": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_str_range_views.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$str_range_views_stdout\" != \"$expected_str_range_views_stdout\" ]]; then",
+        "checks": [
+          "if [[ \"$sanitized_str_range_views_stdout\" != \"$expected_str_range_views_stdout\" ]]; then"
+        ]
+      }
+    ]
+  },
+  "G2-PRD-14-BOUNDS": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_str_range_negative_defect.cat",
+      "claw/tests/native/fixtures/revise_str_range_reversed_defect.cat",
+      "claw/tests/native/fixtures/revise_str_range_oob_defect.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "run_expect_str_range_defect \"revise_str_range_negative_defect.cat\""
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "run_expect_str_range_defect \"revise_str_range_reversed_defect.cat\""
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "run_expect_str_range_defect \"revise_str_range_oob_defect.cat\""
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if \"$output\" >/dev/null 2>&1; then"
+      }
+    ]
+  },
+  "G2-PRD-14-UTF8": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_str_range_utf8_defect.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "run_expect_str_range_defect \"revise_str_range_utf8_defect.cat\""
+      },
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if \"$output\" >/dev/null 2>&1; then"
+      }
+    ]
+  },
+  "G2-PRD-14-BORROW": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_str_range_local_return.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"Maybe[ref Str] from Str.get cannot escape a local receiver\" \\\n  \"$FIXTURE_DIR/revise_bad_str_range_local_return.cat\" \\\n  \"Borrowed-returning functions must return a view derived from one of their borrowed parameters.\""
+      }
+    ]
+  },
+  "G2-PRD-14-LEGACY-SLICE": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_str_legacy_slice.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"legacy public Str.slice(start,length) is removed\" \\\n  \"$FIXTURE_DIR/revise_bad_str_legacy_slice.cat\" \"Type 'Str' does not provide method 'slice'.\""
+      }
+    ]
+  },
+  "G2-PRD-14-BYTE-INDEX": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-NO-STR-FROM": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-NO-TO-OWNED": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-LOWERING": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-SPAN-EXAMPLE": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-14-UTF8-CHECK": {
+    "source_anchor": "cat-northstar/PRD.md#14-slice",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-CONSTRUCTOR": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-DEPRECATED": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-TEST": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-FFI": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-REWRITE": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-CONFIG-LINK": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-CONFIG-DUPLICATE": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-FFI-CONTRACT": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-FFI-RAW": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-FFI-SAFE-WRAPPER": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-TOKEN": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-CLOSED": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-GOVERNANCE": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-ANNOTATION-CONSTRUCTOR-LOCALITY": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-15-REWRITE-POSTFIX": {
+    "source_anchor": "cat-northstar/PRD.md#15-foreign-c-annotation-dan-rewrite",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-16-SOURCE": {
+    "source_anchor": "cat-northstar/PRD.md#16-sinkronisasi-dua-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-CYCLE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_module_cycle/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_module_cycle\" \"$FIXTURE_DIR/revise_bad_module_cycle\" \"Cyclic module dependency detected.\""
+      }
+    ]
+  },
+  "G2-PRD-17-MODULE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-PRIVATE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-SUPER": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_super_import/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"test_frontend/revise_super_import\" \"$FIXTURE_DIR/revise_super_import\""
+      }
+    ]
+  },
+  "G2-PRD-17-SHARE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_bad_private_item_import/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_private_item_import\" \"$FIXTURE_DIR/revise_bad_private_item_import\" \"does not share item 'hidden'\""
+      }
+    ]
+  },
+  "G2-PRD-17-NAMESPACE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_module_aliases/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"test_frontend/revise_module_aliases\" \"$FIXTURE_DIR/revise_module_aliases\""
+      }
+    ]
+  },
+  "G2-PRD-17-DIRECT-ITEM": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_pkg/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"test_frontend/revise_pkg\" \"$FIXTURE_DIR/revise_pkg\""
+      }
+    ]
+  },
+  "G2-PRD-17-BASENAME-ALIAS": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [
+      "claw/tests/frontend/fixtures/revise_module_aliases/main.cat",
+      "claw/tests/frontend/fixtures/revise_bad_duplicate_module_aliases/main.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_pass \"test_frontend/revise_module_aliases\" \"$FIXTURE_DIR/revise_module_aliases\""
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"test_frontend/revise_bad_duplicate_module_aliases\" \"$FIXTURE_DIR/revise_bad_duplicate_module_aliases\" \"Duplicate imported name: math\""
+      }
+    ]
+  },
+  "G2-PRD-17-FOLDER": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-NO-MODULES-FILE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-NO-PUB": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-SRC-OTHER": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-LLVM-SYMBOL": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-LLVM-SHARE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-LLVM-PRIVATE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-17-LLVM-MERGE": {
+    "source_anchor": "cat-northstar/PRD.md#17-modularitas",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-BOUNDS-ELISION": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-SAFE": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-SIMPLE": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-NO-BOILERPLATE": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-FAST": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-NO-HIDDEN-COST": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-18-SELFHOST-PREREQS": {
+    "source_anchor": "cat-northstar/PRD.md#18-rencana-milestone",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-19-ARENA": {
+    "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-19-BOUNDS": {
+    "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-19-CHECKED": {
+    "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-19-NOALIAS": {
+    "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-19-SATURATING": {
+    "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-19-WRAP": {
+    "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-19-WRAPPING": {
+    "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-19-DEBUG": {
+    "source_anchor": "cat-northstar/PRD.md#19-keputusan-dari-celah-di-luar-proposal",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-CLOSURE-CAPTURE": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-CLOSURE-MOVE": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-CLOSURE-RETURN": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-DEFAULT": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-CHAR": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-FLOAT": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-INT": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-MAYBE": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-SEND": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-SHOW": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-STATIC": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_static.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$static_stdout\" != $'1.0.0\\n1.0.0\\nstable\\ntrue' ]]; then"
+      }
+    ]
+  },
+  "G2-PRD-20-SYNC": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-MAYBE-TYPE": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-MAYBE-SOME": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-MAYBE-NONE": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-INT-RELEASE": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-FLOAT-NAN": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PRD-20-NARROW-FLOAT-LLVM": {
+    "source_anchor": "cat-northstar/PRD.md#20-keputusan-penutup-diputuskan-agar-tidak-ada-yang-menggantung",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-G1": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-G2": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-G3": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "claw/tests/docs/feature_status_examples.py",
+        "text": "def scan_repository("
+      }
+    ]
+  },
+  "G2-PLAN-G4": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "claw/tests/docs/feature_status_examples.py",
+        "text": "def scan_repository("
+      }
+    ]
+  },
+  "G2-PLAN-G5": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "claw/tests/docs/feature_status_examples.py",
+        "text": "def scan_repository("
+      }
+    ]
+  },
+  "G2-PLAN-G6": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "claw/tests/docs/test_feature_status_global_evidence.py",
+        "text": "test_entrypoints_are_distinct_executable_fences"
+      }
+    ]
+  },
+  "G2-PLAN-G7": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-G8": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "claw/tests/docs/feature_status_examples.py",
+        "text": "def scan_repository("
+      }
+    ]
+  },
+  "G2-PLAN-M01": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-IMPLICIT-TAIL": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_implicit_return.cat",
+      "claw/tests/frontend/fixtures/revise_bad_implicit_return.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/native/run_native_tests.sh",
+        "text": "if [[ \"$implicit_return_stdout\" != \"42\" ]]; then"
+      },
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_fail \"middle expression is not an implicit return\" \"$FIXTURE_DIR/revise_bad_implicit_return.cat\" \"must end with a value of type Int32 or use explicit return.\""
+      }
+    ]
+  },
+  "G2-PLAN-M02-IMPLICIT-WARNING": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [
+      "claw/tests/native/fixtures/revise_implicit_return.cat"
+    ],
+    "assertions": [
+      {
+        "path": "claw/tests/frontend/run_frontend_tests.sh",
+        "text": "run_check_warning \"implicit block-tail return\" \"$SCRIPT_DIR/../native/fixtures/revise_implicit_return.cat\" \"only the final expression in a block returns implicitly\""
+      }
+    ]
+  },
+  "G2-PLAN-M03": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M05": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M06": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M07": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M08": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M09": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-ARENA-EXPERIMENTAL": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-ARENA-V1-EXCLUSION": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-NODE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "cat-northstar/GLOBAL-EXAMPLES.md",
+        "text": "Node.new(1, None)"
+      }
+    ]
+  },
+  "G2-PLAN-MIGRATE-CACHE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "cat-northstar/GLOBAL-EXAMPLES.md",
+        "text": "Cache.new(Anchor.new(String.from"
+      }
+    ]
+  },
+  "G2-PLAN-MIGRATE-DOUBLY-LINKED": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-GRAPH": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-SECTION": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-SHORT-DOC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-BLOCK-DOC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-FN-TYPE-DOC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-CLOSURE-BORROW-NEGATIVE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-SAFE-PRIVATE-SUITE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-EDITION-STABILITY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-HISTORICAL-EXAMPLE-AUDIT": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-MIGRATE-CONFIG-SHAPE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "cat-northstar/GLOBAL-EXAMPLES.md",
+        "text": "Config.new"
+      }
+    ]
+  },
+  "G2-PLAN-MIGRATE-BUFFER": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "cat-northstar/GLOBAL-EXAMPLES.md",
+        "text": "return Buffer { data: vec[] }"
+      }
+    ]
+  },
+  "G2-PLAN-MIGRATE-CIRCLE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "cat-northstar/GLOBAL-EXAMPLES.md",
+        "text": "val circle = Circle.new"
+      }
+    ]
+  },
+  "G2-PLAN-MIGRATE-VECTOR2": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "cat-northstar/GLOBAL-EXAMPLES.md",
+        "text": "return Vector2.new"
+      }
+    ]
+  },
+  "G2-PLAN-MIGRATE-CONFIG-IDENTITY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
+    "fixtures": [],
+    "assertions": [
+      {
+        "path": "cat-northstar/GLOBAL-EXAMPLES.md",
+        "text": "val r1 = ref a"
+      }
+    ]
+  },
+  "G2-PLAN-M01-D-CHECKLIST": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-PRECEDENCE-TABLE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-IF": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-PICK": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-NEVER": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-TRY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M02-BRANCH-IMPLICIT": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M03-EXHAUST-PROPERTY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-RADIX": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-SEPARATOR": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-SUFFIX": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-CHAR": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-ESCAPE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-FSTRING": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M04-LEXER-DOC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M05-CLOSURE-MAP": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M05-CLOSURE-FILTER": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M06-FFI-NEGATIVE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M07-VALID-RECOVERY": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M08-CORE-BENCHMARK": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M08-IR-C-COMPARE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M09-PARSER-FUZZ": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M09-ROBUSTNESS": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M09-RANDOM-NOCRASH": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-RELEASE-CHECKLIST": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-SELFHOST-FILE-IO": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-SELFHOST-STRING-BUILDER": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-SELFHOST-VEC": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-M10-SELFHOST-MAP": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#5-gerbang-v10",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-EXPANSION-ORDER": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-EXPANSION-AST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-TYPE-CHECK": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-SAFE-CHECK": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-HYGIENE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-NO-IO": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-NO-EXTERNAL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-DEPTH-LIMIT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-NODE-LIMIT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-CALLSITE-DIAGNOSTIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-EXPANSION-DIAGNOSTIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-USER-ANNOTATION-ENGINE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-EXPAND-TOOL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-SIZE-LINT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-SOURCE-SPAN": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-4-REWRITE-AST-ONLY-ENGINE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#4-v13-rewrite-macro",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-G7-RINGKAS-SOURCE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-PLAN-G7-GENERATOR-PROVENANCE": {
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-0-DESIGN-FIRST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-0-NON-GOALS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-0-NEGATIVE-TESTS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-0-MEASURABLE-CRITERIA": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-0-BOOTSTRAP-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#0-aturan-main-untuk-setiap-fitur-pasca-v1",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V11": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V12": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V13": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V14": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V15": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V16": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V17": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-1-V20": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#1-peta-versi",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-FILE-IO": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-STRING-BUILDER": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-VEC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-MAP": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-SET": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-TIME": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-PROCESS-ARGS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LIBRARY-MAYBE-RESULT-HELPERS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-FMT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-DOC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-TEST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-LANGUAGE-SERVER-INLAY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-2-SELFHOST-ADEQUACY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#2-v11-pustaka-standar-dan-tooling",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-STAGE0": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-STAGE1": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-STAGE2": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-STAGE3": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-BYTE-IDENTICAL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-SAME-SUITE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-LANGUAGE-FINDINGS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-3-CPP-RETENTION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#3-v12-self-hosting",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-RACE-FREE-GOAL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-STRUCTURAL-DERIVATION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SEND-TRANSFER": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SYNC-SHARING": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SPAWN-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SCOPED-BORROW": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-MUTABLE-EXCLUSION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-DATAFLOW-SPAWN": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-STATIC-SYNC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-CHILD-DEFECT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-THREAD-RUNTIME": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-ATOMIC-LLVM": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SEQ-CST-DEFAULT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-EXPLICIT-ORDERING": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SPAWN-CLOSURE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-OWNED-CAPTURE-MOVE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-CAPTURE-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-NEGATIVE-MUTABLE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-NEGATIVE-NON-SYNC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-NEGATIVE-STATIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-TSAN": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-5-SCHEDULE-EXPLORATION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#5-v14-threading",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-CHANNEL-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-MOVE-AFTER-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-RECEIVER-END": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-DEADLOCK-LIMIT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-CAPACITY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-TRY-SEND": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-TRY-RECV": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-6-SAFE-PATTERNS-DOC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#6-v15-channel-message-passing",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-CORE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-STD": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-LLVM-TRIPLE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-BARE-PROFILE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-RAW-REGISTERS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-INTERRUPT-HANDLER": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-OFFICIAL-STAGE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-FIXED-POOL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-READ-ONLY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-PLAIN-TYPES": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-ALLOC-REF": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-RESET-BORROW": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-FULL-MAYBE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-ARENA-WRITABLE-DEFERRED": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-STD-WRAPS-CORE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-7-CORE-EMULATOR-TESTS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#7-v16-profil-embedded",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-A-THREAD-CHANNEL-POLLING": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-B-ASYNC-AWAIT": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-C-GREEN-THREADS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-RECOMMEND-A": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-BENCHMARK-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-8-NO-DECISION-WITHOUT-DATA": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#8-v17-keputusan-async",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BORROW-FORMAL-MODEL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BORROW-DIFFERENTIAL": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BORROW-RANDOM-SAFETY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-REFMUT-SCOPED": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-REFMUT-EXCLUSIVITY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-REFMUT-NEGATIVES": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-SIMD-LLVM": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-SIMD-BENCHMARK": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BACKEND-TARGETS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-BACKEND-SUITE-PARITY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-GPU-EXPLORATION": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-9-GPU-NEED-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#9-v20-penguatan-jangka-panjang",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-CONVERT-DESIGN": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-CONVERT-NEGATIVES": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-DEFAULT-TYPE-LIST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-DEFAULT-GENERIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-OPEN-SHAPE-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-FUNCTION-CONST-GENERIC": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-USER-ANNOTATION-GATE": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-QUEUE-CONSISTENCY": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-NARROW-CONVERSION-TABLE-TESTS": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  },
+  "G2-ROADMAP-10-ARENA-COMPILER-AST": {
+    "source_anchor": "cat-northstar/ROADMAP-v1-plus.md#10-daftar-keputusan-tertunda",
+    "fixtures": [],
+    "assertions": []
+  }
+}

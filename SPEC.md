@@ -1,8 +1,8 @@
 # C@ Implementation Specification (Baseline Subset)
 
-**Baseline:** `main` at `6b17b68`
+**Baseline:** `main` at `e7789c6efedff677b81c2f883fe8498e32c30554`
 
-**Document date:** 2026-10-17
+**Document date:** 2026-10-18
 
 **Status:** implementation reference for the supported subset; not an amended PRD and not a frozen v1 language specification
 
@@ -81,6 +81,8 @@ The current native target has only the optimized `clang -O2` profile. Its signed
 ## Shapes, choices, and casing
 
 A nominal shape is declared with `shape Name { ... }`. Its literal form (`Name { field: value }`) is restricted to the module that defines the shape; callers use the tested constructor/API form such as `Name.new(...)` when available. Borrowed fields are not permitted in ordinary shapes. A `choice` uses lowercase user-defined variants, while `Result` and `Maybe` retain the fixed capitalized variants `Ok`, `Fail`, `Some`, and `None`.
+
+Shapes with owned `String` fields retain recursive cleanup and whole-shape ownership transfer. Consuming an owned field through a projection, such as `val text = pair.first`, is rejected: per-field partial-move state and selective drop scheduling are not implemented. This boundary includes nested and temporary projections, owned method receivers, and owned operands of supported operator methods; method bodies are checked as well. Read or borrow the field, call `pair.first.clone()` for a separate owned `String`, or move the complete shape instead. Projections through a borrowed owner remain views, not ownership transfers. Plain-field reads and non-consuming owned-field access remain supported. This is a compiler limitation, not a claim that the PRD forbids partial moves for shapes; it does not add shape destructuring.
 
 Pattern names are interpreted from the expected type: in a `choice`, a name must be a declared variant, not an accidental binding; `_` is the catch-all. In other typed positions, a lowercase name can bind a value. Tuple and nested patterns are supported only in the tested forms, and non-exhaustive or unreachable `pick` branches are errors.
 
@@ -161,6 +163,8 @@ The tracked module fixture is [`revise_module_aliases`](claw/tests/frontend/fixt
 
 The compiler has tested LLVM emission and native linking for single-file revised programs, root-entry workspaces, direct calls, arithmetic, tuples, fixed arrays, integer/character ranges, `Result`/`Maybe` control flow, scoped references, and `Anchor` paths named by the suites. The native profile is the tested `clang -O2` path; this document does not promise selectable debug/release profiles or alternate backends.
 
-The following remain bounded, incomplete, or staged: Arena; the PR21 owned `String`/borrowed `Str` split (not merged on `main`); general lifetime inference; borrowed fields in normal shapes; `ref mut[s]`; full `Vec`/`Map`/`Set`/`Queue` literal and method surfaces; complete imported-workspace native coverage; broad raw/FFI lowering; threading, channels, macros, and self-hosting. Arena has no supported API guarantee here. PR21 is not part of this baseline and is not used as evidence.
+The PR #21 borrowed `Str` / owned `String` foundation is on this baseline. String literals are static borrowed `Str`; `String.from` explicitly copies into owned storage, `as_str` borrows from the owner, and clone/move/cleanup follow the tested [ownership slice](changelog/2026-10-17-str-string-ownership.md). Generic collection storage of `Str`/`String` remains rejected pending borrow/drop propagation. No implicit borrowed-to-owned conversion, interpolation, or arbitrary owned projection is implied. Per-slice labels and evidence are maintained in the [G2 inventory](cat-northstar/FEATURE-STATUS.md).
+
+The following remain bounded, incomplete, or staged: Arena; general lifetime inference; borrowed fields in normal shapes; `ref mut[s]`; full `Vec`/`Map`/`Set`/`Queue` literal and method surfaces; complete imported-workspace native coverage; broad raw/FFI lowering; threading, channels, macros, and self-hosting. Arena has no supported API guarantee here. Open PRs #22–#26 are not part of this implementation baseline.
 
 Future documentation changes must first be backed by implementation and tests, then recorded in a dated changelog entry. This reference intentionally describes the current supported subset rather than declaring v1 complete.

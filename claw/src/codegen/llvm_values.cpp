@@ -2,13 +2,11 @@
 #include "analysis/numeric_literals.h"
 
 #include <bit>
-#include <charconv>
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
 
 namespace claw::codegen {
-namespace {
 
 std::string llvmFloatConstant(std::string_view rawText, std::string_view typeName) {
     std::string text = numeric_literals::splitNumericLiteralText(std::string(rawText)).magnitude;
@@ -16,31 +14,24 @@ std::string llvmFloatConstant(std::string_view rawText, std::string_view typeNam
     if (integerLiteral.valid) {
         text = integerLiteral.magnitude;
     }
-    std::uint64_t bits = 0;
-    if (typeName == "Float32") {
-        float value = 0.0f;
-        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value, std::chars_format::general);
-        if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
-            throw std::runtime_error("LLVM lowering could not parse Float32 literal '" + text + "'.");
-        }
-        bits = std::bit_cast<std::uint64_t>(static_cast<double>(value));
-    } else if (typeName == "Float64") {
-        double value = 0.0;
-        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value, std::chars_format::general);
-        if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size()) {
-            throw std::runtime_error("LLVM lowering could not parse Float64 literal '" + text + "'.");
-        }
-        bits = std::bit_cast<std::uint64_t>(value);
-    } else {
-        throw std::runtime_error("LLVM lowering does not support floating literal type '" + std::string(typeName) + "'.");
+    const auto parsed = numeric_literals::parseFloatLiteralTarget(text, std::string(typeName));
+    if (!parsed.has_value()) {
+        throw std::runtime_error("LLVM lowering could not parse " + std::string(typeName) + " literal '" + text + "'.");
     }
 
+    // LLVM hexadecimal floating constants use the 64-bit APFloat encoding,
+    // even when the destination type is float.  Parse the source as Float32
+    // first, then promote that exact binary32 value to double before encoding;
+    // parsing directly as double would lose the requested Float32 rounding.
+    std::uint64_t bits = parsed->bits;
+    if (parsed->bitWidth == 32) {
+        const float value = std::bit_cast<float>(static_cast<std::uint32_t>(parsed->bits));
+        bits = std::bit_cast<std::uint64_t>(static_cast<double>(value));
+    }
     std::ostringstream out;
     out << "0x" << std::uppercase << std::hex << std::setw(16) << std::setfill('0') << bits;
     return out.str();
 }
-
-} // namespace
 
 void LlvmEmitter::materializeChoiceBinding(
     const PendingChoiceBinding& binding,

@@ -27,6 +27,10 @@ echo "=== Running C@ Native Executable Test Suite ==="
 bash "$SCRIPT_DIR/native/run_native_tests.sh"
 
 echo ""
+echo "=== Running C@ Target-Directed Float Literal Regression Suite ==="
+python3 "$SCRIPT_DIR/native/run_float_target_direct_tests.py"
+
+echo ""
 echo "=== Running C@ CLI Build Status Test Suite ==="
 bash "$SCRIPT_DIR/cli/run_cli_status_tests.sh"
 
