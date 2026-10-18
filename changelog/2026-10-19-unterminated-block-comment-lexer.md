@@ -37,3 +37,7 @@ ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_
 ```
 
 Full clean Release, separate compiler ASan/UBSan/LSan, independent build/run review, dan CI Linux/Windows UCRT64 pada head final tetap merupakan gate PR; hasilnya dicatat dalam PR. Fix terbatas ini bukan bukti bahwa v0.1–v0.3 matang seluruhnya atau gate v0.4 selesai.
+
+## Oracle lintas platform
+
+CI Windows awal pada `b6ad86b3d3eb53d988ac1dfff40c7cb5c8f330a3` menemukan mismatch harness, bukan penerimaan compiler: compiler sudah keluar 1 dengan diagnostic/span benar, tetapi runner membandingkan path MSYS `/tmp/...` dengan path native UCRT64 `D:\...`. Runner kini mengonversi expected **full path** melalui `cygpath -w` pada MSYS/Cygwin; tidak menurunkannya menjadi kecocokan basename atau menghapus cek lokasi. Native stdout dibandingkan byte-exact dengan LF pada POSIX dan CRLF pada Windows sesuai text-mode runtime yang sudah ada; tidak ada penghapusan whitespace umum. Semua mode, kasus, span, no-artifact, dan NO_COLOR assertions tetap wajib. Head setelah koreksi harus mengulang review dan seluruh gate final.

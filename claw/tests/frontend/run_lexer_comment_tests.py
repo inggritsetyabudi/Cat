@@ -14,6 +14,17 @@ MODES = ("check", "validate", "air", "emit-air", "oir", "emit-oir",
 BUILDS = ("build", "build-native")
 ENV = dict(os.environ, NO_COLOR="1", TERM="xterm")
 HEADER = "error[lexer]: Unterminated block comment."
+WINDOWS_NATIVE = os.name == "nt" or sys.platform.startswith(("msys", "cygwin"))
+
+
+def diagnostic_path(path: Path) -> str:
+    # MSYS Python sees /tmp while the native UCRT64 compiler reports D:\... .
+    # Compare the full equivalent native path, not just a basename or suffix.
+    if os.name != "nt" and WINDOWS_NATIVE:
+        converted = subprocess.run(["cygpath", "-w", str(path)], capture_output=True,
+                                   check=True, timeout=10)
+        return converted.stdout.decode("utf-8").strip()
+    return str(path)
 
 
 def run(args: list[str], root: Path) -> subprocess.CompletedProcess[bytes]:
@@ -58,7 +69,7 @@ def main() -> int:
                     args.append(str(case / "output.exe"))
                 result = run(args, case)
                 stderr = result.stderr.decode("utf-8").replace("\r", "")
-                location = f"{path}:{line}:{column}"
+                location = f"{diagnostic_path(path)}:{line}:{column}"
                 valid = (result.returncode == 1 and not result.stdout
                          and stderr.count(HEADER) == 1 and location in stderr
                          and any(part.strip() == "|" + " " * column + "^^"
@@ -89,6 +100,8 @@ def main() -> int:
                 assert exe.is_file() and exe.with_suffix(".ll").is_file()
                 target = run([str(exe)], valid)
                 expected = b"4\n7\n2\n/* not a comment */\n"
+                if WINDOWS_NATIVE:
+                    expected = expected.replace(b"\n", b"\r\n")
                 assert target.returncode == 0 and target.stdout == expected and not target.stderr, target
         # EOF after a complete comment is valid even without a final newline.
         source.write_bytes(b"fn main() {} /* closed */")
