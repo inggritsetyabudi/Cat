@@ -10,7 +10,7 @@ Dokumen ini adalah daftar kerja: bagian PRD mana yang diubah, apa isinya, kapan,
 
 | Kategori fence | Jumlah | Perilaku |
 | --- | ---: | --- |
-| `cat` | 1 | Wajib lolos `claw check` |
+| `cat` | 3 | Wajib lolos `claw check` |
 | `cat error: <potongan pesan>` | 1 | Wajib ditolak dan keluaran compiler wajib memuat potongan diagnostik |
 | `cat proposal` | 13 | Sintaks belum didukung compiler saat ini; dilewati dan dilaporkan dengan nomor baris |
 | `text` | 2 | Diagnostik target dan grammar ilustratif, bukan program C@; dilewati dan dilaporkan |
@@ -20,11 +20,13 @@ Tag fence menyatakan **cakupan test terhadap compiler**, bukan apakah keputusan 
 
 Runner berada di `claw/tests/docs/run_doc_tests.py`, dipanggil melalui `claw/tests/docs/run_doc_tests.sh` dan suite penuh. Ia mengekstrak fence Markdown, menjalankan blok `cat`/`cat error:` dengan `claw check`, memeriksa kode keluar serta potongan diagnostik, dan mencetak jumlah serta baris semua blok yang dilewati. Fence tanpa label atau dengan label yang tak dikenal adalah kegagalan, bukan pengecualian diam-diam.
 
-**Validasi irisan ini:** dua blok executable diperiksa (satu lolos dan satu ditolak dengan diagnostik yang diharapkan); 13 contoh sintaks proposal dan dua blok non-program tercatat terlewati. Ini bukan bukti bahwa seluruh fitur v0.1 atau PRD sudah terimplementasi.
+**Validasi irisan ini:** empat blok executable diperiksa (tiga lolos dan satu ditolak dengan diagnostik yang diharapkan); 13 contoh sintaks proposal dan dua blok non-program tercatat terlewati. Ini bukan bukti bahwa seluruh fitur v0.1 atau PRD sudah terimplementasi.
 
 ---
 
 ## 2. Perubahan global (berlaku di seluruh PRD)
+
+**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom terpisah. Satu label kanonik tidak menggantikan kolom tersebut. G2 belum ditutup hanya karena ledger/validator tersedia; perlu audit cakupan, review independen, dan CI Linux serta Windows UCRT64 pada head PR yang sama.
 
 | # | Perubahan | Versi |
 | --- | --- | --- |
@@ -41,7 +43,7 @@ Runner berada di `claw/tests/docs/run_doc_tests.py`, dipanggil melalui `claw/tes
 
 ## 3. Perubahan per bagian PRD
 
-Kolom **Versi** dibagi dua: *D* = teks PRD diubah, *K* = compiler mengimplementasikan.
+Kolom **Versi** dibagi dua: *D* = target perubahan teks PRD, *K* = target implementasi compiler, bukan bukti bahwa pekerjaan selesai. Nomor § pada tabel ini berasal dari struktur PRD terdahulu; pemetaan heading PRD aktif dan bukti atomiknya berada di [ledger G2](FEATURE-STATUS.md). Simbol keputusan historis dan metadata parsial tidak menjadi label G2 kedua.
 
 | § | Topik | Perubahan | Versi | Tes penerimaan |
 | --- | --- | --- | --- | --- |
@@ -82,6 +84,10 @@ Kolom **Versi** dibagi dua: *D* = teks PRD diubah, *K* = compiler mengimplementa
 Bagian yang tidak muncul di tabel (§1, §2, §17, §29, §30, §32) tidak ikut diaudit proposal. Tugas v0.1: periksa aturan huruf dan contoh lama di sana.
 
 ---
+
+### Keputusan tambahan: pembagi integer nol (18 Oktober 2026)
+
+PRD §6 menetapkan defect runtime untuk builtin integer `/`, `%`, `/=`, dan `%=` dengan pembagi nol, termasuk konstanta pada konteks yang sah, seragam pada debug/release. Float tetap IEEE-754; aturan overflow signed dan batas versi tidak berubah. Penerimaan memerlukan matriks konstanta/dinamis, signed/unsigned, short-circuit, compound/evaluasi sekali, diagnostik dan exit nonzero lintas platform, serta IR yang tidak menjalankan operasi tidak valid. PR #23 masih terbuka dan tidak dikreditkan ke baseline main. Keputusan ini tidak menyelesaikan milestone v0.8 atau menyediakan profil target debug.
 
 ## 4. Milestone final v0.1 sampai v1.0
 
