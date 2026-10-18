@@ -70,8 +70,13 @@ def main() -> int:
                 result = run(args, case)
                 stderr = result.stderr.decode("utf-8").replace("\r", "")
                 location = f"{diagnostic_path(path)}:{line}:{column}"
+                # `doc` uses forward slashes; project loading uses native ones.
+                # Normalize only path separators, keeping one exact full location.
+                locations = [part[5:].replace("\\", "/") for part in stderr.splitlines()
+                             if part.startswith(" --> ")]
                 valid = (result.returncode == 1 and not result.stdout
-                         and stderr.count(HEADER) == 1 and location in stderr
+                         and stderr.count(HEADER) == 1
+                         and locations == [location.replace("\\", "/")]
                          and any(part.strip() == "|" + " " * column + "^^"
                                  for part in stderr.splitlines())
                          and b"\x1b" not in result.stderr
