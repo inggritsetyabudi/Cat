@@ -85,6 +85,10 @@ Bagian yang tidak muncul di tabel (§1, §2, §17, §29, §30, §32) tidak ikut 
 
 ---
 
+### Keputusan tambahan: pembagi integer nol (18 Oktober 2026)
+
+PRD §6 menetapkan defect runtime untuk builtin integer `/`, `%`, `/=`, dan `%=` dengan pembagi nol, termasuk konstanta pada konteks yang sah, seragam pada debug/release. Float tetap IEEE-754; aturan overflow signed dan batas versi tidak berubah. Penerimaan memerlukan matriks konstanta/dinamis, signed/unsigned, short-circuit, compound/evaluasi sekali, diagnostik dan exit nonzero lintas platform, serta IR yang tidak menjalankan operasi tidak valid. PR #23 masih terbuka dan tidak dikreditkan ke baseline main. Keputusan ini tidak menyelesaikan milestone v0.8 atau menyediakan profil target debug.
+
 ## 4. Milestone final v0.1 sampai v1.0
 
 | Versi | Isi | Bukti selesai |

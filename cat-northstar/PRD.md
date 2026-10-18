@@ -310,6 +310,16 @@ fn load(p: Str) -> Result[Config, String] {
 - `is` hanya untuk `ref`, membandingkan alamat.
 - Compound assignment mengevaluasi sisi kiri **sekali**: `a[f()] += 1` memanggil `f` satu kali.
 
+**Pembagi nol — keputusan 18 Oktober 2026 (otorisasi Setya)**
+
+Untuk builtin integer signed maupun unsigned, `/` dan `%` dengan pembagi nol menghasilkan **defect runtime deterministik yang tidak dapat dipulihkan**, baik debug maupun release. Aturan yang sama berlaku pada `/=` dan `%=`. Pembagi berupa literal nol, hasil ekspresi konstan, maupun nilai dinamis tidak mendapat kebijakan penolakan kompilasi khusus: bila ekspresi itu sah menurut aturan konteks yang sudah ada dan benar-benar dievaluasi, eksekusi menghentikan proses sebelum operasi pembagian/remainder yang tidak valid. Ekspresi dalam cabang atau operan short-circuit yang tidak dievaluasi tidak menimbulkan defect. Aturan literal-only pada initializer `static` dan pembatasan konteks lain tidak dilonggarkan.
+
+Defect menulis diagnostik pembagi nol ke stderr dan menghentikan proses dengan status nonzero; tidak menghasilkan nilai, tidak melanjutkan eksekusi, dan tidak menjanjikan unwind atau destructor cleanup. Nomor exit/signal bukan kontrak lintas platform. Lowering tidak boleh menyerahkan operand tidak valid kepada LLVM, termasuk pada operasi yang akhirnya tidak dijalankan. Kebijakan ini mempertahankan Safe (tidak ada undefined behavior) dan Simple (satu aturan untuk konstanta/dinamis dan kedua profil), tanpa mengubah sintaks.
+
+Operasi floating-point tetap mengikuti IEEE-754; aturan defect integer ini tidak diterapkan pada float. Overflow signed `MIN / -1` dan `MIN % -1` tetap mengikuti §19: debug defect, release quotient MIN dan remainder 0. Ini bukan perubahan aturan overflow yang sudah diratifikasi.
+
+**Batas penerimaan:** keputusan ini selaras dengan arah implementasi PR #23, tetapi PR tersebut masih terbuka dan belum menjadi bukti penerimaan pada `main`; ledger mencatat pembagi nol sebagai keputusan, bukan penerimaan compiler. Profil target debug dan kepatuhan overflow tetap harus diuji terpisah.
+
 **Bertahap**
 
 | Grup | Isi |

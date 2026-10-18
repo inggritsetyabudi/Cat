@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import subprocess
 import shutil
+import json
 import sys
 import tempfile
 import unittest
@@ -17,10 +18,20 @@ class TestFeatureStatusValidator(unittest.TestCase):
         self.addCleanup(shutil.rmtree, temp)
         (temp / "cat-northstar").mkdir(); (temp / "claw/tests/frontend/fixtures").mkdir(parents=True)
         (temp / "cat-northstar/PRD.md").write_text("\n".join(f"## {n}. Requirement {n}" for n in prd_numbers) + "\n", encoding="utf-8")
+        (temp / "cat-northstar/ROADMAP-v1-plus.md").write_text("# Post-v1\n", encoding="utf-8")
+        plan = ["## 2. Perubahan global\n", "| # | Perubahan | Versi |\n", "| --- | --- | --- |\n"] + [f"| G{i} | change | v0.1 |\n" for i in range(1, 9)] + ["## 4. Milestone final v0.1 sampai v1.0\n", "| Versi | Isi | Bukti |\n", "| --- | --- | --- |\n"] + [f"| {'v1.0' if i == 10 else f'v0.{i}'} | milestone | proof |\n" for i in range(1, 11)]
+        (temp / "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md").write_text("".join(plan), encoding="utf-8")
         (temp / "evidence.md").write_text("# Evidence\n\n## Proof\n", encoding="utf-8")
         (temp / "claw/tests/frontend/fixtures/g2.cat").write_text("fixture\n", encoding="utf-8")
+        (temp / "claw/tests/frontend/run_fixture.sh").write_text("run g2.cat\nassertion text\n", encoding="utf-8")
         content = "# Feature status\n\n| ID | Sumber | Irisan | Label | Keputusan semantik | Lingkup implementasi | Bukti penerimaan | Sisa | Dimensi non-compiler |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n" + "\n".join(rows) + "\n" + extra
         (temp / "cat-northstar/FEATURE-STATUS.md").write_text(content, encoding="utf-8")
+        atoms = {}
+        for i, source in enumerate(["PRD:1", "PRD:2"] + [f"PLAN:G{i}" for i in range(1, 9)] + [f"PLAN:M{i:02d}" for i in range(1, 11)]):
+            atom = {"source_anchor": f"cat-northstar/PRD.md#{source.split(':')[1]}-requirement-{source.split(':')[1]}" if source.startswith("PRD:") else ("cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global" if source.startswith("PLAN:G") else "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10"), "fixtures": [], "assertions": []}
+            if i == 0 and any("[diterima compiler]" in row for row in rows): atom.update(fixtures=["claw/tests/frontend/fixtures/g2.cat"], assertions=[{"path": "claw/tests/frontend/run_fixture.sh", "text": "assertion text"}])
+            atoms[f"G2-F{i:02d}"] = atom
+        (temp / "cat-northstar/feature-status-atoms.json").write_text(json.dumps(atoms), encoding="utf-8")
         return temp
 
     def valid_rows(self, accepted=False):
@@ -29,7 +40,13 @@ class TestFeatureStatusValidator(unittest.TestCase):
         for i, source in enumerate(sources):
             label = "[diterima compiler]" if accepted and i == 0 else "[diusulkan]"
             scope = "Teruji: fixture boundary" if label == "[diterima compiler]" else "Belum diimplementasikan"
-            evidence = "[proof](../evidence.md#proof) [fixture](../claw/tests/frontend/fixtures/g2.cat)" if label == "[diterima compiler]" else "[context](../evidence.md#proof)"
+            evidence = "[proof](../evidence.md#proof) [fixture](../claw/tests/frontend/fixtures/g2.cat) [runner](../claw/tests/frontend/run_fixture.sh)" if label == "[diterima compiler]" else "[context](../evidence.md#proof)"
+            if source.startswith("PRD:"):
+                number = source.split(":")[1]
+                evidence += f" [source](PRD.md#{number}-requirement-{number})"
+            else:
+                anchor = "2-perubahan-global" if source.startswith("PLAN:G") else "4-milestone-final-v01-sampai-v10"
+                evidence += f" [source](PRD-CHANGES-v0.1-to-v1.0.md#{anchor})"
             rows.append(f"| G2-F{i:02d} | {source} | overlap | {label} | keputusan terbatas | {scope} | {evidence} | pending limitation | docs only |")
         return rows
 
@@ -93,7 +110,7 @@ class TestFeatureStatusValidator(unittest.TestCase):
         rows[0] = rows[0].replace(" [fixture](../claw/tests/frontend/fixtures/g2.cat)", "")
         result = self.validate_cli(self.make_repo(rows))
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("accepted evidence must reference", result.stderr)
+        self.assertTrue(any(x in result.stderr for x in ("accepted evidence must reference", "fixture is not linked")))
 
     def test_residual_universal_is_not_an_implementation_claim(self):
         rows = self.valid_rows(accepted=True)
@@ -105,7 +122,89 @@ class TestFeatureStatusValidator(unittest.TestCase):
         rows = self.valid_rows(); rows[0] = rows[0].replace("evidence.md#proof", "evidence.md#absent")
         self.assertIn("anchor not found", self.validate_cli(self.make_repo(rows)).stderr)
         rows = self.valid_rows(); rows[0] = rows[0].replace("[context](../evidence.md#proof)", "no linked evidence")
+        rows[0] = rows[0].replace(" [source](PRD.md#1-requirement-1)", "")
         self.assertIn("needs a local Markdown link", self.validate_cli(self.make_repo(rows)).stderr)
+
+    def test_manifest_rejects_wrong_heading_missing_atom_and_evidence_mismatches(self):
+        root = self.make_repo(self.valid_rows(accepted=True))
+        manifest = json.loads((root / "cat-northstar/feature-status-atoms.json").read_text())
+        manifest["G2-F00"]["source_anchor"] = "cat-northstar/PRD.md#2-requirement-2"
+        (root / "cat-northstar/feature-status-atoms.json").write_text(json.dumps(manifest))
+        self.assertIn("does not match PRD:1", self.validate_cli(root).stderr)
+        del manifest["G2-F01"]
+        (root / "cat-northstar/feature-status-atoms.json").write_text(json.dumps(manifest))
+        self.assertIn("manifest missing atom", self.validate_cli(root).stderr)
+        manifest["G2-F01"] = {"source_anchor": "cat-northstar/PRD.md#2-requirement-2", "fixtures": [], "assertions": []}
+        manifest["G2-F00"]["fixtures"] = ["claw/tests/frontend/fixtures/missing.cat"]
+        (root / "cat-northstar/feature-status-atoms.json").write_text(json.dumps(manifest))
+        result = self.validate_cli(root)
+        self.assertTrue(any(x in result.stderr for x in ("fixture does not exist", "fixture is not linked")))
+
+    def test_manifest_rejects_runner_and_assertion_mismatch(self):
+        root = self.make_repo(self.valid_rows(accepted=True))
+        manifest = json.loads((root / "cat-northstar/feature-status-atoms.json").read_text())
+        manifest["G2-F00"]["assertions"][0]["text"] = "not present"
+        (root / "cat-northstar/feature-status-atoms.json").write_text(json.dumps(manifest))
+        self.assertIn("assertion text not found", self.validate_cli(root).stderr)
+
+    def test_manifest_schema_types_and_empty_accepted_arrays_do_not_crash(self):
+        root = self.make_repo(self.valid_rows(accepted=True))
+        path = root / "cat-northstar/feature-status-atoms.json"; manifest = json.loads(path.read_text())
+        manifest["G2-F00"]["fixtures"] = "not-an-array"; manifest["G2-F00"]["assertions"] = ["bad-item"]
+        path.write_text(json.dumps(manifest)); result = self.validate_cli(root)
+        self.assertNotEqual(result.returncode, 0); self.assertIn("fixtures must be", result.stderr)
+        manifest["G2-F00"]["fixtures"] = []; manifest["G2-F00"]["assertions"] = []
+        path.write_text(json.dumps(manifest)); self.assertIn("must be nonempty", self.validate_cli(root).stderr)
+
+    def test_manifest_requires_exact_fixture_and_runner_links(self):
+        root = self.make_repo(self.valid_rows(accepted=True)); path = root / "cat-northstar/feature-status-atoms.json"
+        manifest = json.loads(path.read_text()); manifest["G2-F00"]["fixtures"] = ["claw/tests/frontend/other/g2.cat"]
+        (root / "claw/tests/frontend/other").mkdir(); (root / "claw/tests/frontend/other/g2.cat").write_text("x")
+        path.write_text(json.dumps(manifest)); self.assertIn("fixture is not linked", self.validate_cli(root).stderr)
+        rows = self.valid_rows(accepted=True); rows[0] = rows[0].replace(" [runner](../claw/tests/frontend/run_fixture.sh)", "")
+        (root / "cat-northstar/FEATURE-STATUS.md").write_text((root / "cat-northstar/FEATURE-STATUS.md").read_text().replace(self.valid_rows(accepted=True)[0], rows[0]))
+        self.assertIn("runner is not linked", self.validate_cli(root).stderr)
+
+    def test_plan_actual_mapping_and_wrong_section_are_checked(self):
+        root = self.make_repo(self.valid_rows()); path = root / "cat-northstar/feature-status-atoms.json"; manifest = json.loads(path.read_text())
+        manifest["G2-F02"]["source_anchor"] = "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10"; path.write_text(json.dumps(manifest))
+        self.assertIn("§2 heading", self.validate_cli(root).stderr)
+
+    def test_malformed_sources_report_errors_without_traceback(self):
+        for bad in ("PRD:x", "PLAN:Gx", "PLAN:Mxx", "missing-colon"):
+            with self.subTest(source=bad):
+                rows = self.valid_rows(); rows[0] = rows[0].replace("PRD:1", bad)
+                result = self.validate_cli(self.make_repo(rows))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("invalid source", result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
+    def test_existing_but_unrelated_runner_assertion_is_rejected(self):
+        root = self.make_repo(self.valid_rows(accepted=True))
+        (root / "claw/tests/frontend/run_fixture.sh").write_text(
+            'run_check_pass "first" "g2.cat"\nfirst assertion\n'
+            'run_check_pass "second" "other.cat"\nother assertion\n')
+        path = root / "cat-northstar/feature-status-atoms.json"
+        manifest = json.loads(path.read_text())
+        manifest["G2-F00"]["assertions"][0]["text"] = "other assertion"
+        path.write_text(json.dumps(manifest))
+        result = self.validate_cli(root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("same bounded runner block", result.stderr)
+        manifest["G2-F00"]["assertions"][0]["text"] = "first assertion"
+        path.write_text(json.dumps(manifest))
+        self.assertEqual(self.validate_cli(root).returncode, 0)
+
+    def test_continued_command_assertion_is_accepted(self):
+        root = self.make_repo(self.valid_rows(accepted=True))
+        command = 'run_check_fail "first" ' + '\\' + '\n  "g2.cat" ' + '\\' + '\n  "expected diagnostic"'
+        (root / "claw/tests/frontend/run_fixture.sh").write_text(command + "\n")
+        path = root / "cat-northstar/feature-status-atoms.json"
+        manifest = json.loads(path.read_text())
+        manifest["G2-F00"]["assertions"][0]["text"] = command
+        path.write_text(json.dumps(manifest))
+        result = self.validate_cli(root)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
