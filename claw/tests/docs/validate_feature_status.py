@@ -60,7 +60,7 @@ def _source_number(source_cell: str) -> str:
     value = value[1:] if value[:1] in {"G", "M"} else value
     return str(int(value))
 
-def _source_anchor_ok(root: Path, source_cell: str, source_anchor: str, line: int) -> None:
+def _source_anchor_ok(root: Path, source_cell: str, source_anchor: str, line: int, atom_id: str | None = None) -> None:
     if not SOURCE_RE.fullmatch(source_cell):
         raise ValidationError(f"line {line}: invalid source: {source_cell}")
     if "#" not in source_anchor:
@@ -68,6 +68,19 @@ def _source_anchor_ok(root: Path, source_cell: str, source_anchor: str, line: in
     raw_path, anchor = source_anchor.split("#", 1)
     _manifest_source(root, raw_path + "#" + anchor, anchor, line)
     path = (root / raw_path).resolve()
+    # These two atoms keep M02 as staging, but their normative rule is §3/S76.
+    # Do not extend this exception to the milestone itself or other PLAN rows.
+    if atom_id in {"G2-PLAN-M02-IMPLICIT-TAIL", "G2-PLAN-M02-IMPLICIT-WARNING"}:
+        normative_anchor = "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd"
+        if source_cell != "PLAN:M02" or source_anchor != normative_anchor:
+            raise ValidationError(f"line {line}: {atom_id} requires PLAN:M02 staging and normative §3 implicit-return source")
+        lines = path.read_text(encoding="utf-8").splitlines()
+        start = next(i for i, raw in enumerate(lines) if (m := HEADING_RE.match(raw)) and github_slug(m.group(1)) == anchor)
+        end = next((i for i in range(start + 1, len(lines)) if HEADING_RE.match(lines[i])), len(lines))
+        requirement = "| 33 | Implicit return | Hanya ekspresi terakhir blok | D v0.1, K v0.2 | ekspresi di tengah blok → peringatan |"
+        if requirement not in lines[start:end]:
+            raise ValidationError(f"line {line}: {atom_id} exact normative implicit-return row not found in §3")
+        return
     numbers = heading_numbers(path).get(anchor, set())
     expected = _source_number(source_cell)
     if not source_cell.startswith("PLAN:") and (path != (root / "cat-northstar/PRD.md").resolve() or not anchor.startswith(expected + "-")):
@@ -152,7 +165,7 @@ def _validate_manifest(root: Path, rows: list[tuple[int, list[str]]], errors: li
         source_anchor = atom.get("source_anchor")
         if not isinstance(source_anchor, str): errors.append(f"line {line}: manifest atom {key} source_anchor must be a string")
         else:
-            try: _source_anchor_ok(root, cells[1], source_anchor, line)
+            try: _source_anchor_ok(root, cells[1], source_anchor, line, key)
             except ValidationError as exc: errors.append(str(exc))
         fixtures = atom.get("fixtures")
         assertions = atom.get("assertions")

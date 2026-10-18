@@ -1968,134 +1968,134 @@
       "id": "G2-PLAN-G2",
       "source": "PLAN:G2",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
-      "requirement_description": "Pemetaan PLAN tersebut tepat untuk perubahan teks v0.1; hal itu bukan implikasi bahwa compiler telah selesai.",
-      "source_excerpt": "**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom"
+      "requirement_description": "Tiap fitur diberi satu label status: `[diterima compiler]`, `[diusulkan]`, `[diputuskan]`",
+      "source_excerpt": "| G2 | Tiap fitur diberi satu label status: `[diterima compiler]`, `[diusulkan]`, `[diputuskan]` | v0.1 |"
     },
     {
       "id": "G2-PLAN-G3",
       "source": "PLAN:G3",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
-      "requirement_description": "Pemetaan PLAN tersebut tepat untuk perubahan teks v0.1; hal itu bukan implikasi bahwa compiler telah selesai.",
-      "source_excerpt": "**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom"
+      "requirement_description": "Tulis ulang semua `Tipe(field: ...)` menjadi `Tipe.new(...)` (di dalam modul pendefinisi boleh literal `Tipe { ... }`)",
+      "source_excerpt": "| G3 | Tulis ulang semua `Tipe(field: ...)` menjadi `Tipe.new(...)` (di dalam modul pendefinisi boleh literal `Tipe { ... }`) | v0.1 |"
     },
     {
       "id": "G2-PLAN-G4",
       "source": "PLAN:G4",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
-      "requirement_description": "Pemetaan PLAN tersebut tepat untuk perubahan teks v0.1; hal itu bukan implikasi bahwa compiler telah selesai.",
-      "source_excerpt": "**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom"
+      "requirement_description": "Terapkan aturan huruf: kapital hanya nama tipe + `Ok/Fail/Some/None`; varian buatan pengguna huruf kecil",
+      "source_excerpt": "| G4 | Terapkan aturan huruf: kapital hanya nama tipe + `Ok/Fail/Some/None`; varian buatan pengguna huruf kecil | v0.1 |"
     },
     {
       "id": "G2-PLAN-G5",
       "source": "PLAN:G5",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
-      "requirement_description": "Pemetaan PLAN tersebut tepat untuk perubahan teks v0.1; hal itu bukan implikasi bahwa compiler telah selesai.",
-      "source_excerpt": "**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom"
+      "requirement_description": "`Maybe[T]` dengan varian `Some`/`None` sudah dipakai PRD (contoh `Maybe[ref Node]`); pastikan tidak ada sisa nama `Option`",
+      "source_excerpt": "| G5 | `Maybe[T]` dengan varian `Some`/`None` sudah dipakai PRD (contoh `Maybe[ref Node]`); pastikan tidak ada sisa nama `Option` | v0.1 |"
     },
     {
       "id": "G2-PLAN-G6",
       "source": "PLAN:G6",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
-      "requirement_description": "Pemetaan PLAN tersebut tepat untuk perubahan teks v0.1; hal itu bukan implikasi bahwa compiler telah selesai.",
-      "source_excerpt": "**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom"
+      "requirement_description": "Satu contoh `main` kanonis: `fn main() -> Int32` dengan `return 0`; `fn main() {}` ditandai varian sah",
+      "source_excerpt": "| G6 | Satu contoh `main` kanonis: `fn main() -> Int32` dengan `return 0`; `fn main() {}` ditandai varian sah | v0.1 |"
     },
     {
       "id": "G2-PLAN-G7",
       "source": "PLAN:G7",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
-      "requirement_description": "Pemetaan PLAN tersebut tepat untuk perubahan teks v0.1; hal itu bukan implikasi bahwa compiler telah selesai.",
-      "source_excerpt": "**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom"
+      "requirement_description": "Normalisasi encoding dokumen ringkas ke UTF-8; dokumen ringkas dibuat otomatis dari baris `Ringkas:`",
+      "source_excerpt": "| G7 | Normalisasi encoding dokumen ringkas ke UTF-8; dokumen ringkas dibuat otomatis dari baris `Ringkas:` | v0.1 |"
     },
     {
       "id": "G2-PLAN-G8",
       "source": "PLAN:G8",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#2-perubahan-global-berlaku-di-seluruh-prd",
-      "requirement_description": "Pemetaan PLAN tersebut tepat untuk perubahan teks v0.1; hal itu bukan implikasi bahwa compiler telah selesai.",
-      "source_excerpt": "**G2:** [FEATURE-STATUS.md](FEATURE-STATUS.md) adalah rumah kanonik status per irisan yang dapat diuji mandiri. Keputusan semantik, lingkup implementasi, bukti penerimaan, sisa, dan dimensi non-compiler memiliki kolom"
+      "requirement_description": "Tidak ada `modules.cat`, `pub`, atau `realm` di contoh mana pun",
+      "source_excerpt": "| G8 | Tidak ada `modules.cat`, `pub`, atau `realm` di contoh mana pun | v0.1 |"
     },
     {
       "id": "G2-PLAN-M01",
       "source": "PLAN:M01",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
-      "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
+      "requirement_description": "v0.1: Seluruh perubahan teks PRD (kolom D), doc-test terpasang, modularitas (K), aturan `new`. Bukti selesai: Semua blok `cat` lulus; blok `error:` ditolak.",
+      "source_excerpt": "| v0.1 | Seluruh perubahan teks PRD (kolom D), doc-test terpasang, modularitas (K), aturan `new` | Semua blok `cat` lulus; blok `error:` ditolak |"
     },
     {
       "id": "G2-PLAN-M02",
       "source": "PLAN:M02",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
-      "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
+      "requirement_description": "v0.2: Operator grup A–B, `if`/`pick` ekspresi, `Never`, aturan `try`, implicit return. Bukti selesai: Tes tabel presedensi, tes cabang.",
+      "source_excerpt": "| v0.2 | Operator grup A–B, `if`/`pick` ekspresi, `Never`, aturan `try`, implicit return | Tes tabel presedensi, tes cabang |"
     },
     {
       "id": "G2-PLAN-M02-IMPLICIT-TAIL",
       "source": "PLAN:M02",
-      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
       "requirement_description": "Hanya ekspresi terakhir blok menjadi implicit return; ekspresi perantara bukan return implisit.",
-      "source_excerpt": "| v0.2 | Operator grup A–B, `if`/`pick` ekspresi, `Never`, aturan `try`, implicit return | Tes tabel presedensi, tes cabang |"
+      "source_excerpt": "Hanya ekspresi terakhir blok"
     },
     {
       "id": "G2-PLAN-M02-IMPLICIT-WARNING",
       "source": "PLAN:M02",
-      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+      "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
       "requirement_description": "Ekspresi di tengah blok menghasilkan peringatan, bukan menjadi implicit return.",
-      "source_excerpt": "| v0.2 | Operator grup A–B, `if`/`pick` ekspresi, `Never`, aturan `try`, implicit return | Tes tabel presedensi, tes cabang |"
+      "source_excerpt": "ekspresi di tengah blok → peringatan"
     },
     {
       "id": "G2-PLAN-M03",
       "source": "PLAN:M03",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
-      "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
+      "requirement_description": "v0.3: Tuple, range, `scan item, i`, literal koleksi, `Array[T, N]`, pattern penuh, slicing. Bukti selesai: Tes properti exhaustiveness.",
+      "source_excerpt": "| v0.3 | Tuple, range, `scan item, i`, literal koleksi, `Array[T, N]`, pattern penuh, slicing | Tes properti exhaustiveness |"
     },
     {
       "id": "G2-PLAN-M04",
       "source": "PLAN:M04",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
-      "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
+      "requirement_description": "v0.4: Radix, `_`, suffix, `Char`, escape, f-string, `///`. Bukti selesai: Tes tabel lexer.",
+      "source_excerpt": "| v0.4 | Radix, `_`, suffix, `Char`, escape, f-string, `///` | Tes tabel lexer |"
     },
     {
       "id": "G2-PLAN-M05",
       "source": "PLAN:M05",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
-      "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
+      "requirement_description": "v0.5: Operator grup C–D, generic `with`, aturan orphan, kontrak operator, `@constructor`, closure. Bukti selesai: Boilerplate `new` hilang; `map`/`filter` dengan closure berjalan.",
+      "source_excerpt": "| v0.5 | Operator grup C–D, generic `with`, aturan orphan, kontrak operator, `@constructor`, closure | Boilerplate `new` hilang; `map`/`filter` dengan closure berjalan |"
     },
     {
       "id": "G2-PLAN-M06",
       "source": "PLAN:M06",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
-      "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
+      "requirement_description": "v0.6: `foreign c`, annotation bawaan. Bukti selesai: Tes negatif FFI.",
+      "source_excerpt": "| v0.6 | `foreign c`, annotation bawaan | Tes negatif FFI |"
     },
     {
       "id": "G2-PLAN-M07",
       "source": "PLAN:M07",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
-      "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
+      "requirement_description": "v0.7: **Borrow checker dataflow** (CFG, liveness) menggantikan versi per blok. Bukti selesai: Suite tes negatif Safe tetap ditolak; program valid yang dulu ditolak kini lolos.",
+      "source_excerpt": "| v0.7 | **Borrow checker dataflow** (CFG, liveness) menggantikan versi per blok | Suite tes negatif Safe tetap ditolak; program valid yang dulu ditolak kini lolos |"
     },
     {
       "id": "G2-PLAN-M08",
       "source": "PLAN:M08",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
+      "requirement_description": "v0.8: **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman. Bukti selesai: Benchmark inti; IR dibandingkan dengan C setara.",
       "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
     },
     {
       "id": "G2-PLAN-M09",
       "source": "PLAN:M09",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
-      "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
+      "requirement_description": "v0.9: Pengerasan: fuzzing parser, audit Arena, uji ketahanan. Bukti selesai: Tidak ada crash dari input acak.",
+      "source_excerpt": "| v0.9 | Pengerasan: fuzzing parser, audit Arena, uji ketahanan | Tidak ada crash dari input acak |"
     },
     {
       "id": "G2-PLAN-M10",
       "source": "PLAN:M10",
       "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
-      "requirement_description": "Urutan milestone merupakan batas keputusan, bukan bukti implementasi otomatis.",
-      "source_excerpt": "| v0.8 | **Optimasi release**: overflow wrap tanpa cek, `noalias` untuk `ref mut`, cek batas dibuang bila terbukti aman | Benchmark inti; IR dibandingkan dengan C setara |"
+      "requirement_description": "**v1.0**: Gerbang rilis. Bukti selesai: Daftar periksa di bawah.",
+      "source_excerpt": "| **v1.0** | Gerbang rilis | Daftar periksa di bawah |"
     }
   ]
 }

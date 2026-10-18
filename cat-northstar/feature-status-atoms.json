@@ -1933,7 +1933,7 @@
     "assertions": []
   },
   "G2-PLAN-M02-IMPLICIT-TAIL": {
-    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
     "fixtures": [
       "claw/tests/native/fixtures/revise_implicit_return.cat",
       "claw/tests/frontend/fixtures/revise_bad_implicit_return.cat"
@@ -1950,7 +1950,7 @@
     ]
   },
   "G2-PLAN-M02-IMPLICIT-WARNING": {
-    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10",
+    "source_anchor": "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd",
     "fixtures": [
       "claw/tests/native/fixtures/revise_implicit_return.cat"
     ],

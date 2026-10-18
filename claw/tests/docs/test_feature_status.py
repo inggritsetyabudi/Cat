@@ -211,5 +211,76 @@ class TestFeatureStatusValidator(unittest.TestCase):
         result = self.validate_cli(root)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def implicit_source_repo(self, suffix="TAIL", ident=None, source="PLAN:M02", anchor=None):
+        root = self.make_repo(self.valid_rows())
+        ident = ident or f"G2-PLAN-M02-IMPLICIT-{suffix}"
+        anchor = anchor or "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#3-perubahan-per-bagian-prd"
+        plan_path = root / "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md"
+        plan = plan_path.read_text()
+        section = "## 3. Perubahan per bagian PRD\n\n| 33 | Implicit return | Hanya ekspresi terakhir blok | D v0.1, K v0.2 | ekspresi di tengah blok → peringatan |\n\n"
+        plan_path.write_text(plan.replace("## 4.", section + "## 4.", 1))
+        ledger = root / "cat-northstar/FEATURE-STATUS.md"
+        link = anchor.removeprefix("cat-northstar/")
+        ledger.write_text(ledger.read_text() + f"| {ident} | {source} | implicit return | [diputuskan] | keputusan terbatas | Belum dikreditkan | [source]({link}) | pending limitation | docs only |\n")
+        manifest_path = root / "cat-northstar/feature-status-atoms.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest[ident] = {"source_anchor": anchor, "fixtures": [], "assertions": []}
+        manifest_path.write_text(json.dumps(manifest))
+        index_path = root / "cat-northstar/feature-status-source-index.json"
+        index = json.loads(index_path.read_text())
+        excerpt = "Hanya ekspresi terakhir blok" if suffix == "TAIL" else "ekspresi di tengah blok → peringatan"
+        if "#4-" in anchor:
+            excerpt = "milestone"
+        index["atoms"].append({"id": ident, "source": source, "source_anchor": anchor, "requirement_description": "Test implicit-return requirement", "source_excerpt": excerpt})
+        index_path.write_text(json.dumps(index))
+        return root
+
+    def test_implicit_normative_section3_passes_for_both_exact_ids(self):
+        for suffix in ("TAIL", "WARNING"):
+            with self.subTest(suffix=suffix):
+                result = self.validate_cli(self.implicit_source_repo(suffix))
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_implicit_exception_does_not_apply_to_other_ids(self):
+        for ident in ("G2-PLAN-M02", "G2-PLAN-M02-IMPLICIT-OTHER", "G2-PLAN-M02-IMPLICIT-TAIL-EXTRA"):
+            with self.subTest(ident=ident):
+                result = self.validate_cli(self.implicit_source_repo(ident=ident))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("§4 heading", result.stderr)
+
+    def test_implicit_exception_requires_m02_staging(self):
+        for suffix in ("TAIL", "WARNING"):
+            with self.subTest(suffix=suffix):
+                result = self.validate_cli(self.implicit_source_repo(suffix, source="PLAN:M03"))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("requires PLAN:M02 staging", result.stderr)
+
+    def test_implicit_old_milestone_anchor_is_not_normative(self):
+        for suffix in ("TAIL", "WARNING"):
+            with self.subTest(suffix=suffix):
+                result = self.validate_cli(self.implicit_source_repo(suffix, anchor="cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md#4-milestone-final-v01-sampai-v10"))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("normative §3 implicit-return source", result.stderr)
+
+    def test_implicit_requires_exact_rule_and_warning_in_section3(self):
+        for old, new in (("Hanya ekspresi terakhir blok", "Setiap ekspresi blok"), ("ekspresi di tengah blok → peringatan", "tanpa peringatan"), ("| 33 | Implicit return", "| 34 | Implicit return")):
+            with self.subTest(mutation=old):
+                root = self.implicit_source_repo()
+                path = root / "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md"
+                path.write_text(path.read_text().replace(old, new))
+                result = self.validate_cli(root)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("exact normative implicit-return row not found", result.stderr)
+
+    def test_implicit_rule_outside_section3_is_rejected(self):
+        root = self.implicit_source_repo()
+        path = root / "cat-northstar/PRD-CHANGES-v0.1-to-v1.0.md"
+        text = path.read_text()
+        row = next(line for line in text.splitlines() if line.startswith("| 33 |"))
+        path.write_text(text.replace(row, "") + "\n" + row + "\n")
+        result = self.validate_cli(root)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("exact normative implicit-return row not found", result.stderr)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
