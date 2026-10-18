@@ -1,0 +1,7 @@
+import src.logic as logic
+
+fn main() -> Int32 {
+    println(logic.score(true, 4))
+    println(logic.score(false, 4))
+    return 0
+}

@@ -1,0 +1,15 @@
+choice Decision {
+    yes(value: Int32)
+    no(value: Int32)
+}
+
+share fn score(flag: Bool, base: Int32) -> Int32 {
+    val decision: Decision = if flag { yes(base) } else { no(base) }
+    val extra: Int32 = pick decision {
+        yes(value) { value + 2 }
+        no(value) { value - 2 }
+    }
+    var total: Int32 = 0
+    scan item over 0..=2 { total += item }
+    return extra + total
+}

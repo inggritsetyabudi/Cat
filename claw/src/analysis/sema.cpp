@@ -3057,7 +3057,11 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                                        currentSignature->returnType.viewKind.empty();
             const bool isTupleLiteral = dynamic_cast<TupleExpr*>(exprStmt->expr.get()) != nullptr;
             const bool needsTupleReturnContext = valueTail && isTupleReturn && isTupleLiteral;
-            const ResolvedType* expectedType = valueTail && (isControlValue || needsTupleReturnContext)
+            // Choice constructors need the declared return type, just as they
+            // do in an explicit return. Preserve other tail inference paths.
+            const bool needsChoiceReturnContext = valueTail && currentSignature->returnType.viewKind.empty() &&
+                                                  lookupChoice(currentSignature->returnType.name) != nullptr;
+            const ResolvedType* expectedType = valueTail && (isControlValue || needsTupleReturnContext || needsChoiceReturnContext)
                 ? &currentSignature->returnType
                 : nullptr;
             const ResolvedType exprType = analyzeExpr(exprStmt->expr.get(), expectedType, false, valueTail);
