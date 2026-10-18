@@ -1057,6 +1057,49 @@ if [[ "$if_pick_values_stdout" != "$expected_if_pick_values_stdout" ]]; then
   exit 1
 fi
 
+echo "[build/pass] test_native/revise_inline_value_composition.cat"
+inline_value_composition_output="$ARTIFACT_DIR/revise_inline_value_composition.exe"
+rm -f "$inline_value_composition_output" "${inline_value_composition_output%.exe}.ll"
+"$CLAW_EXE" build "$NATIVE_FIXTURE_DIR/revise_inline_value_composition.cat" "$inline_value_composition_output" >/dev/null
+expect_generated_ll "$inline_value_composition_output"
+if grep -Eq 'println\.void|void \(void\)' "${inline_value_composition_output%.exe}.ll"; then
+  echo "inline value composition emitted a malformed void println declaration or call" >&2
+  exit 1
+fi
+inline_value_composition_stdout="$(normalize_stdout "$inline_value_composition_output")"
+expected_inline_value_composition_stdout=$'1\n3\n5\n40\n7\n8\n9\n109\n10\n110\n11\n13\n120\nmark\n21\nif-owned-left\n1\npick-owned-left\n1\npick-owned-right\n1\nborrowed-left\nborrowed-right\nowned-right'
+expected_inline_value_composition_stdout+=$'\n2\n3\n14\nmark\n2\n33\n7\n15\nmark\n4\ndirect-borrow-left\ndirect-consume-left\n1\ndirect-if-left\n1\ndirect-borrow-right\ndirect-consume-right\n1\ndirect-if-right\n1\n31\n5\nprint-if-pick'
+expected_inline_value_composition_stdout+=$'\n5\n17\n9\n17'
+expected_inline_value_composition_stdout+=$'\n42\n1.5\n3.5\n23\n23'
+expected_inline_value_composition_stdout+=$'\n24\n1.5\n4.5'
+expected_inline_value_composition_stdout+=$'\n7.5'
+if [[ "$inline_value_composition_stdout" != "$expected_inline_value_composition_stdout" ]]; then
+  echo "inline value composition native output was unexpected:" >&2
+  printf '%s\n' "$inline_value_composition_stdout" >&2
+  exit 1
+fi
+inline_value_composition_sanitized="$CWD_TEST_DIR/revise_inline_value_composition_sanitized"
+if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address,undefined,leak -x c - -o "$CWD_TEST_DIR/inline_value_composition_sanitizer_probe" >/dev/null 2>&1; then
+  echo "[asan/ubsan/lsan/pass] inline value composition native output and ownership cleanup"
+  clang -Wno-override-module -fsanitize=address,undefined,leak -fno-omit-frame-pointer -O1 -g \
+    "${inline_value_composition_output%.exe}.ll" "$CLAW_DIR/runtime/native_runtime.c" -o "$inline_value_composition_sanitized"
+  ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+  UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+  LSAN_OPTIONS=exitcode=23 \
+    "$inline_value_composition_sanitized" > "$CWD_TEST_DIR/revise_inline_value_composition_sanitized.out"
+  inline_value_composition_sanitized_stdout="$(tr -d '\r' < "$CWD_TEST_DIR/revise_inline_value_composition_sanitized.out")"
+  if [[ "$inline_value_composition_sanitized_stdout" != "$expected_inline_value_composition_stdout" ]]; then
+    echo "sanitized inline value composition output was unexpected:" >&2
+    printf '%s\n' "$inline_value_composition_sanitized_stdout" >&2
+    exit 1
+  fi
+elif [[ "${OS:-}" == "Windows_NT" || "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
+  echo "[asan/ubsan/lsan/skip] sanitizer runtimes are unavailable on Windows"
+else
+  echo "sanitizer runtimes are required for inline value composition on this platform" >&2
+  exit 1
+fi
+
 if_pick_values_asan="$CWD_TEST_DIR/revise_if_pick_values_asan"
 if printf 'int main(void) { return 0; }\n' | clang -fsanitize=address -x c - -o "$CWD_TEST_DIR/asan_probe" >/dev/null 2>&1; then
   echo "[asan/pass] if/pick branch ownership cleanup"

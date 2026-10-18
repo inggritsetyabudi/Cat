@@ -1,0 +1,15 @@
+[
+  {"name":"normal_shape_borrowed_field","diagnostic":"shape 'Cache' cannot store borrowed field 'stored' of type ref Str. Normal shapes may outlive borrowed data. Hint: use `String` for owned text, or keep `Str` local and pass it directly.","line":2,"column":5},
+  {"name":"partial_move_borrowed_owner","diagnostic":"Cannot move `owner` while `owner` is still borrowed. Hint: end the view's scope before moving or replacing its owner.","line":4,"column":17},
+  {"name":"tuple_owned_partial_move","diagnostic":"Cannot move an owned tuple field through numeric projection; destructure the tuple instead.","line":4,"column":17},
+  {"name":"if_branch_type_mismatch","diagnostic":"Incompatible branch types in if expression: Int32 and ref Str.","line":2,"column":20},
+  {"name":"if_missing_else","diagnostic":"'if' as a value requires an 'else' branch.","line":2,"column":20},
+  {"name":"try_var_initializer","diagnostic":"`try` is only allowed in a `val` initializer. Use `val t = try ...` and then `var x = t`.","line":10,"column":5},
+  {"name":"try_shorthand_unit_function","diagnostic":"`try` shorthand requires the current function to return Result[T, E].","line":10,"column":5},
+  {"name":"try_error_mismatch","diagnostic":"`try` shorthand error type mismatch: expected Int32, got String","line":6,"column":5},
+  {"name":"result_must_use","diagnostic":"Unused Result[Int32, String] value. Handle it with `try`, `pick`, or bind it to `_` explicitly if you intend to ignore it.","line":10,"column":5},
+  {"name":"numeric_array_heterogeneous","diagnostic":"Fixed Array literal elements must have type Int32; got ref Str.","line":2,"column":22},
+  {"name":"pick_non_tuple_pattern","diagnostic":"Tuple pick pattern at value requires a tuple value, got integer literal.","line":3,"column":9},
+  {"name":"nested_tuple_pick_arity","diagnostic":"Tuple pick pattern at value.0 expects 1 field(s), but the tuple has 2.","line":4,"column":10},
+  {"name":"conditional_move","diagnostic":"Short-circuit right operand may conditionally move owned value -> anchor; use an explicit `if` for this ownership transfer.","line":7,"column":18}
+]

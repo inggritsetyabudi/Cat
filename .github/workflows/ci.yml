@@ -46,6 +46,36 @@ jobs:
           CLAW_EXE: ${{ github.workspace }}/claw/build-ci/claw
         run: bash claw/tests/run_all_tests.sh
 
+  linux-sanitizers:
+    name: Linux (Clang, ASan UBSan LSan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends clang cmake ninja-build
+
+      - name: Configure clean instrumented compiler
+        run: |
+          cmake -S claw -B claw/build-ci-sanitizers -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ \
+            '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer' \
+            '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined'
+
+      - name: Build compiler
+        run: cmake --build claw/build-ci-sanitizers --target claw --parallel 4
+
+      - name: Run complete suite with compiler leak detection
+        env:
+          CLAW_EXE: ${{ github.workspace }}/claw/build-ci-sanitizers/claw
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: bash claw/tests/run_all_tests.sh
+
   windows-ucrt64:
     name: Windows (MSYS2 UCRT64, Clang, Release)
     runs-on: windows-latest

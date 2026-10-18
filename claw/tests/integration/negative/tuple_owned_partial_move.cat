@@ -1,0 +1,6 @@
+fn seed(value: Int32) -> Int32 { value + 1 }
+fn main() {
+    val pair = (Anchor.new(seed(if true { 1 } else { 2 })), Anchor.new(3))
+    val first = pair.0
+    println(first.get())
+}

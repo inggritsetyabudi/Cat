@@ -55,6 +55,10 @@ fn main() -> Int32 {
 
 Function types, closures, broad generic function surfaces, and arbitrary ABI combinations are outside this bounded reference unless a named fixture covers them. Direct calls, the signatures used by ownership/scoped tests, and the native paths above are supported.
 
+`if` and `pick` values may be passed directly as call arguments; no intermediate `val` is required. Concrete parameter types still guide branch and literal checking. The dynamic parameter of builtin `print`/`println` supplies no expected type, so its argument must infer its own type. The [inline composition regression](claw/tests/native/fixtures/revise_inline_value_composition.cat) covers direct and nested branches, `UInt8` parameters, typed tuple/array arguments, terminating branches, and owned `String` cleanup.
+
+Builtin `print` and `println` require exactly one argument and only accept the current native runtime's scalar, string/slice, buffer, and pointer-handle domains; this is not general aggregate formatting. `Unit`, tuple, array, range, shape, choice, and `Float128` values are rejected at the argument's source location before LLVM/native generation. Unsupported print arguments must not merely pass `check` and fail later at the LLVM compiler or linker. A `Never` argument may terminate without making the print call. The [rejection matrix](claw/tests/frontend/run_inline_value_errors.py) checks diagnostics, source locations, and absence of generated artifacts across `check`, OIR, LLVM, and native build. This boundary does not prohibit supported aggregates as arguments to ordinary typed functions.
+
 ## Operators and expression boundaries
 
 The implemented expression subset includes arithmetic, comparisons, `not`/`and`/`or`, indexing, ranges, direct calls, assignment/compound assignment in tested forms, and `if`/`pick` values. The [operator A–B slice](changelog/2026-10-11-v0.2-operator-groups-a-b.md) establishes the following relative precedence, from stronger to weaker:

@@ -1,0 +1,52 @@
+choice Answer {
+    answer(value: Int32)
+}
+
+fn read(flag: Bool) -> Result[Int32, String] {
+    if flag {
+        return Ok(41)
+    }
+    return Fail(String.from("missing"))
+}
+
+fn load(flag: Bool) -> Result[Int32, String] {
+    val value = try read(flag)
+    Ok(value + 1)
+}
+
+fn absent() -> Maybe[Int32] {
+    None
+}
+
+fn present() -> Maybe[Int32] {
+    Some(5)
+}
+
+fn custom() -> Answer {
+    answer(9)
+}
+
+fn main() -> Int32 {
+    val result = load(true)
+    pick result {
+        Ok(value) { println(value) }
+        Fail(error) { println(error) }
+    }
+    val failed = load(false)
+    pick failed {
+        Ok(value) { println(value) }
+        Fail(error) { println(error) }
+    }
+    pick present() {
+        Some(value) { println(value) }
+        None { println("unexpected") }
+    }
+    pick absent() {
+        Some(value) { println(value) }
+        None { println("none") }
+    }
+    pick custom() {
+        answer(value) { println(value) }
+    }
+    return 0
+}

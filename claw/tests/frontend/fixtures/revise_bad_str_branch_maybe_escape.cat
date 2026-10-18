@@ -5,6 +5,9 @@ fn main() -> Int32 {
     } else {
         Some("static")
     }
-    println(carrier)
+    pick carrier {
+        Some(text) { println(text) }
+        None {}
+    }
     return 0
 }
