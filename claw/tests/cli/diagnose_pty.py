@@ -46,8 +46,12 @@ def main():
     compiler, silent, marker = map(str, map(Path, sys.argv[1:]))
     with tempfile.TemporaryDirectory() as temp:
         source = Path(temp) / "main.cat"
-        source.write_bytes(b"/*")
+        source.write_bytes((Path(__file__).resolve().parents[1] / "frontend" / "fixtures" /
+                            "lexer_unterminated_trailing.cat").read_bytes())
         source_arg = subprocess.check_output(["cygpath", "-w", str(source)], text=True).strip() if sys.platform.startswith(("msys", "cygwin")) else str(source)
+        for command in ([silent], [marker], [compiler, "check", source_arg]):
+            result = subprocess.run(command, capture_output=True, env=dict(os.environ, NO_COLOR="1", TERM="xterm"), timeout=30, check=False)
+            print("PIPE CONTROL", command, result.returncode, repr(result.stdout), repr(result.stderr), flush=True)
         for command in ([silent], [marker], [compiler, "check", source_arg]):
             for stdin_mode, stdout_mode, raw in [("inherit", "pty", False), ("null", "pty", False), ("slave", "pty", False), ("inherit", "file", False), ("null", "file", True), ("slave", "pty", True)]:
                 print("PROBE", command, stdin_mode, stdout_mode, "raw", raw, capture(command, stdin_mode, stdout_mode, raw), flush=True)
