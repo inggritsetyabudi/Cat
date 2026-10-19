@@ -12,7 +12,7 @@ import subprocess
 import threading
 import time
 import tty
-from typing import Mapping, Sequence
+from typing import BinaryIO, Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ def validate_startup(output: bytes) -> None:
 
 
 def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
-            timeout: float = 30) -> CaptureResult:
+            timeout: float = 30, stdout: BinaryIO | int | None = None) -> CaptureResult:
     """Establish a real console and acknowledge its barrier before launching command.
 
     All startup bytes must match the complete known handshake; all later bytes
@@ -148,7 +148,8 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
             validate_startup(bytes(startup))
             phase = "measured"
             activity = time.monotonic()
-        child = launch(list(command), stdin=subprocess.DEVNULL, stdout=slave, stderr=slave)
+        child = launch(list(command), stdin=subprocess.DEVNULL,
+                       stdout=slave if stdout is None else stdout, stderr=slave)
         os.close(slave)
         slave = -1
         while child.poll() is None:

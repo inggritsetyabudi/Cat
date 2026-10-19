@@ -36,3 +36,10 @@ The Windows PTY workflow previously combined an old fixed PR29 compiler with cur
 These flags select native optimization only. They do not implement pending PRD debug overflow defects, complete debug metadata/symbols, or other language-level debug/release semantics. No `-g` promise is made. Clang diagnostics remain genuine toolchain output and are not silently suppressed or restyled. On POSIX the hardened temporary descriptor still captures Clang stderr and replays it after the Clang process exits; internal Cat diagnostics are immediate, but live subprocess-stderr streaming is a residual. A blocking source error stops unsafe later stages; progress continuation does not mean compiling invalid code.
 
 This work does not change version, tag, release, language semantics, or PRD/G2 acceptance labels. It is a draft-review workstream, not authorization to merge.
+
+## Main integration and PTY measurement boundary
+Main `f1b74544f32b989d1c5c016fb552dd972edad9e0` was merged into the existing UI branch without rebasing or rewriting published commits. Backend fixed-stack changes remain identical to main; the UI workstream does not modify them.
+
+The CLI status capture now uses the established native console keeper/barrier on MSYS/Cygwin before measuring the child. Startup protocol bytes are retained separately, validated fail-closed, and never filtered from measured output. An optional stdout sink preserves the compiler stdout/stderr separation. Existing no-ANSI, palette, error, and status assertions are unchanged. POSIX capture is unchanged.
+
+The inherited Windows baseline-stack diagnostic oracle remains `0xC00000FD`. A run observing a different raw baseline exception is recorded as a failed diagnostic, not relaxed into a pass; independent comparison evidence is retained separately from UI acceptance. All updated-HEAD full-suite and review results must be read from the PR, not inferred from earlier SHA results.
