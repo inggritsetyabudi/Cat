@@ -178,14 +178,19 @@ def main():
                     raise RuntimeError('Negative observer control falsely accepted')
             result['observer_controls'][mode] = {'run': record, 'ledger': ledger, 'balanced_validator_rejected': mode != 'normal'}
         # Probe options through compilation AND execution, retaining objective SKIP evidence.
-        probe = root/'sanitizer-probe.c'; probe.write_text('int main(void) {return 0;}\n', encoding='ascii')
+        # An empty main can link without any sanitizer handlers and give a false
+        # availability PASS. Instrument the same production runtime used below,
+        # with a real allocation/copy/free caller; do not link the observer here.
+        probe = HERE/'observer_selftest.c'
         result['sanitizer_probes'] = {}; supported = []
         for option in ('address', 'undefined', 'leak', 'address,undefined,leak'):
             exe = root/('probe-' + option.replace(',', '-') + '.exe')
-            build = run([*cc, '-fsanitize=' + option, probe, '-o', exe])
+            build = run([*cc, '-O0', '-fsanitize=' + option, '-fno-omit-frame-pointer', probe, runtime, '-o', exe])
             executed = run([exe], SAN_ENV) if build['exit'] == 0 else None
-            ok = executed is not None and executed['exit'] == 0 and not executed['stderr_hex']
-            result['sanitizer_probes'][option] = {'build': build, 'run': executed, 'status': 'PASS' if ok else 'SKIP', 'meaning': 'availability probe, not corpus safety proof'}
+            ok = (executed is not None and executed['exit'] == 0 and not executed['stderr_hex']
+                  and bytes.fromhex(executed['stdout_hex']) == native_bytes(b'observer-selftest:ok\n'))
+            result['sanitizer_probes'][option] = {'build': build, 'run': executed, 'status': 'PASS' if ok else 'SKIP',
+                'meaning': 'actual production runtime instrumented, linked and allocation/copy/free caller executed; availability only, not corpus safety proof'}
             if ok: supported.append(option)
         require(windows or 'address,undefined,leak' in supported, 'Mandatory Linux target ASan/UBSan/LSan unavailable')
         # Use combined on Linux; on Windows exercise each actually available sanitizer.
