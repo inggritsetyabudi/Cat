@@ -113,3 +113,16 @@ PRD §6 menetapkan defect runtime untuk builtin integer `/`, `%`, `/=`, dan `%=`
 - **Fast:** selisih waktu ≤ 10% dari C setara (clang -O3) pada benchmark inti; release tanpa cek overflow; `noalias` aktif; tidak ada biaya runtime tersembunyi.
 - **Stabilitas:** setelah v1, perubahan yang merusak kode lama hanya lewat *edition* (lihat dokumen roadmap).
 - **Prasyarat self-hosting:** pustaka standar cukup (file I/O, string builder, `vec`, `map`).
+
+---
+
+### Prinsip lintas versi: desain mandiri mulai sekarang
+
+**Keputusan Setya — 19 Oktober 2026:** [prinsip normatif teknologi Cat yang mandiri](PRD.md#prinsip-normatif-teknologi-cat-yang-mandiri) berlaku langsung pada pekerjaan berikutnya, termasuk sebelum v0.5, dan terus berlaku setelah v1. Ini kebijakan desain/review, bukan fitur compiler tambahan, milestone baru, atau perubahan status G2.
+
+Penerimaan usulan teknologi berikutnya memerlukan:
+
+1. Masalah dan kebutuhan Cat, kontrak semantik/invariant, nama beserta alasannya, spesifikasi Cat, alternatif/trade-off, serta rencana implementasi mandiri dan tes positif/negatif yang relevan.
+2. Sumber konsep yang dipelajari dan penjelasan keputusan mandiri; review memastikan bukan copy-paste atau rename-only internal Rust. Istilah compiler umum tetap boleh digunakan, tetapi nama tidak menggantikan spesifikasi dan bukti kemandirian.
+3. Kriteria penerimaan eksplisit sebelum implementasi. Tujuan lebih baik daripada Rust harus dibatasi pada aspek tertentu; klaim pencapaian memerlukan tes/benchmark yang dapat direproduksi dengan baseline/versi, toolchain/konfigurasi, workload, metrik, dan hasil aktual. Belum ada klaim keunggulan dari keputusan ini.
+4. Pemisahan persetujuan desain dari bukti implementasi. Pipeline, urutan pass, dan nama tahap baru tidak ditentukan atau disetujui oleh prinsip ini; perubahan semantik material tetap memerlukan ratifikasi tersendiri. Tidak ada audit menyeluruh implementasi lama, promosi fitur pasca-v1, atau penandaan fitur selesai melalui perubahan dokumentasi ini.
