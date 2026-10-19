@@ -1,0 +1,50 @@
+name: PTY diagnosis
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows-pty:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            python
+      - name: Record environment and build independent native controls
+        run: |
+          uname -a
+          pacman -Q msys2-runtime python
+          printf 'MSYS=%s TERM=%s\n' "${MSYS-}" "${TERM-}"
+          printf '#include <stdio.h>\n#include <io.h>\nint main(void){return 0;}\n' > silent.c
+          clang silent.c -o silent.exe
+          printf '#include <stdio.h>\n#include <io.h>\nint main(void){fprintf(stderr,"NATIVE-MARKER stdin=%%d stdout=%%d stderr=%%d\\n",_isatty(0),_isatty(1),_isatty(2));return 0;}\n' > marker.c
+          clang marker.c -o marker.exe
+      - name: Exact clean main and PR29 snapshots, unchanged PTY assertion
+        run: |
+          set -euo pipefail
+          for sha in f3e9f54b7c5217d90622bea6093b35a2248bee70 12ab6f950e0f316560036caaa23f9295b2ad5967; do
+            git worktree add --detach "snapshot-$sha" "$sha"
+            git -C "snapshot-$sha" status --porcelain
+            cmake -S "snapshot-$sha/claw" -B "build-$sha" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
+            cmake --build "build-$sha" --target claw --parallel 4
+            echo "=== SNAPSHOT $sha ==="
+            python3 claw/tests/cli/diagnose_pty.py "$PWD/build-$sha/claw.exe" "$PWD/silent.exe" "$PWD/marker.exe"
+            set +e
+            CLAW_EXE="$PWD/build-$sha/claw.exe" bash "snapshot-$sha/claw/tests/frontend/run_lexer_comment_tests.sh"
+            result=$?
+            set -e
+            echo "UNCHANGED COMMENT SUITE $sha exit=$result"
+          done
