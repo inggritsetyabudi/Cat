@@ -19,6 +19,7 @@ void usage() {
     std::cerr << "Experimental, object-only LLVM C++ API PoC (not the production backend).\n"
               << "Usage: claw-llvm-poc <single-file.cat> -o <output.o> [--emit-ir <output.ll>]\n"
               << "       [--runtime-i32] [--arithmetic-i32] [--strings]\n"
+              << "       [--local-binding-keys] (locals only, not universal identity)\n"
               << "Link separately with the prebuilt runtime and LLD.\n";
 }
 }
@@ -35,6 +36,7 @@ int main(int argc, char** argv) {
     claw::experimental::llvm_cpp::ObjectOptions options;
     bool haveOutput = false;
     bool haveIr = false;
+    bool localBindingKeys = false;
     for (int i = 2; i < argc; ++i) {
         const std::string_view flag(argv[i]);
         if (flag == "-o" && i + 1 < argc && !haveOutput) {
@@ -49,6 +51,8 @@ int main(int argc, char** argv) {
             options.enableArithmeticI32 = true;
         } else if (flag == "--strings" && !options.enableStrings) {
             options.enableStrings = true;
+        } else if (flag == "--local-binding-keys" && !localBindingKeys) {
+            localBindingKeys = true;
         } else {
             usage();
             return 1;
@@ -87,7 +91,7 @@ int main(int argc, char** argv) {
             throw std::runtime_error("PoC supports standalone single-module files only; imports and workspaces are unsupported.");
         }
         auto& unit = project.units[project.entryIndex];
-        claw::frontend::SemanticAnalyzer sema(unit.importedBindings, project.target);
+        claw::frontend::SemanticAnalyzer sema(unit.importedBindings, project.target, localBindingKeys);
         sema.analyze(unit.ast.get());
         for (const auto& warning : sema.warnings()) {
             std::cerr << claw::frontend::formatDiagnostic(warning, unit.path.string(), unit.source) << '\n';

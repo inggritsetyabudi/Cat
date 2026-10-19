@@ -158,6 +158,10 @@ if(BUILD_TESTING)
     find_program(CLAW_POC_CC NAMES cc clang REQUIRED)
     add_executable(claw-llvm-poc-adapter-tests test_adapter.cpp)
     target_link_libraries(claw-llvm-poc-adapter-tests PRIVATE claw_llvm_cpp_adapter)
+    add_executable(claw-local-binding-identity-tests test_local_binding_identity.cpp)
+    target_link_libraries(claw-local-binding-identity-tests PRIVATE claw_frontend)
+    add_test(NAME llvm-cpp-local-binding-keys-metadata
+        COMMAND claw-local-binding-identity-tests "${CMAKE_CURRENT_BINARY_DIR}/local-binding-metadata")
     add_test(NAME llvm-cpp-sdk-version
         COMMAND claw-llvm-sdk-version-probe)
     set_tests_properties(llvm-cpp-sdk-version PROPERTIES

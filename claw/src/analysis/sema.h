@@ -36,7 +36,9 @@ struct NamedBorrowScope {
 
 class SemanticAnalyzer {
 public:
-    explicit SemanticAnalyzer(std::vector<ImportedBinding> importedBindings = {}, TargetSpec target = defaultTargetSpec());
+    // Experimental metadata only; formal parameters and synthetic storage are
+    // outside this local-declaration option. Production callers keep it off.
+    explicit SemanticAnalyzer(std::vector<ImportedBinding> importedBindings = {}, TargetSpec target = defaultTargetSpec(), bool canonicalLocalBindings = false);
 
     void analyze(RealmDecl* realm);
     const std::vector<Diagnostic>& warnings() const;
@@ -69,6 +71,7 @@ private:
     int rawDepth = 0;
     int nextScanBindingIdentity = 0;
     int nextLocalBindingIdentity = 0;
+    bool canonicalLocalBindings = false;
     std::vector<std::string> activeNamedScopes;
     int lexicalScopeDepth = 0;
     std::vector<NamedBorrowScope> namedBorrowScopes;

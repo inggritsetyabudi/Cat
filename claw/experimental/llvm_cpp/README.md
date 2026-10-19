@@ -247,3 +247,22 @@ empat penolakan tanpa output dan dua positive shadow controls. Corpus serta
 13 gate sebelumnya tetap utuh. Jalankan bersama `llvm-cpp-poc-strings` pada
 build yang menyiapkan runtime archive; detail stop condition dan desain identity
 yang masih harus dibuktikan terdapat dalam changelog, bukan dukungan baru.
+
+## Metadata identitas lokal opt-in — bukan identity universal
+
+[Milestone lokal](../../../changelog/2026-10-19-opt-in-local-binding-keys.md)
+menambahkan `--local-binding-keys` pada driver PoC saja. Token dibuat di sema
+pada deklarasi lokal yang mempunyai correspondence eksplisit, lalu diteruskan
+melalui metadata existing; adapter dan aturan ownership tetap utuh. Tanpa flag,
+audit STOP di atas tetap berlaku, termasuk empat penolakan sibling owner.
+Formal parameter dan synthetic storage tidak diklaim mempunyai source-local ID;
+token bukan identitas stabil lintas kompilasi. Opsi ini tidak mempromosikan
+pipeline PoC, self-hosting, Arena atau borrowed-field semantics.
+
+Gate `llvm-cpp-local-binding-keys-metadata` memeriksa metadata internal nyata.
+Gate `llvm-cpp-local-binding-keys-native` memakai keenam source audit yang sama,
+produksi O0/O2, emission/link tanpa compiler di PATH, native output, observer
+dan runtime sanitizer yang tersedia. Kedua gate menambah, bukan mengganti,
+gate/corpus lama. Lock historis dipertahankan dengan delta hash terpisah yang
+hanya mengizinkan tiga file opsi metadata. Status PASS membutuhkan hasil run
+pada exact SHA; keberadaan gate bukan bukti kelulusan.

@@ -450,8 +450,9 @@ ResolvedType asViewType(const ResolvedType& base, const std::string& viewKind) {
 
 } // namespace
 
-SemanticAnalyzer::SemanticAnalyzer(std::vector<ImportedBinding> importedBindings, TargetSpec target)
-    : importedBindings(std::move(importedBindings)), target(std::move(target)) {}
+SemanticAnalyzer::SemanticAnalyzer(std::vector<ImportedBinding> importedBindings, TargetSpec target, bool canonicalLocalBindings)
+    : importedBindings(std::move(importedBindings)), target(std::move(target)),
+      canonicalLocalBindings(canonicalLocalBindings) {}
 
 const std::vector<Diagnostic>& SemanticAnalyzer::warnings() const {
     return semanticWarnings;
@@ -4984,7 +4985,15 @@ void SemanticAnalyzer::defineVariable(
     sym->declaredNamedScopes = activeNamedScopes;
     sym->lexicalDepth = lexicalScopeDepth;
 
-    if ((bindingDecl != nullptr || backendBindingKeyOut != nullptr) && scopes.lookup(name) != nullptr) {
+    // Allocate at semantic declaration creation, never from names or lowering
+    // order. Tokens are opaque and valid only for this analysis. Production
+    // retains the shadowing-only policy unless explicitly opted in.
+    if (bindingDecl != nullptr && !bindingDecl->tuplePattern) {
+        bindingDecl->backendBindingKey.clear();
+    }
+    if ((bindingDecl != nullptr || backendBindingKeyOut != nullptr) &&
+        ((canonicalLocalBindings && bindingDecl != nullptr && !bindingDecl->tuplePattern) ||
+         scopes.lookup(name) != nullptr)) {
         sym->backendBindingKey = "$local.binding." + std::to_string(nextLocalBindingIdentity++);
         if (bindingDecl != nullptr) {
             if (!bindingDecl->tuplePattern) {

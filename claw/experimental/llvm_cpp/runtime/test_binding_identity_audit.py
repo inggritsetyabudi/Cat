@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evidence-only: do NOT change identity semantics or admit sibling owners."""
+"""Preserve the legacy identity boundary; separately test opt-in local metadata."""
 from __future__ import annotations
 import argparse,hashlib,json,os,re,sys
 from pathlib import Path
@@ -15,6 +15,7 @@ def main():
         p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--expected-sha',required=True)
     p.add_argument('--profile',required=True)
+    p.add_argument('--local-binding-keys',action='store_true')
     p.add_argument('--ucrt-prefix',type=Path);p.add_argument('--sysroot',type=Path)
     p.add_argument('--readobj',type=Path)
     a=p.parse_args();root=a.artifacts.absolute();root.mkdir(parents=True,exist_ok=True)
@@ -22,6 +23,8 @@ def main():
     report={'schema':'cat-binding-identity-audit/v1','status':'running','baseline_implementation':BASELINE,
             'head':a.expected_sha,'profile':a.profile,'decision':'STOP: no universal declaration/use/drop ID before LIR',
             'cases':[],'commands':[]}
+    report['local_binding_keys']=a.local_binding_keys
+    if a.local_binding_keys:report['decision']='Opt-in local declaration metadata only; formal/synthetic identity remains out of scope'
     def execute(argv,label,env=None,ok=0):
         rec={'phase':label,**run(argv,env=env)};report['commands'].append(rec)
         if ok is not None and rec['exit']!=ok:raise HarnessError(label+': '+rec['stderr'])
@@ -32,11 +35,20 @@ def main():
         # This gate must not silently turn a stopped audit into implementation.
         lock=json.loads((Path(__file__).parent/'binding-identity-implementation-lock.json').read_text())
         if lock['baseline_implementation']!=BASELINE:raise HarnessError('wrong baseline implementation lock')
+        # Preserve every original hash. Only these reviewed opt-in metadata
+        # changes may differ; adapter/runtime/oracles and the file set stay locked.
+        deltas=json.loads((Path(__file__).parent/'local-binding-reviewed-deltas.json').read_text())
+        allowed={'claw/src/analysis/sema.cpp','claw/src/analysis/sema.h','claw/experimental/llvm_cpp/driver.cpp'}
+        if set(deltas)!=allowed:raise HarnessError('wrong local metadata delta set')
+        for path,delta in deltas.items():
+            if delta['before']!=lock['files'][path]:raise HarnessError('local delta does not match original lock: '+path)
         for path,expected in lock['files'].items():
+            if path in deltas:expected=deltas[path]['after']
             if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('evidence-only audit changed protected implementation/oracle: '+path)
         tracked=execute([a.git,'-C',repo,'ls-files','--',*lock['protected_paths']],'tracked-implementation-files')['stdout'].splitlines()
         if set(tracked)!=set(lock['files']):raise HarnessError('protected implementation file set changed')
         report['baseline_code_lock']=lock
+        report['reviewed_metadata_deltas']=deltas
         manifest=json.loads(a.manifest.read_text());archive=Path(manifest['archive']['path']).resolve()
         if archive!=a.runtime.resolve():raise HarnessError('runtime archive/manifest mismatch')
         prep=json.loads(a.string_preparation.read_text())
@@ -84,9 +96,19 @@ def main():
                     variants[variant]={'link':linked,'run':result}
                 row['profiles'][label]={'build':build,'native':observed,'IR':file_record(ir),'alloca_tokens_by_function':allocas,'reference_compile':compiled,'variants':variants}
             obj=d/'program.o';ir=d/'program.ll';obj.unlink(missing_ok=True);ir.unlink(missing_ok=True)
-            emitted=execute([emitter,cat,'--strings','--runtime-i32','--arithmetic-i32','-o',obj,'--emit-ir',ir],name+':PoC',env=emit_env,ok=None)
-            row['poc']={'expected':c['baseline_poc'],'emit':emitted}
-            if c['baseline_poc']=='reject':
+            if a.local_binding_keys:
+                controls=[]
+                for label,flags in [('no-string-feature',['--local-binding-keys']),('duplicate-local-flag',['--strings','--local-binding-keys','--local-binding-keys'])]:
+                    denied_obj=d/(label+'.o');denied_ir=d/(label+'.ll');denied_obj.unlink(missing_ok=True);denied_ir.unlink(missing_ok=True)
+                    denied=execute([emitter,cat,*flags,'-o',denied_obj,'--emit-ir',denied_ir],name+':'+label,env=emit_env,ok=None)
+                    if denied['exit']==0 or denied_obj.exists()or denied_ir.exists():raise HarnessError('local metadata flag bypassed rejection boundary: '+label)
+                    controls.append({'label':label,'emit':denied,'no_object_or_ir':True})
+                row['local_negative_controls']=controls
+            flags=['--local-binding-keys']if a.local_binding_keys else[]
+            emitted=execute([emitter,cat,'--strings','--runtime-i32','--arithmetic-i32',*flags,'-o',obj,'--emit-ir',ir],name+':PoC',env=emit_env,ok=None)
+            expected='pass'if a.local_binding_keys else c['baseline_poc']
+            row['poc']={'baseline_expected':c['baseline_poc'],'expected':expected,'emit':emitted}
+            if expected=='reject':
                 if emitted['exit']==0 or obj.exists()or ir.exists():raise HarnessError('unsupported sibling owner emitted output')
                 if 'duplicate object binding'not in emitted['stderr']:raise HarnessError('wrong rejection boundary')
                 row['poc']['no_object_or_ir']=True
@@ -96,6 +118,18 @@ def main():
                 linked=execute(runtime_argv(lld,obj,exe,prof,d/'poc-link',archive),name+':PoC:LLD',env=link_env)
                 observed=execute([exe],name+':PoC:run',env=run_env);check_run(observed,c['stdout'].encode());verify_exe(exe)
                 row['poc'].update(link=linked,run=observed)
+                if a.local_binding_keys:
+                    variants={}
+                    for variant,lib in [('observer',prep['observer_archive']),*([('sanitized_runtime',prep['sanitized_archive'])]if prep.get('sanitized_archive')else[])]:
+                        target=d/('poc.'+variant+'.exe');argv=runtime_argv(lld,obj,target,prof,d/('poc-'+variant),Path(lib['path']))
+                        if variant=='sanitized_runtime':argv=sanitizer_argv(argv,prep)
+                        linked=execute(argv,name+':PoC:'+variant+':LLD',env=link_env)
+                        result=execute([target],name+':PoC:'+variant+':run',env={**run_env,**SAN_ENV}if variant=='sanitized_runtime'else run_env)
+                        if variant=='observer':
+                            if result['stdout_hex']!=native_bytes(c['stdout'].encode()).hex()or not clean_ledger(result['stderr'],c['allocations']):raise HarnessError('opt-in PoC observer output/ledger mismatch')
+                        else:check_run(result,c['stdout'].encode())
+                        variants[variant]={'link':linked,'run':result}
+                    row['poc']['variants']=variants
             report['cases'].append(row)
         for path,before in protected.items():
             if stamp(Path(path))!=before:raise HarnessError('immutable runtime changed '+path)
@@ -105,5 +139,6 @@ def main():
     except Exception as e:
         report['status']='FAIL';report['error']=str(e);raise
     finally:(root/'testdata.json').write_text(json.dumps(report,indent=2)+'\n')
-    print('PASS evidence-only identity audit: 6 real Cat cases; production O0/O2; 4 PoC rejections + 2 controls; 44 alloc/free across both profiles')
+    if a.local_binding_keys:print('PASS opt-in local keys: 6 native Cat cases; production O0/O2; all PoC outputs; 22 PoC observer alloc/free; not universal identity')
+    else:print('PASS legacy identity audit: 6 real Cat cases; production O0/O2; 4 PoC rejections + 2 controls; 44 alloc/free across both profiles')
 if __name__=='__main__':main()
