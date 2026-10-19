@@ -67,7 +67,7 @@ void LlvmEmitter::emitCallInst(const LirCallInst& value, FunctionState& state, s
         const auto returnLayout = abiLayoutForType(directTarget->returnType);
         const size_t returnAlign = returnLayout.has_value() ? returnLayout->align : 1;
         resultSlot = state.temp("call.ret.addr");
-        lines.push_back("  " + *resultSlot + " = alloca " + returnType + ", align " + std::to_string(returnAlign));
+        state.entryAllocas.push_back("  " + *resultSlot + " = alloca " + returnType + ", align " + std::to_string(returnAlign));
         argTypes.push_back("ptr");
         args.push_back(*resultSlot);
     }
@@ -432,16 +432,15 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
     }
     out << ") {\n";
 
+    // Lower the complete body before writing entry storage: helpers may
+    // discover fixed-size temporaries in any nested/synthetic block. Only
+    // storage moves; stores, calls and ownership cleanup retain their order.
+    std::vector<std::string> renderedBlocks;
     for (size_t blockIndex = 0; blockIndex < fn.blocks.size(); ++blockIndex) {
         const auto& block = fn.blocks[blockIndex];
-        out << blockLabel(block.label) << ":\n";
+        std::ostringstream blockOut;
         bool hasTerminator = false;
         std::vector<std::string> blockLines;
-        if (blockIndex == 0) {
-            for (const auto& line : state.entryAllocas) {
-                blockLines.push_back(line);
-            }
-        }
         materializePendingBlockBindings(block.label, state, blockLines);
 
         for (const auto& inst : block.insts) {
@@ -462,7 +461,7 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                         state.uninitializedOwnedAggregates.insert(bindingKey);
                         state.initializedAggregateFields.erase(bindingKey);
                     }
-                    blockLines.push_back("  " + pointerName + " = alloca " + llvmType(value.type) + ", align " + std::to_string(align));
+                    state.entryAllocas.push_back("  " + pointerName + " = alloca " + llvmType(value.type) + ", align " + std::to_string(align));
                 },
                 [&](const LirStoreInst& value) {
                     const std::string targetKey = value.targetBindingKey.empty()
@@ -686,9 +685,9 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                                 addRuntimeDecl("declare i1 " + equalSymbol + "(ptr, ptr)");
                                 const std::string addrLeft = state.temp("str.eq.left.addr");
                                 const std::string addrRight = state.temp("str.eq.right.addr");
-                                blockLines.push_back("  " + addrLeft + " = alloca %claw.slice, align 8");
+                                state.entryAllocas.push_back("  " + addrLeft + " = alloca %claw.slice, align 8");
                                 blockLines.push_back("  store %claw.slice " + left + ", ptr " + addrLeft + ", align 8");
-                                blockLines.push_back("  " + addrRight + " = alloca %claw.slice, align 8");
+                                state.entryAllocas.push_back("  " + addrRight + " = alloca %claw.slice, align 8");
                                 blockLines.push_back("  store %claw.slice " + right + ", ptr " + addrRight + ", align 8");
                                 const std::string eqReg = (value.op == "eq") ? localName(value.result) : state.temp("str.eq.raw");
                                 blockLines.push_back("  " + eqReg + " = call i1 " + equalSymbol + "(ptr " + addrLeft + ", ptr " + addrRight + ")");
@@ -809,7 +808,7 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
         }
 
         for (const auto& line : blockLines) {
-            out << line << "\n";
+            blockOut << line << "\n";
         }
         if (!hasTerminator) {
             const bool nextBlockAcceptsFallthrough =
@@ -819,15 +818,24 @@ std::string LlvmEmitter::emitFunction(const LirFunction& fn) {
                     fn.blocks[blockIndex + 1].predecessors.end(),
                     block.label) != fn.blocks[blockIndex + 1].predecessors.end();
             if (nextBlockAcceptsFallthrough) {
-                out << "  br label %" << blockLabel(fn.blocks[blockIndex + 1].label) << "\n";
+                blockOut << "  br label %" << blockLabel(fn.blocks[blockIndex + 1].label) << "\n";
             } else if (llvmFunctionReturnType(fn) == "void") {
-                out << "  ret void\n";
+                blockOut << "  ret void\n";
             } else {
-                out << "  unreachable\n";
+                blockOut << "  unreachable\n";
             }
         }
+        renderedBlocks.push_back(blockOut.str());
     }
-
+    for (size_t blockIndex = 0; blockIndex < fn.blocks.size(); ++blockIndex) {
+        out << blockLabel(fn.blocks[blockIndex].label) << ":\n";
+        if (blockIndex == 0) {
+            for (const auto& allocation : state.entryAllocas) {
+                out << allocation << "\n";
+            }
+        }
+        out << renderedBlocks[blockIndex];
+    }
     out << "}\n";
     return out.str();
 }

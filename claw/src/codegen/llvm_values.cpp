@@ -64,7 +64,7 @@ void LlvmEmitter::materializeChoiceBinding(
 
     const std::string sourceValue = ensureValue(binding.source, state, lines);
     const std::string choiceAddr = state.temp("choice.case.addr");
-    lines.push_back("  " + choiceAddr + " = alloca " + choice->llvmTypeText + ", align " + std::to_string(choice->alignBytes));
+    state.entryAllocas.push_back("  " + choiceAddr + " = alloca " + choice->llvmTypeText + ", align " + std::to_string(choice->alignBytes));
     lines.push_back("  store " + choice->llvmTypeText + " " + sourceValue + ", ptr " + choiceAddr + ", align " + std::to_string(choice->alignBytes));
 
     const size_t paddingBytes = choice->payloadOffsetBytes > choice->tagSizeBytes
@@ -378,7 +378,7 @@ void LlvmEmitter::emitChoiceMakeInst(const LirChoiceMakeInst& value, FunctionSta
     const auto layout = abiLayoutForType(value.type);
     const size_t align = layout.has_value() ? layout->align : 1;
     const std::string resultAddr = state.temp(value.result + ".choice.addr");
-    lines.push_back("  " + resultAddr + " = alloca " + llvmType(value.type) + ", align " + std::to_string(align));
+    state.entryAllocas.push_back("  " + resultAddr + " = alloca " + llvmType(value.type) + ", align " + std::to_string(align));
     constructChoiceValueAtAddress(resultAddr, value.type, value.variantName, value.payloads, state, lines);
     state.namedAddresses[value.result] = resultAddr;
     state.namedValues.erase(value.result);
@@ -429,7 +429,7 @@ std::string LlvmEmitter::ensureAddress(
     const auto layout = abiLayoutForType(value.type);
     const size_t align = layout.has_value() ? layout->align : 1;
     const std::string allocation = "  " + tempAddr + " = alloca " + valueType + ", align " + std::to_string(align);
-    lines.push_back(allocation);
+    state.entryAllocas.push_back(allocation);
     const std::string operand = ensureValue(value, state, lines);
     lines.push_back("  store " + valueType + " " + operand + ", ptr " + tempAddr + ", align " + std::to_string(align));
 

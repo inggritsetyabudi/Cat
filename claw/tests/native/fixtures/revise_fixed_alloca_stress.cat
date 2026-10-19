@@ -1,0 +1,59 @@
+shape Pair {
+    left: Int32
+    right: Int32
+}
+choice Mark {
+    hit(value: Int32)
+    miss
+}
+fn recurse(value: Int32) -> Int32 {
+    if value == 0 {
+        return 0
+    }
+    return 1 + recurse(value - 1)
+}
+fn classify(value: Int32) -> Result[Int32, String] {
+    if value == 0 {
+        return Fail(String.from("zero"))
+    }
+    return Ok(value)
+}
+fn main() -> Int32 {
+    val text = "stress"
+    val fixed: Array[Int32, 3] = [2, 3, 5]
+    val pair = Pair { left: 7, right: 11 }
+    val marker: Mark = hit(pair.left)
+    var total: Int32 = 0
+    scan outer over 0..=499 {
+        scan inner over 0..=499 {
+            var value = outer + inner
+            if text == "stress" {
+                value = value + fixed[0]
+            } else {
+                value = value - 1
+            }
+            val borrowed: ref Int32 = ref value
+            if value % 2 == 0 {
+                total = total + 1
+            } else {
+                total = total + 2
+            }
+            pick marker {
+                hit(amount) {
+                    total = total + (amount - 7)
+                }
+                miss {
+                    total = total + 99
+                }
+            }
+            val outcome = classify(inner % 2)
+            pick outcome {
+                Ok(number) { total = total + number }
+                Fail(_) { total = total + 1 }
+            }
+        }
+    }
+    val (left, right) = (pair.left, pair.right)
+    println(total + left + right + recurse(5))
+    return 0
+}
