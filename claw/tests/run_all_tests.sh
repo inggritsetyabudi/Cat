@@ -15,6 +15,10 @@ echo "=== Running C@ Frontend Test Suite ==="
 bash "$SCRIPT_DIR/frontend/run_frontend_tests.sh"
 
 echo ""
+echo "=== Running C@ Lexer Comment Regression Suite ==="
+bash "$SCRIPT_DIR/frontend/run_lexer_comment_tests.sh"
+
+echo ""
 echo "=== Running C@ OIR Formatter Golden Test Suite ==="
 bash "$SCRIPT_DIR/oir/run_oir_tests.sh"
 

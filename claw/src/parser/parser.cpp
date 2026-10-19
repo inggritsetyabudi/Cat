@@ -249,6 +249,16 @@ std::vector<std::unique_ptr<TypeNode>> Parser::parseBracketTypeArguments() {
 }
 
 std::unique_ptr<RealmDecl> Parser::parseFile() {
+    // A block comment can consume the rest of a declaration or expression.
+    // Diagnose its opening delimiter before parser recovery can hide the error.
+    for (const auto& token : tokens) {
+        if (token.kind == TokenKind::CommentError) {
+            throw DiagnosticError(
+                "Lexing failed.",
+                std::vector<Diagnostic>{Diagnostic{
+                    "lexer", token.text, spanFromToken(token)}});
+        }
+    }
     auto realm = std::make_unique<RealmDecl>();
     realm->span = spanFromToken(peek());
     bool hasPendingDocumentation = false;
