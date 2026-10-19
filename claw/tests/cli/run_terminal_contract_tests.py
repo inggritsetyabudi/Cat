@@ -100,7 +100,15 @@ def main() -> int:
                             "lexer_unterminated_trailing.cat").read_bytes())
         rc, output = terminal([str(Path(compiler).resolve()), "check", str(source)])
         assert rc == 1 and b"error[lexer]: Unterminated block comment." in output and b"\x1b" not in output, output
-        print("[terminal-contract/pass] exact compiler fixture and unchanged NO_COLOR/no-ESC predicate")
+        print("[terminal-contract/pass] check keeps the legacy lexer header and NO_COLOR/no-ESC predicate")
+        output_path = root / "main.exe"
+        rc, output = terminal([str(Path(compiler).resolve()), "build", str(source), str(output_path)])
+        assert (rc == 1
+                and output.count(b"error: Unterminated block comment.") == 1
+                and output.count(b"error: build failed for `main`") == 1
+                and b"error[lexer]:" not in output
+                and b"\x1b" not in output), output
+        print("[terminal-contract/pass] build uses compact lexer diagnostic plus final failure without ANSI")
     print("Terminal transport contract gate passed.")
     return 0
 
