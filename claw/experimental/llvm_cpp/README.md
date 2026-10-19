@@ -232,5 +232,18 @@ ABI, cleanup dan observer Windows tetap wajib. Hasil yang boleh diklaim harus
 berasal dari exact SHA yang lulus CI native, bukan hasil Linux saja.
 
 ## Oracle ABI/cleanup String produksi — tanpa dukungan adapter baru
-
 [Paired native String/Str oracle](abi_oracle/README.md) menambahkan gate evidence-only untuk raw Cat ABI, compiled C layouts, native allocation/free cleanup dan sanitizer availability Linux/Windows UCRT pada exact SHA yang sama. Gate juga menuntut penolakan String/Str adapter pada default dan seluruh flag I32 tanpa publikasi object/IR; kontrol scalar tetap harus berhasil. Ini tidak mengaktifkan String, aggregate ABI, borrowed values atau owned-drop pada adapter. 11 gate lama tetap utuh; hasil oracle hanya dapat dipakai untuk menentukan scope implementasi PoC berikutnya, bukan klaim production-ready.
+
+## Audit sibling-owner identity — STOP sebelum implementasi
+
+[Audit binding identity](../../../changelog/2026-10-19-binding-identity-boundary-audit.md)
+menemukan bahwa key opaque masih parsial sebelum OIR/LIR: ordinary sibling
+declarations dapat sama-sama tidak mempunyai key; ID internal ownership tidak
+diteruskan sebagai declaration/use/drop ID. Adapter tetap menolak kondisi itu,
+bukan menebak dari nama atau posisi source. Tidak ada perubahan produksi/adapter.
+Gate tambahan `llvm-cpp-binding-identity-audit` mereproduksi enam source pada
+produksi O0/O2 native Linux/Windows UCRT, observer serta sanitizer yang tersedia,
+empat penolakan tanpa output dan dua positive shadow controls. Corpus serta
+13 gate sebelumnya tetap utuh. Jalankan bersama `llvm-cpp-poc-strings` pada
+build yang menyiapkan runtime archive; detail stop condition dan desain identity
+yang masih harus dibuktikan terdapat dalam changelog, bukan dukungan baru.

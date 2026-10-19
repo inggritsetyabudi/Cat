@@ -124,4 +124,17 @@ if(BUILD_TESTING)
             ${_runtime_profile_args})
     set_tests_properties(llvm-cpp-poc-strings PROPERTIES
         DEPENDS llvm-cpp-production-string-abi-oracle TIMEOUT 600)
+    # Evidence only: reproduce missing pre-LIR identity; do not admit sibling owners.
+    # Reuse the frozen packages prepared by the unchanged String gate.
+    add_test(NAME llvm-cpp-binding-identity-audit
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_binding_identity_audit.py"
+            --emitter "$<TARGET_FILE:claw-llvm-poc>" --production "$<TARGET_FILE:claw>"
+            --runtime "$<TARGET_FILE:claw_llvm_cpp_poc_runtime>" --external "${CLAW_LLD_EXECUTABLE}"
+            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/artifacts/binding-identity"
+            --string-preparation "${CMAKE_CURRENT_BINARY_DIR}/artifacts/strings/preparation/preparation.json"
+            --profile "${CLAW_LLVM_POC_PLATFORM}" --cc "${CLAW_ABI_ORACLE_CLANG}"
+            --git "${CLAW_ABI_ORACLE_GIT}" --expected-sha "${_abi_oracle_source_sha}"
+            ${_runtime_profile_args})
+    set_tests_properties(llvm-cpp-binding-identity-audit PROPERTIES
+        DEPENDS llvm-cpp-poc-strings TIMEOUT 300)
 endif()
