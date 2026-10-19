@@ -42,9 +42,13 @@ def compiler() -> Path:
 
 
 def run(args: list[object], *, cwd: Path) -> subprocess.CompletedProcess[str]:
+    # MSYS Python resolves the executable and cwd through its POSIX filesystem.
+    # Only argv belongs to the native child (including argv[0], used to find the
+    # bundled runtime). A Windows-spelled executable= path fails MSYS execvp.
     return subprocess.run(
         [native_arg(Path(a)) if isinstance(a, Path) else str(a) for a in args],
-        cwd=native_arg(cwd), text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        executable=str(args[0]), cwd=str(cwd),
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         shell=False, timeout=120,
     )
 

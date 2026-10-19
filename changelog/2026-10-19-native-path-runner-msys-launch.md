@@ -1,0 +1,7 @@
+# Runner path native: pisahkan namespace launcher MSYS dan argv Windows
+
+[CI 39182832125](https://github.com/inggritsetyabudi/Cat/actions/runs/39182832125) pada head `1c61a26e6935e0edc78043e103d464ba5882cc5d` lulus Linux Release dan ASan/UBSan/LSan, tetapi runner path baru gagal lebih awal di Windows MSYS Python: `[Errno 2] No such file or directory: 'D:\\a\\Cat\\Cat\\...\\compiler bundle with spaces\\claw.exe'`. Probe CRT dan gerbang sesudahnya belum dijalankan pada job tersebut. Ini kegagalan launcher runner baru, bukan reproduksi ulang pemecahan path oleh Clang.
+
+Runner sebelumnya mengonversi executable, argv, dan cwd semuanya ke ejaan native Windows. Python MSYS perlu path POSIX untuk lookup executable dan cwd-nya sendiri; proses native membutuhkan path Windows dalam argv (termasuk argv[0] untuk pencarian runtime bundle). Runner kini memberi `executable=` dan `cwd=` dengan path filesystem Python, sambil mempertahankan argv native terkonversi. Python Windows tetap memakai path Windows, dan Linux tetap memakai path POSIX.
+
+Spasi input/output/compiler/runtime, nama output literal shell-sensitive, kedua alias/default target, kontrol, exact output/exit, serta pemeriksaan `.exe`/`.ll` tidak berubah. Tidak ada tes yang dilewati atau dilonggarkan; implementasi driver/lexer tidak berubah. Validasi Windows perlu diulang pada head setelah koreksi ini. Blocker PTY yang terlihat pada head driver sebelumnya tetap belum diperbaiki di workstream ini.
