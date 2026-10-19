@@ -96,11 +96,22 @@ if(BUILD_TESTING)
     set_tests_properties(llvm-cpp-poc-arithmetic PROPERTIES DEPENDS llvm-cpp-poc-runtime TIMEOUT 240)
     # Production ABI/cleanup evidence only: String remains rejected by the adapter.
     find_program(CLAW_ABI_ORACLE_CLANG NAMES clang REQUIRED)
+    # Native UCRT Python cannot resolve MSYS /usr/bin through CreateProcess.
+    find_program(CLAW_ABI_ORACLE_GIT NAMES git
+        HINTS "$ENV{ProgramFiles}/Git/cmd" "$ENV{ProgramW6432}/Git/cmd"
+              "C:/Program Files/Git/cmd" "C:/Program Files/Git/bin" REQUIRED)
+    execute_process(COMMAND "${CLAW_ABI_ORACLE_GIT}" -C "${PROJECT_SOURCE_DIR}" rev-parse HEAD
+        OUTPUT_VARIABLE _abi_oracle_source_sha OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE _abi_oracle_git_status)
+    if(NOT _abi_oracle_git_status EQUAL 0 OR NOT _abi_oracle_source_sha MATCHES "^[0-9a-f]+$")
+        message(FATAL_ERROR "String ABI evidence requires a verifiable Git source revision")
+    endif()
     add_test(NAME llvm-cpp-production-string-abi-oracle
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../abi_oracle/run_oracle.py"
             --production "$<TARGET_FILE:claw>" --emitter "$<TARGET_FILE:claw-llvm-poc>"
             --artifacts "${CMAKE_CURRENT_BINARY_DIR}/artifacts/abi-oracle"
-            --cc "${CLAW_ABI_ORACLE_CLANG}" --profile "${CLAW_LLVM_POC_PLATFORM}")
+            --cc "${CLAW_ABI_ORACLE_CLANG}" --profile "${CLAW_LLVM_POC_PLATFORM}"
+            --git "${CLAW_ABI_ORACLE_GIT}" --expected-sha "${_abi_oracle_source_sha}")
     set_tests_properties(llvm-cpp-production-string-abi-oracle PROPERTIES
         DEPENDS llvm-cpp-poc-arithmetic TIMEOUT 600)
 endif()

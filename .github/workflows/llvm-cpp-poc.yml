@@ -284,7 +284,9 @@ jobs:
           set -euo pipefail
           export CLAW_EXE="$PWD/build-llvm-poc-win/claw.exe"
           export PATH="/usr/bin:/ucrt64/bin:$PATH"
-          git worktree add --detach "$RUNNER_TEMP/production-suite-src" HEAD
+          native_git="$(sed -n 's/^CLAW_ABI_ORACLE_GIT:FILEPATH=//p' build-llvm-poc-win/CMakeCache.txt)"
+          test -n "$native_git"
+          "$(cygpath -u "$native_git")" worktree add --detach "$RUNNER_TEMP/production-suite-src" HEAD
           bash "$RUNNER_TEMP/production-suite-src/claw/tests/run_all_tests.sh" 2>&1 | tee ci-evidence/production-suites.log
       - name: Upload Windows proof
         if: always()

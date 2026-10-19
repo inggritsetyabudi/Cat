@@ -136,6 +136,7 @@ def main():
     for name in ('production', 'emitter', 'artifacts', 'cc', 'profile'):
         p.add_argument('--' + name, required=True)
     p.add_argument('--expected-sha')
+    p.add_argument('--git', default='git')
     args = p.parse_args()
     windows = sys.platform == 'win32'
     profile = 'windows-x86_64-ucrt-coff' if windows else 'linux-x86_64-elf'
@@ -145,7 +146,7 @@ def main():
     def save():
         (root / 'evidence.json').write_text(json.dumps(result, indent=2, ensure_ascii=False) + '\n', encoding='utf8')
     try:
-        sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPO, text=True).strip()
+        sha = subprocess.check_output([args.git, 'rev-parse', 'HEAD'], cwd=REPO, text=True).strip()
         require(not (args.expected_sha or os.getenv('EXPECTED_HEAD_SHA')) or sha == (args.expected_sha or os.getenv('EXPECTED_HEAD_SHA')), 'Not exact requested PR SHA')
         result.update(git_sha=sha, platform=platform.platform(), python=sys.version,
                       tools={'cc_version': good(run([args.cc, '--version'])), 'cc_target': good(run([args.cc, '-dumpmachine']))})
