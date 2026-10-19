@@ -103,7 +103,7 @@ Input driver hanya file `.cat` standalone dengan satu modul. Entry tetap `fn mai
 
 Subset yang dituju: nilai scalar `Int32`/`Bool`/`Unit`, fungsi dan pemanggilan langsung scalar, binding lokal, assignment, identitas binding saat shadowing, perbandingan, `not`, branch/goto, return, dan join kontrol hasil lowering `if`. Metadata phi `Control` pada LIR bukan phi nilai LLVM; nilai hasil `if` saat ini lewat storage lokal sebagaimana LIR Cat. Jangan menyimpulkan dukungan semua bentuk phi atau optimasi SSA dari contoh tersebut.
 
-Aritmetika signed, pembagian/remainder, runtime builtins seperti `println`, owned values/drop glue, aggregate, static, float, ref/borrow ABI, FFI, import/workspace, dan cross-compilation bukan cakupan **default scalar tanpa flag runtime**. Eksperimen runtime terpisah di bawah hanya membuka `println(Int32)` melalui flag eksplisit; bukan seluruh builtin atau String/ownership ABI. Jalur yang belum didukung harus gagal eksplisit. Khusus aritmetika signed dan pembagian, lebih baik ditolak daripada menghasilkan LLVM operation yang melanggar aturan overflow atau defect pembagi nol dalam PRD.
+Aritmetika signed, pembagian/remainder, runtime builtins seperti `println`, owned values/drop glue, aggregate, static, float, ref/borrow ABI, FFI, import/workspace, dan cross-compilation bukan cakupan **default scalar tanpa flag runtime/aritmetika**. Eksperimen runtime terpisah di bawah membuka `println(Int32)`; slice aritmetika berikut memakai flag tersendiri. Keduanya bukan seluruh builtin atau String/ownership ABI. Jalur yang belum didukung harus gagal eksplisit, bukan fallback.
 
 Penyimpanan lokal/parameter `Unit`, tipe `UInt32`, value phi, dan pemanggilan rekursif langsung juga belum didukung. Panggilan ke entry `main` ditolak, termasuk dari helper. Diagnostik pembatasan PoC tidak menjanjikan format/stage yang identik dengan driver produksi.
 
@@ -126,3 +126,35 @@ Workflow opt-in PoC mengaktifkan flag hanya pada job khusus; workflow produksi l
 ## Runtime output melalui paket prebuilt terpisah
 
 [Eksperimen runtime Int32](runtime/README.md) menambahkan `CLAW_ENABLE_RUNTIME_POC=OFF` default untuk menyiapkan archive target-native dari runtime C produksi yang tidak dimodifikasi. Persiapan boleh memakai compiler C; **emit/link per source tidak boleh**. Emitter meminta `--runtime-i32`, lalu external LLD menghubungkan object dan archive runtime yang sama, dengan CRT/SDK inputs eksplisit. Default 41 kasus scalar/rejection lama tidak diubah. String/Str, alokasi/drop owned, ABI agregat dan runtime lain tetap tidak didukung; tidak ada klaim compiler sepenuhnya hermetik atau CRT statik.
+
+## Slice aritmetika Int32 native, opt-in
+
+`--arithmetic-i32` (API `ObjectOptions.enableArithmeticI32`, default `false`) membuka satu irisan signed **Int32**: `+`, `-`, `*`, unary `-`, `/`, dan `%`. `--runtime-i32` tetap diminta terpisah bila program memanggil `println(Int32)`. Tidak ada perubahan emitter, runtime, ABI, atau driver produksi.
+
+**Batas semantik penting:** [PRD §6/§19](../../../cat-northstar/PRD.md) sudah meratifikasi Debug overflow = defect dan Release = wrapping. Namun [profil produksi saat ini](../../../docs/CLI.md#build-output-and-runtime) hanya membedakan optimisasi O0/O2; lowering native secara eksplisit masih release-only dan Debug safety [staged di v0.8](../../../docs/v0.1-v0.3-acceptance-matrix.md). Slice ini mengikuti **perilaku native produksi tersebut**, bukan membuat profil bahasa baru atau mengklaim Debug overflow telah tersedia. Kesamaan hasil produksi O0/O2 bukan penerimaan dua profil semantik bahasa.
+
+| Operasi | Kontrak slice |
+| --- | --- |
+| add/sub/mul/neg | Wrapping 32-bit, ditafsirkan signed Int32; LLVM tanpa `nsw`/`nuw`. |
+| div/rem nonzero | LLVM `sdiv`/`srem`, pembagian menuju nol dan tanda remainder mengikuti dividend. Tidak ada `udiv`/`urem`. |
+| divisor nol | Guard sebelum operasi invalid, memanggil hook C `claw.runtime.defect.division_by_zero()` yang `noreturn`, lalu `unreachable`; bukan pembagian hardware atau hasil fiktif. |
+| MIN / -1 dan MIN % -1 | Hasil release yang diratifikasi: MIN dan 0. Divisor aman dipilih sebelum pembagian sehingga edge LLVM invalid tidak terbentuk, termasuk literal dan blok mati. |
+
+Contoh sumber yang benar-benar melewati frontend Cat:
+
+```cat
+fn calculate(a: Int32, b: Int32) -> Int32 { return (a + b) * 2 }
+fn main() { println(calculate(20, 1)) }
+```
+
+```bash
+claw-llvm-poc arithmetic.cat -o arithmetic.o --emit-ir arithmetic.ll \
+  --runtime-i32 --arithmetic-i32
+# Link object + archive runtime target-native dengan LLD dan CRT eksplisit;
+# argv teresolusi disimpan oleh harness, bukan diganti dengan cc/Clang.
+ctest --test-dir <build> -R llvm-cpp-poc-arithmetic --output-on-failure
+```
+
+Gate `runtime/test_arithmetic.py` menyiapkan referensi produksi O0 dan `--release` sebelum isolasi, lalu membandingkan stdout/stderr/exit native, IR signed/guard/flag, dan ELF/PE. Emit/link/run memakai PATH tanpa compiler, hanya object + runtime archive immutable + CRT/SDK pada final link. Manifest, hash dan mtime runtime harus tetap identik. Sumber Cat, IR, command/output, audit dependency, ukuran dan timing disimpan di `runtime/artifacts/arithmetic/testdata.json` beserta artefaknya. Gate berjalan pada Linux Release/sanitizer-host dan Windows UCRT native; menambahkan gate bukan klaim lulus sebelum hasil exact-head tersedia.
+
+Lebar integer lain, unsigned, float, bitwise, owned/String, FFI, arbitrary value phi dan canonical Debug checked overflow tetap di luar cakupan. Default 41 kasus dan gate runtime sebelumnya dipertahankan; malformed LIR tetap harus ditolak sebelum publikasi object/IR. Paket runtime C tetap dikompilasi hanya pada persiapan, bukan per source. Sanitizer host menginstrumentasi compiler C++; ini bukan klaim bahwa archive runtime C atau semua executable target ikut terinstrumentasi.

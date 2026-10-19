@@ -135,6 +135,8 @@ jobs:
             build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/program.exe
             build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.a
             build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.o
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.cat
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.ll
           if-no-files-found: warn
 
   windows-ucrt64-native-poc:
@@ -298,4 +300,6 @@ jobs:
             build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/program.exe
             build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.a
             build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.o
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.cat
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.ll
           if-no-files-found: warn

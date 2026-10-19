@@ -132,6 +132,105 @@ int main(int argc, char** argv) {
         std::ifstream runtimeText(runtimeIr);
         const std::string runtimeIrText((std::istreambuf_iterator<char>(runtimeText)), {});
         require(runtimeIrText.find("@claw.runtime.println.i32") != std::string::npos, "runtime symbol missing");
+        auto arithmeticProgram = scalarProgram();
+        instructions(arithmeticProgram, {
+            LirBinaryInst{"%add", "add", {"1", "Int32"}, {"2", "Int32"}, "Int32"},
+            LirReturnInst{{"%add", "Int32"}}
+        });
+        const auto arithmeticObject = artifacts / "arithmetic_i32.o";
+        const auto arithmeticIr = artifacts / "arithmetic_i32.ll";
+        std::filesystem::remove(arithmeticObject);
+        std::filesystem::remove(arithmeticIr);
+        require(emitObject(arithmeticProgram, {arithmeticObject.string(), arithmeticIr.string(), false, true}, error), error);
+        std::ifstream arithmeticText(arithmeticIr);
+        const std::string arithmeticIrText((std::istreambuf_iterator<char>(arithmeticText)), {});
+        require(!arithmeticIrText.empty() && std::filesystem::file_size(arithmeticObject) > 0,
+                "Int32 arithmetic artifact missing");
+        for (const std::string op : {"add", "sub", "mul", "neg", "div", "rem"}) {
+            auto program = scalarProgram();
+            helper(program);
+            auto& function = std::get<LirFunction>(program.realms.front().decls.back());
+            function.params.push_back(LirParam{"y", "Int32", AbiPassKind::Scalar});
+            auto& body = function.blocks.front().insts;
+            body.clear();
+            if (op == "neg") body.push_back(LirUnaryInst{"%arithmetic", "-", {"x", "Int32"}, "Int32"});
+            else body.push_back(LirBinaryInst{"%arithmetic", op, {"x", "Int32"}, {"y", "Int32"}, "Int32"});
+            body.push_back(LirReturnInst{{"%arithmetic", "Int32"}});
+            instructions(program, {call({{"7", "Int32"}, {"3", "Int32"}}), LirReturnInst{{"%call", "Int32"}}});
+            const auto obj = artifacts / ("arithmetic_dynamic_" + op + ".o");
+            const auto irPath = artifacts / ("arithmetic_dynamic_" + op + ".ll");
+            std::filesystem::remove(obj);
+            std::filesystem::remove(irPath);
+            require(emitObject(program, {obj.string(), irPath.string(), false, true}, error), error);
+            std::ifstream text(irPath);
+            const std::string irText((std::istreambuf_iterator<char>(text)), {});
+            const std::string opcode = op == "neg" ? "sub" : op == "div" ? "sdiv" : op == "rem" ? "srem" : op;
+            require(irText.find(opcode + " i32") != std::string::npos, "missing signed dynamic opcode " + op);
+            require(irText.find(" nsw ") == std::string::npos && irText.find(" nuw ") == std::string::npos &&
+                    irText.find("poison") == std::string::npos, "unsafe overflow IR " + op);
+            if (op == "div" || op == "rem")
+                require(irText.find("claw.runtime.defect.division_by_zero") != std::string::npos &&
+                        irText.find("noreturn") != std::string::npos && irText.find("unreachable") != std::string::npos &&
+                        irText.find("safe.divisor") != std::string::npos, "missing guarded division ABI " + op);
+        }
+        std::vector<std::pair<std::string, std::function<void(LirProgram&)>>> arithmeticNegatives;
+        for (const std::string op : {"add", "sub", "mul", "div", "rem"}) {
+            arithmeticNegatives.push_back({op + "_left_type", [op](auto& p) {
+                instructions(p, {LirBinaryInst{"%bad", op, {"true", "Bool"}, {"1", "Int32"}, "Int32"}});
+            }});
+            arithmeticNegatives.push_back({op + "_right_type", [op](auto& p) {
+                instructions(p, {LirBinaryInst{"%bad", op, {"1", "Int32"}, {"false", "Bool"}, "Int32"}});
+            }});
+            arithmeticNegatives.push_back({op + "_result_type", [op](auto& p) {
+                instructions(p, {LirBinaryInst{"%bad", op, {"1", "Int32"}, {"2", "Int32"}, "Bool"}});
+            }});
+        }
+        arithmeticNegatives.push_back({"neg_operand_type", [](auto& p) {
+            instructions(p, {LirUnaryInst{"%bad", "-", {"true", "Bool"}, "Int32"}});
+        }});
+        arithmeticNegatives.push_back({"neg_result_type", [](auto& p) {
+            instructions(p, {LirUnaryInst{"%bad", "-", {"1", "Int32"}, "Bool"}});
+        }});
+        arithmeticNegatives.push_back({"duplicate_result", [](auto& p) {
+            instructions(p, {LirBinaryInst{"%same", "add", {"1", "Int32"}, {"2", "Int32"}, "Int32"},
+                             LirBinaryInst{"%same", "sub", {"3", "Int32"}, {"1", "Int32"}, "Int32"}});
+        }});
+        arithmeticNegatives.push_back({"out_of_range", [](auto& p) {
+            instructions(p, {LirBinaryInst{"%bad", "div", {"2147483648", "Int32"}, {"1", "Int32"}, "Int32"}});
+        }});
+        arithmeticNegatives.push_back({"neg_out_of_range", [](auto& p) {
+            instructions(p, {LirUnaryInst{"%bad", "-", {"2147483649", "Int32"}, "Int32"}});
+        }});
+        arithmeticNegatives.push_back({"unknown_opcode", [](auto& p) {
+            instructions(p, {LirBinaryInst{"%bad", "band", {"1", "Int32"}, {"2", "Int32"}, "Int32"}});
+        }});
+        arithmeticNegatives.push_back({"reserved_defect_symbol", [](auto& p) {
+            entry(p).linkage.symbol = "claw.runtime.defect.division_by_zero";
+        }});
+        for (const auto& [name, mutate] : arithmeticNegatives) {
+            auto program = scalarProgram();
+            mutate(program);
+            const auto obj = artifacts / ("arithmetic_reject_" + name + ".o");
+            const auto irPath = artifacts / ("arithmetic_reject_" + name + ".ll");
+            std::filesystem::remove(obj);
+            std::filesystem::remove(irPath);
+            require(!emitObject(program, {obj.string(), irPath.string(), false, true}, error), "accepted malformed arithmetic " + name);
+            require(error.find("unsupported") != std::string::npos && !std::filesystem::exists(obj) &&
+                    !std::filesystem::exists(irPath), "malformed arithmetic published artifacts " + name);
+        }
+        auto minLiteral = scalarProgram();
+        instructions(minLiteral, {LirUnaryInst{"%min", "-", {"2147483648", "Int32"}, "Int32"},
+                                  LirReturnInst{{"%min", "Int32"}}});
+        const auto minObject = artifacts / "arithmetic_min_literal.o";
+        const auto minIr = artifacts / "arithmetic_min_literal.ll";
+        require(emitObject(minLiteral, {minObject.string(), minIr.string(), false, true}, error), error);
+        std::ifstream minText(minIr);
+        const std::string minIrText((std::istreambuf_iterator<char>(minText)), {});
+        require(minIrText.find("ret i32 -2147483648") != std::string::npos, "literal MIN was not preserved");
+        auto malformedArithmetic = scalarProgram();
+        instructions(malformedArithmetic, {LirBinaryInst{"%bad", "add", {"true", "Bool"}, {"1", "Int32"}, "Int32"}});
+        require(!emitObject(malformedArithmetic, { (artifacts / "arithmetic_bad.o").string(), {}, false, true }, error),
+                "malformed arithmetic accepted");
         auto collision = scalarProgram();
         entry(collision).linkage.symbol = "claw.runtime.println.i32";
         require(!emitObject(collision, {(artifacts / "collision.o").string(), {}, true}, error), "runtime symbol collision accepted");
@@ -147,7 +246,8 @@ int main(int argc, char** argv) {
         entry(bad).returnType = "Float64";
         require(!emitObject(bad, {object.string(), ir.string()}, error), "recompile unexpectedly accepted");
         require(std::filesystem::file_size(object) == size, "failed recompile changed existing object");
-        std::cout << "PASS: " << negatives.size() << " malformed-LIR rejections, valid object, stale-error reset, preserved prior output\n";
+        std::cout << "PASS: " << negatives.size() << " legacy malformed-LIR rejections, " << arithmeticNegatives.size()
+                  << " arithmetic rejections, six dynamic arithmetic opcodes, valid object, stale-error reset, preserved prior output\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "FAIL: " << error.what() << '\n';

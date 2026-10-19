@@ -78,9 +78,11 @@ using FunctionMap = std::unordered_map<std::string, FunctionInfo>;
 class FunctionLowerer {
 public:
     FunctionLowerer(llvm::LLVMContext& context, const FunctionInfo& function,
-                    const FunctionMap& functions, llvm::Function* entry, llvm::Function* runtimeI32)
+                    const FunctionMap& functions, llvm::Function* entry, llvm::Function* runtimeI32,
+                    llvm::Function* runtimeDivisionByZero, bool enableArithmeticI32)
         : context_(context), builder_(context), function_(function), functions_(functions), entry_(entry),
-          runtimeI32_(runtimeI32) {}
+          runtimeI32_(runtimeI32), runtimeDivisionByZero_(runtimeDivisionByZero),
+          enableArithmeticI32_(enableArithmeticI32) {}
 
     void lower() {
         for (const auto& block : function_.lir->blocks) {
@@ -212,13 +214,73 @@ private:
         if (inst.result) bind(*inst.result, result);
     }
     void lowerInstruction(const LirUnaryInst& inst) {
+        // The internal LIR opcode is '-', although its text renderer prints neg.
+        if (inst.op == "-") {
+            if (!enableArithmeticI32_ || inst.type != "Int32" || inst.operand.type != "Int32")
+                unsupported("unary operator '-' (Int32 arithmetic is disabled or malformed)");
+            // Cat accepts -2147483648: its LIR retains unary '-' and the positive
+            // literal magnitude. Permit that literal here only, not as a general
+            // out-of-range Int32 value or as an unresolved/typed binding.
+            if (!inst.operand.isUnit && inst.operand.bindingKey.empty() && inst.operand.text == "2147483648" &&
+                !values_.contains(inst.operand.text) && !slots_.contains(inst.operand.text)) {
+                bind(inst.result, llvm::ConstantInt::getSigned(llvm::Type::getInt32Ty(context_),
+                     std::numeric_limits<int32_t>::min()));
+                return;
+            }
+            auto* operand = value(inst.operand);
+            if (!operand->getType()->isIntegerTy(32)) unsupported("non-Int32 neg operand");
+            // Deliberately no NSW/NUW: this PoC implements native release wrapping.
+            bind(inst.result, builder_.CreateSub(llvm::ConstantInt::get(operand->getType(), 0), operand, inst.result));
+            return;
+        }
         if (inst.op != "not" || inst.type != "Bool") unsupported("unary operator '" + inst.op + "'");
         auto* operand = value(inst.operand);
         if (!operand->getType()->isIntegerTy(1)) unsupported("non-Bool not operand");
         bind(inst.result, builder_.CreateNot(operand, inst.result));
     }
     void lowerInstruction(const LirBinaryInst& inst) {
-        // No arithmetic is emitted until both language profiles/defects are proved.
+        const bool arithmetic = inst.op == "add" || inst.op == "sub" || inst.op == "mul" ||
+                                inst.op == "div" || inst.op == "rem";
+        if (arithmetic) {
+            if (!enableArithmeticI32_ || inst.type != "Int32" || inst.left.type != "Int32" ||
+                inst.right.type != "Int32")
+                unsupported("arithmetic operator '" + inst.op + "' requires Int32 operands/result and --arithmetic-i32");
+            auto* left = value(inst.left);
+            auto* right = value(inst.right);
+            if (!left->getType()->isIntegerTy(32) || !right->getType()->isIntegerTy(32))
+                unsupported("arithmetic operand type mismatch");
+            llvm::Value* result = nullptr;
+            if (inst.op == "add") result = builder_.CreateAdd(left, right, inst.result);
+            else if (inst.op == "sub") result = builder_.CreateSub(left, right, inst.result);
+            else if (inst.op == "mul") result = builder_.CreateMul(left, right, inst.result);
+            else {
+                if (!runtimeDivisionByZero_) unsupported("division defect runtime is unavailable");
+                // Guard before sdiv/srem. The safe divisor also handles MIN/-1,
+                // because LLVM's signed division pair is poison/undefined there.
+                auto* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context_), 0);
+                auto* one = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context_), 1);
+                auto* isZero = builder_.CreateICmpEQ(right, zero, inst.result + ".zero");
+                auto* min = llvm::ConstantInt::getSigned(llvm::Type::getInt32Ty(context_), std::numeric_limits<int32_t>::min());
+                auto* minusOne = llvm::ConstantInt::getSigned(llvm::Type::getInt32Ty(context_), -1);
+                auto* overflow = builder_.CreateAnd(builder_.CreateICmpEQ(left, min),
+                    builder_.CreateICmpEQ(right, minusOne), inst.result + ".overflow");
+                auto* invalid = builder_.CreateOr(isZero, overflow, inst.result + ".invalid");
+                auto* safeRight = builder_.CreateSelect(invalid, one, right, inst.result + ".safe.divisor");
+                auto* fail = llvm::BasicBlock::Create(context_, inst.result + ".div.zero", function_.ir);
+                auto* ok = llvm::BasicBlock::Create(context_, inst.result + ".div.ok", function_.ir);
+                builder_.CreateCondBr(isZero, fail, ok);
+                builder_.SetInsertPoint(fail);
+                builder_.CreateCall(runtimeDivisionByZero_);
+                builder_.CreateUnreachable();
+                builder_.SetInsertPoint(ok);
+                auto* raw = inst.op == "div" ? builder_.CreateSDiv(left, safeRight, inst.result + ".raw")
+                                              : builder_.CreateSRem(left, safeRight, inst.result + ".raw");
+                auto* wrapped = inst.op == "div" ? static_cast<llvm::Value*>(min) : static_cast<llvm::Value*>(zero);
+                result = builder_.CreateSelect(overflow, wrapped, raw, inst.result);
+            }
+            bind(inst.result, result);
+            return;
+        }
         if (inst.op != "eq" && inst.op != "neq" && inst.op != "lt" && inst.op != "lte" &&
             inst.op != "gt" && inst.op != "gte") unsupported("binary operator '" + inst.op + "'");
         if (inst.type != "Bool") unsupported("non-Bool comparison result");
@@ -247,6 +309,8 @@ private:
     const FunctionMap& functions_;
     llvm::Function* entry_;
     llvm::Function* runtimeI32_;
+    llvm::Function* runtimeDivisionByZero_;
+    bool enableArithmeticI32_;
     std::unordered_map<std::string, llvm::Value*> values_;
     std::unordered_map<std::string, llvm::AllocaInst*> slots_;
     std::unordered_map<std::string, llvm::BasicBlock*> blocks_;
@@ -328,12 +392,21 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     std::unordered_set<std::string> symbols;
     llvm::Function* entry = nullptr;
     llvm::Function* runtimeI32 = nullptr;
+    llvm::Function* runtimeDivisionByZero = nullptr;
     constexpr llvm::StringLiteral runtimeSymbol("claw.runtime.println.i32");
+    constexpr llvm::StringLiteral divisionDefectSymbol("claw.runtime.defect.division_by_zero");
     if (options.enableRuntimeI32) {
         for (const auto& declaration : program.realms.front().decls) {
             if (const auto* function = std::get_if<LirFunction>(&declaration);
                 function && function->linkage.symbol == runtimeSymbol)
                 unsupported("reserved runtime symbol collision 'claw.runtime.println.i32'");
+        }
+    }
+    if (options.enableArithmeticI32) {
+        for (const auto& declaration : program.realms.front().decls) {
+            if (const auto* function = std::get_if<LirFunction>(&declaration);
+                function && function->linkage.symbol == divisionDefectSymbol)
+                unsupported("reserved runtime symbol collision 'claw.runtime.defect.division_by_zero'");
         }
     }
     for (const auto& declaration : program.realms.front().decls) {
@@ -375,10 +448,19 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
                                             runtimeSymbol, module);
         runtimeI32->setCallingConv(llvm::CallingConv::C);
     }
+    if (options.enableArithmeticI32) {
+        auto* defectType = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
+        runtimeDivisionByZero = llvm::Function::Create(defectType, llvm::GlobalValue::ExternalLinkage,
+                                                       divisionDefectSymbol, module);
+        runtimeDivisionByZero->setCallingConv(llvm::CallingConv::C);
+        runtimeDivisionByZero->setDoesNotReturn();
+    }
     if (!entry || entry->arg_size() != 0 ||
         (!entry->getReturnType()->isVoidTy() && !entry->getReturnType()->isIntegerTy(32)))
         unsupported("entry main signature or symbol");
-    for (const auto& info : definitions) FunctionLowerer(context, info, functions, entry, runtimeI32).lower();
+    for (const auto& info : definitions)
+        FunctionLowerer(context, info, functions, entry, runtimeI32, runtimeDivisionByZero,
+                        options.enableArithmeticI32).lower();
 
     auto* main = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getInt32Ty(context), false),
                                        llvm::GlobalValue::ExternalLinkage, "main", module);
