@@ -5,8 +5,25 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
+import struct
 import subprocess
 import sys
+
+
+def verify_target(obj, ir=None):
+    data = obj.read_bytes()
+    assert data[:6] == b"\x7fELF\x02\x01", "not a little-endian ELF64 object"
+    assert struct.unpack_from("<HH", data, 16) == (1, 62), "not an x86_64 relocatable object"
+    evidence = {"object_format": "ELF64", "object_machine": "x86_64", "object_bytes": len(data)}
+    if ir is not None:
+        text = ir.read_text()
+        triple = re.search(r'^target triple = "([^"]+)"$', text, re.MULTILINE)
+        layout = re.search(r'^target datalayout = "([^"]+)"$', text, re.MULTILINE)
+        assert triple and triple.group(1) == "x86_64-unknown-linux-gnu", "unexpected native IR triple"
+        assert layout and layout.group(1).startswith("e-m:e-") and "n8:16:32:64" in layout.group(1), "unexpected x86_64 ELF DataLayout"
+        evidence.update(target_triple=triple.group(1), data_layout=layout.group(1))
+    return evidence
 
 
 def run(args, *, expected=0, env=None):
@@ -72,7 +89,7 @@ def main():
         src.write_text(source.replace(";", "\n") + "\n")
         result = run([args.poc, src, "-o", obj, "--emit-ir", ir])
         (case / "poc.log").write_text(result.stdout + result.stderr)
-        assert obj.read_bytes().startswith(b"\x7fELF"), f"{name}: not a native ELF object"
+        target_evidence = verify_target(obj, ir)
         text = ir.read_text()
         assert "target datalayout" in text and "target triple" in text
         assert "define i32 @main()" in text, f"{name}: no native entry wrapper"
@@ -85,7 +102,8 @@ def main():
         (case / "baseline-build.log").write_text(original.stdout + original.stderr)
         old = run([baseline], expected=expected)
         assert native.stdout == old.stdout and native.stderr == old.stderr
-        results.append({"name": name, "status": "pass", "exit": expected, "kind": "differential"})
+        assert native.stdout == "" and native.stderr == "", f"{name}: unexpected native output"
+        results.append({"name": name, "status": "pass", "exit": expected, "kind": "differential", **target_evidence})
         print(f"[pass/differential] {name}", flush=True)
     for name, source in negatives.items():
         case = root / name
@@ -175,7 +193,7 @@ def main():
     obj = root / "no-toolchain.o"
     obj.unlink(missing_ok=True)
     run([args.poc.resolve(), source, "-o", obj], env=env)
-    assert obj.read_bytes().startswith(b"\x7fELF")
+    verify_target(obj)
     results.append({"name": "no_toolchain_path", "status": "pass", "kind": "isolation"})
     (root / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     print(f"PASS: {len(results)} PoC cases; artifacts: {root}")

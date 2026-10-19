@@ -1,0 +1,86 @@
+name: LLVM C++ PoC (opt-in)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  linux:
+    name: Linux PoC (${{ matrix.profile }}, LLVM 23.1.3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [release, sanitizers]
+    env:
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - name: Check out exact pull request head
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Install SDK system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends clang cmake ninja-build python3-zstandard libxml2-dev zlib1g-dev libzstd-dev
+      - name: Record exact source and toolchain
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p ci-evidence
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git diff --exit-code
+          {
+            git rev-parse HEAD
+            clang++ --version
+            cmake --version
+            /usr/bin/python3 --version
+          } | tee ci-evidence/toolchain.txt
+          dpkg-query -W > ci-evidence/packages.txt
+      - name: Fetch checksum-pinned official SDK
+        run: /usr/bin/python3 claw/experimental/llvm_cpp/fetch_sdk.py --destination "$RUNNER_TEMP/llvm23-sdk" | tee ci-evidence/sdk-fetch.json
+      - name: Configure opt-in exact23 build
+        run: |
+          flags=()
+          if [[ "${{ matrix.profile }}" == sanitizers ]]; then
+            flags+=(-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined\ -fno-omit-frame-pointer)
+            flags+=(-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined)
+          fi
+          cmake -S claw -B build-llvm-poc -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ \
+            -DCLAW_ENABLE_LLVM_CPP_POC=ON \
+            -DCLAW_LLVM_CONFIG="$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" \
+            -DPython3_EXECUTABLE=/usr/bin/python3 "${flags[@]}" \
+            2>&1 | tee ci-evidence/configure.log
+      - name: Build all PoC and production targets
+        run: cmake --build build-llvm-poc --parallel 2 2>&1 | tee ci-evidence/build.log
+      - name: Record linked LLVM and exact component closure
+        run: |
+          build-llvm-poc/experimental/llvm_cpp/claw-llvm-sdk-version-probe | tee ci-evidence/linked-sdk-version.txt
+          "$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" --version --host-target --link-static --libfiles core codegen mc target x86codegen x86desc x86info > ci-evidence/sdk-component-libraries.txt
+          "$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" --link-static --system-libs core codegen mc target x86codegen x86desc x86info > ci-evidence/sdk-system-libraries.txt
+          ldd build-llvm-poc/experimental/llvm_cpp/claw-llvm-poc > ci-evidence/poc-dynamic-dependencies.txt
+      - name: Run all PoC gates and original production suites
+        run: |
+          ctest --test-dir build-llvm-poc --output-on-failure 2>&1 | tee ci-evidence/ctest.log
+          CLAW_EXE="$PWD/build-llvm-poc/claw" bash claw/tests/run_all_tests.sh 2>&1 | tee ci-evidence/production-suites.log
+      - name: Upload evidence, excluding SDK and executables
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: llvm-cpp-poc-linux-${{ matrix.profile }}
+          path: |
+            ci-evidence/
+            build-llvm-poc/Testing/Temporary/LastTest.log
+            build-llvm-poc/experimental/llvm_cpp/artifacts/results.json
+            build-llvm-poc/experimental/llvm_cpp/adapter-artifacts/*.log
+          if-no-files-found: warn

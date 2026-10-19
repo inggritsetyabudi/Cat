@@ -14,16 +14,24 @@ Bahasa Cat tetap memiliki parser, analisis tipe, ownership, dan lowering sendiri
 
 ## Menjalankan
 
-Prasyarat PoC pertama: host x86-64 GNU/Linux, LLVM development SDK **major 18**, CMake, compiler C++20, Python 3, dan `cc` untuk langkah link. Clang diperlukan hanya untuk pembanding jalur produksi pada tes diferensial.
+Prasyarat: host x86-64 GNU/Linux, LLVM development SDK **exact 23.1.3**, CMake, compiler C++20, Python 3, dan `cc` untuk langkah link. Clang diperlukan hanya untuk pembanding jalur produksi pada tes diferensial. LLVM18, versi23 lain, header/library campuran, dan SDK parsial bukan pengganti yang diterima.
+
+[SDK resmi Linux X64 LLVM23.1.3](https://github.com/llvm/llvm-project/releases/tag/llvmorg-23.1.3) menyediakan component libraries statik. PoC tidak memerlukan target CMake monolithic `LLVM` atau seluruh metadata CMake SDK: `CLAW_LLVM_CONFIG` menunjuk executable SDK yang sebenarnya. CMake meminta komponen `core`, `codegen`, `mc`, `target`, `x86codegen`, `x86desc`, dan `x86info`, serta closure dependency dan system libraries dari SDK tersebut. Path setiap library wajib ada; tidak ada pencarian ulang ke LLVM18. Include/definitions/link dependency tetap privat di adapter.
+
+Helper berikut mengunduh archive resmi dengan SHA256 yang dipin, hanya mengekstrak header, `llvm-config`, library LLVM statik, dan notice/lisensi. Tidak membangun LLVM dari source. Archive sekitar1,19GB; subset SDK sekitar380MB, di luar dependency sistem. Helper memerlukan Python package `zstandard`; pada Ubuntu juga siapkan `libxml2-dev`, `zlib1g-dev`, dan `libzstd-dev` untuk system libraries SDK.
 
 ```bash
+python3 claw/experimental/llvm_cpp/fetch_sdk.py \
+  --destination "$HOME/.cache/cat-llvm-23.1.3"
 cmake -S claw -B claw/build/llvm-cpp-poc \
   -DCMAKE_BUILD_TYPE=Release \
   -DCLAW_ENABLE_LLVM_CPP_POC=ON \
-  -DLLVM_DIR="$(llvm-config-18 --cmakedir)"
+  -DCLAW_LLVM_CONFIG="$HOME/.cache/cat-llvm-23.1.3/bin/llvm-config"
 cmake --build claw/build/llvm-cpp-poc -j4
 ctest --test-dir claw/build/llvm-cpp-poc --output-on-failure
 ```
+
+Pin diperiksa saat configure, pada header adapter saat compile, dan melalui probe versi dari library LLVM yang benar-benar ditautkan. SDK version mismatch harus gagal, bukan fallback. API23 memakai `llvm::Triple` bertipe dan `getTerminatorOrNull()` saat memeriksa blok yang belum memiliki terminator; `getTerminator()` pada LLVM23 mensyaratkan blok well-formed.
 
 Contoh sumber `answer.cat`:
 
@@ -57,7 +65,7 @@ python3 claw/experimental/llvm_cpp/test_poc.py \
   --artifacts claw/build/llvm-cpp-poc/poc-artifacts
 ```
 
-Artefak sumber, `.ll`, `.o`, executable, log, dan `results.json` disimpan agar bisa diperiksa. Skrip menguji exit status terhadap nilai yang diharapkan sekaligus terhadap jalur produksi; stdout/stderr juga dibandingkan. Tes negatif memastikan penolakan disertai diagnostik dan tidak menghasilkan object/IR baru.
+Artefak sumber, `.ll`, `.o`, executable, log, dan `results.json` disimpan agar bisa diperiksa. Skrip menguji exit status terhadap nilai yang diharapkan sekaligus terhadap jalur produksi; stdout/stderr juga dibandingkan dan wajib kosong untuk fixture scalar ini. Header object harus ELF64 little-endian relocatable x86_64, IR triple harus `x86_64-unknown-linux-gnu`, dan DataLayout harus sesuai x86_64 ELF. Triple, DataLayout, format, serta ukuran object dicatat di hasil. Tes negatif memastikan penolakan disertai diagnostik dan tidak menghasilkan object/IR baru.
 
 CTest juga menjalankan `test_adapter.cpp` langsung pada API internal: signature/arity salah, entry invalid, operand bertipe salah, literal di luar rentang, label tak dikenal, value phi, ABI ref/indirect, dan instruksi unsupported harus ditolak sebelum output diterbitkan. Tes `PATH` kosong membuktikan emisi object tidak membutuhkan executable compiler/linker eksternal.
 
@@ -74,6 +82,8 @@ Aritmetika signed, pembagian/remainder, runtime builtins seperti `println`, owne
 Penyimpanan lokal/parameter `Unit`, tipe `UInt32`, value phi, dan pemanggilan rekursif langsung juga belum didukung. Panggilan ke entry `main` ditolak, termasuk dari helper. Diagnostik pembatasan PoC tidak menjanjikan format/stage yang identik dengan driver produksi.
 
 Tidak ada profil debug/release bahasa yang baru. `CMAKE_BUILD_TYPE=Release` mengoptimalkan binary **compiler PoC**, bukan menyatakan seluruh kebijakan release Cat sudah diterapkan. Tidak ada klaim kecepatan, kesetaraan seluruh bahasa, dukungan Windows, atau kesiapan produksi.
+
+Workflow opt-in PoC mengaktifkan flag hanya pada job khusus; workflow produksi lama tetap menguji jalur default. Suite produksi penuh dan sanitizer tidak boleh diskip atau diubah agar eksperimen hijau. Kegagalan diagnostik Windows baseline-vs-fixed yang menuntut kode stack-overflow pada baseline lama harus dilaporkan terpisah bila baseline menghasilkan access-violation; oracle tersebut tidak dilonggarkan.
 
 ## Syarat sebelum mempertimbangkan migrasi
 

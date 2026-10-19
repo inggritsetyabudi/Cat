@@ -2,6 +2,7 @@
 #include "codegen/llvm.h"
 
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/Config/llvm-config.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/IRBuilder.h>
@@ -16,6 +17,7 @@
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
+#include <llvm/TargetParser/Triple.h>
 
 #include <charconv>
 #include <filesystem>
@@ -26,6 +28,10 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
+
+#if LLVM_VERSION_MAJOR != 23 || LLVM_VERSION_MINOR != 1 || LLVM_VERSION_PATCH != 3
+#error "The experimental Cat adapter requires exact LLVM 23.1.3 headers"
+#endif
 
 namespace claw::experimental::llvm_cpp {
 namespace {
@@ -83,10 +89,10 @@ public:
         for (const auto& block : function_.lir->blocks) {
             builder_.SetInsertPoint(blocks_.at(block.label));
             for (const auto& instruction : block.insts) {
-                if (builder_.GetInsertBlock()->getTerminator()) unsupported("instruction after terminator");
+                if (builder_.GetInsertBlock()->getTerminatorOrNull()) unsupported("instruction after terminator");
                 std::visit([this](const auto& inst) { lowerInstruction(inst); }, instruction);
             }
-            if (!builder_.GetInsertBlock()->getTerminator()) {
+            if (!builder_.GetInsertBlock()->getTerminatorOrNull()) {
                 if (!function_.ir->getReturnType()->isVoidTy()) unsupported("unterminated non-Unit block '" + block.label + "'");
                 builder_.CreateRetVoid();
             }
@@ -274,17 +280,23 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     }();
     if (!targetReady) throw std::runtime_error("Cannot initialize native LLVM target");
     const std::string triple(claw::codegen::nativeTargetTriple());
+    const llvm::Triple targetTriple(triple);
+    if (targetTriple.getArch() != llvm::Triple::x86_64 || !targetTriple.isOSLinux() || !targetTriple.isOSBinFormatELF())
+        unsupported("target: only native Linux x86_64 ELF is validated");
     std::string targetError;
-    const auto* target = llvm::TargetRegistry::lookupTarget(triple, targetError);
+    const auto* target = llvm::TargetRegistry::lookupTarget(targetTriple, targetError);
     if (!target) throw std::runtime_error("Cannot resolve LLVM target: " + targetError);
     llvm::TargetOptions targetOptions;
     std::unique_ptr<llvm::TargetMachine> machine(target->createTargetMachine(
-        triple, "generic", "", targetOptions, llvm::Reloc::PIC_));
+        targetTriple, "generic", "", targetOptions, llvm::Reloc::PIC_));
     if (!machine) throw std::runtime_error("Cannot create LLVM TargetMachine");
     llvm::LLVMContext context;
     llvm::Module module("claw_llvm_cpp_poc", context);
-    module.setTargetTriple(triple);
-    module.setDataLayout(machine->createDataLayout());
+    module.setTargetTriple(targetTriple);
+    const auto layout = machine->createDataLayout();
+    if (!layout.isLittleEndian() || layout.getPointerSizeInBits() != 64)
+        unsupported("target DataLayout: little-endian 64-bit pointers required");
+    module.setDataLayout(layout);
 
     FunctionMap functions;
     std::vector<FunctionInfo> definitions;
