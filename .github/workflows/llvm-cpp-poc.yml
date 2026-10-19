@@ -104,6 +104,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+      - name: Record exact source using native Windows Git
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ci-evidence | Out-Null
+          git rev-parse HEAD | Tee-Object -FilePath ci-evidence/source-revision.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Set up pinned MSYS2 UCRT64
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         with:
@@ -130,7 +136,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ci-evidence
-          git rev-parse HEAD | tee ci-evidence/source-revision.txt
           uname -a | tee ci-evidence/host.txt
           pacman --version | tee ci-evidence/pacman-version.txt
           pacman -Q | tee ci-evidence/packages.txt
