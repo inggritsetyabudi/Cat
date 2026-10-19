@@ -94,7 +94,8 @@ if(BUILD_TESTING)
             --artifacts "${CMAKE_CURRENT_BINARY_DIR}/artifacts/arithmetic" --profile "${CLAW_LLVM_POC_PLATFORM}"
             ${_runtime_profile_args})
     set_tests_properties(llvm-cpp-poc-arithmetic PROPERTIES DEPENDS llvm-cpp-poc-runtime TIMEOUT 240)
-    # Production ABI/cleanup evidence only: String remains rejected by the adapter.
+    # Production ABI/cleanup evidence only: its calls omit --strings and must
+    # continue to reject every String input at the default adapter boundary.
     find_program(CLAW_ABI_ORACLE_CLANG NAMES clang REQUIRED)
     # Native UCRT Python cannot resolve MSYS /usr/bin through CreateProcess.
     find_program(CLAW_ABI_ORACLE_GIT NAMES git
@@ -114,4 +115,13 @@ if(BUILD_TESTING)
             --git "${CLAW_ABI_ORACLE_GIT}" --expected-sha "${_abi_oracle_source_sha}")
     set_tests_properties(llvm-cpp-production-string-abi-oracle PROPERTIES
         DEPENDS llvm-cpp-poc-arithmetic TIMEOUT 600)
+    add_test(NAME llvm-cpp-poc-strings
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_strings.py"
+            --emitter "$<TARGET_FILE:claw-llvm-poc>" --production "$<TARGET_FILE:claw>"
+            --runtime "$<TARGET_FILE:claw_llvm_cpp_poc_runtime>" --external "${CLAW_LLD_EXECUTABLE}"
+            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/artifacts/strings" --profile "${CLAW_LLVM_POC_PLATFORM}"
+            --cc "${CLAW_ABI_ORACLE_CLANG}" --ar "${CLAW_RUNTIME_AR}"
+            ${_runtime_profile_args})
+    set_tests_properties(llvm-cpp-poc-strings PROPERTIES
+        DEPENDS llvm-cpp-production-string-abi-oracle TIMEOUT 600)
 endif()

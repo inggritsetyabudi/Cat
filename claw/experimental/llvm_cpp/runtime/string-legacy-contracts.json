@@ -1,0 +1,27 @@
+{
+  "basis_sha": "116299f0b09ab54b94545c3977396a705605315a",
+  "scalar_cases": 41,
+  "arithmetic_programs": 29,
+  "production_string_cases": 14,
+  "allocations_per_profile": 63,
+  "files": {
+    "claw/experimental/llvm_cpp/abi_oracle/expectations.json": "fb6e20bcc25c858bdbec0c45907fea0880063dcae53ff79572562c2be6865377",
+    "claw/experimental/llvm_cpp/abi_oracle/fixtures/abi_calls.cat": "5da3de7d9c5b7a8aaa4fb0aa47cba7fc4177fcfbb6018d5d946e2902ff1f8df5",
+    "claw/experimental/llvm_cpp/abi_oracle/fixtures/literal_str.cat": "5863240228205fcc68da60b1cae574a3ea6cd7a239343cdb83a5169be90f9863",
+    "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_borrow.cat": "266344543a6464c5843ca1e308aa45f7f1fe884aa40ddc8923cde6e1bff8c1dc",
+    "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_branch.cat": "4d0c51c4910af18456ce59ea72c8a8829e7cec9a133e0b4b5020ef8e7f8f6d5f",
+    "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_empty_clone.cat": "60ae2a9bd788617378962ca475000c5079e10c4ec9fbda413783e257d97f4f99",
+    "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_helper.cat": "a1e98a896bb4fa93240b68bb7d9bd74e2ede2d7a0e532690616fb69fc5844dca",
+    "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_scope.cat": "be4307fd498f217b5acb172fb39ca982aca4159d440f4930efc99400d1af8905",
+    "claw/experimental/llvm_cpp/runtime/test_arithmetic.py": "4faa93a7ef0e4a8f38c1d3bff76885ecdf330a7f30fdcbccdb029590a6958f1b",
+    "claw/experimental/llvm_cpp/runtime/test_runtime.py": "054aa7b8a4295a09afc3483211982ec4e00d4ffbd26704edd6a988add3ed6f6f",
+    "claw/experimental/llvm_cpp/test_poc.py": "d14cd87542771fadf0e739a69d0d14db6aded4f9ffb72a3b7eb73170ebd2fc40",
+    "claw/tests/integration/fixtures/composition_owned_result_loops.cat": "908f1b282abb71d72614baace6e38d7b6fd443e73e18bdb2f7789df6616dfc54",
+    "claw/tests/integration/fixtures/try_cleanup_manual_else.cat": "d45936a19aa08b2edb3741fc83542ed8a18ddac7d3a736cced4735d052c9aff9",
+    "claw/tests/integration/fixtures/try_cleanup_minimal.cat": "f2fa3672565314dcc20fd109613e8162cd1cb7df5e1514f132f49ca0862c0e51",
+    "claw/tests/native/fixtures/revise_str_branch_escape_safe.cat": "3e85a3dd095618949215ae7b01d7c3c480d82d286ce514960fc0663aedde5c0f",
+    "claw/tests/native/fixtures/revise_string_escapes.cat": "eb95e44a2fc0d8ca46e5974a0b453e1d5d01c6ef495d70561113b69057bfe8c6",
+    "claw/tests/native/fixtures/revise_string_owner.cat": "6363d33edcc1481f899d49205906028c307497f43b87e723eb6aef7f406791ce",
+    "claw/tests/native/fixtures/revise_string_temporary_cleanup.cat": "b1f826f555605c177605d219f3a7a05213b34fa7c4caca852e96c4e3fe3b3ed0"
+  }
+}

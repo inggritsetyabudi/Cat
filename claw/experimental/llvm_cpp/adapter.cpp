@@ -1,5 +1,6 @@
 #include "experimental/llvm_cpp/adapter.h"
 #include "codegen/llvm.h"
+#include "codegen/llvm_internal.h"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Config/llvm-config.h>
@@ -56,6 +57,21 @@ llvm::Type* scalarType(llvm::LLVMContext& context, const std::string& name) {
     unsupported("scalar type '" + name + "'");
 }
 
+bool isSliceType(const std::string& name) { return name == "Str" || name == "ref Str"; }
+bool isBufferType(const std::string& name) { return name == "String"; }
+bool isStringType(const std::string& name) { return isSliceType(name) || isBufferType(name); }
+
+llvm::Type* stringType(llvm::LLVMContext& context, const std::string& name, bool enabled) {
+    if (!enabled || !isStringType(name)) return scalarType(context, name);
+    const char* tag = isSliceType(name) ? "claw.slice" : "claw.buffer";
+    if (auto* existing = llvm::StructType::getTypeByName(context, tag)) return existing;
+    auto* record = llvm::StructType::create(context, tag);
+    std::vector<llvm::Type*> fields{llvm::PointerType::getUnqual(context), llvm::Type::getInt64Ty(context)};
+    if (isBufferType(name)) fields.push_back(llvm::Type::getInt64Ty(context));
+    record->setBody(fields, false);
+    return record;
+}
+
 bool isBuiltinTemplate(const LirChoice& choice) {
     if (!choice.layout || !choice.layout->isTemplate || choice.cases.size() != 2) return false;
     if (choice.name == "Result" && choice.typeParams == std::vector<std::string>{"T", "E"}) {
@@ -79,10 +95,15 @@ class FunctionLowerer {
 public:
     FunctionLowerer(llvm::LLVMContext& context, const FunctionInfo& function,
                     const FunctionMap& functions, llvm::Function* entry, llvm::Function* runtimeI32,
-                    llvm::Function* runtimeDivisionByZero, bool enableArithmeticI32)
+                    llvm::Function* runtimeDivisionByZero, bool enableArithmeticI32,
+                    bool enableStrings, llvm::Module* module,
+                    llvm::Function* runtimeStringAlloc, llvm::Function* runtimeStringCopy,
+                    llvm::Function* runtimeStringFree, llvm::Function* runtimePrintSlice)
         : context_(context), builder_(context), function_(function), functions_(functions), entry_(entry),
           runtimeI32_(runtimeI32), runtimeDivisionByZero_(runtimeDivisionByZero),
-          enableArithmeticI32_(enableArithmeticI32) {}
+          enableArithmeticI32_(enableArithmeticI32), enableStrings_(enableStrings), module_(module),
+          runtimeStringAlloc_(runtimeStringAlloc), runtimeStringCopy_(runtimeStringCopy),
+          runtimeStringFree_(runtimeStringFree), runtimePrintSlice_(runtimePrintSlice) {}
 
     void lower() {
         for (const auto& block : function_.lir->blocks) {
@@ -90,11 +111,19 @@ public:
                 unsupported("duplicate block label '" + block.label + "'");
         }
         if (blocks_.empty()) unsupported("function without blocks");
-        for (size_t i = 0; i < function_.lir->params.size(); ++i) {
+        size_t argumentIndex = function_.lir->returnType == "String" ? 1 : 0;
+        for (size_t i = 0; i < function_.lir->params.size(); ++i, ++argumentIndex) {
             const auto& name = function_.lir->params[i].name;
-            auto* argument = function_.ir->getArg(i);
+            auto* argument = function_.ir->getArg(argumentIndex);
             argument->setName(name);
-            if (!values_.emplace(name, argument).second) unsupported("duplicate parameter '" + name + "'");
+            const auto& param = function_.lir->params[i];
+            if (argument->getType()->isPointerTy() && isStringType(param.type)) {
+                if (!parameterAddresses_.emplace(name, argument).second)
+                    unsupported("duplicate parameter '" + name + "'");
+                parameterTypes_.emplace(name, stringType(context_, param.type, enableStrings_));
+            } else if (!values_.emplace(name, argument).second) {
+                unsupported("duplicate parameter '" + name + "'");
+            }
         }
         for (const auto& block : function_.lir->blocks) {
             builder_.SetInsertPoint(blocks_.at(block.label));
@@ -103,7 +132,7 @@ public:
                 std::visit([this](const auto& inst) { lowerInstruction(inst); }, instruction);
             }
             if (!builder_.GetInsertBlock()->getTerminatorOrNull()) {
-                if (!function_.ir->getReturnType()->isVoidTy()) unsupported("unterminated non-Unit block '" + block.label + "'");
+                if (function_.lir->returnType != "Unit") unsupported("unterminated non-Unit block '" + block.label + "'");
                 builder_.CreateRetVoid();
             }
         }
@@ -118,15 +147,38 @@ private:
         if (found == blocks_.end()) unsupported("unknown block label '" + label + "'");
         return found->second;
     }
+    llvm::AllocaInst* allocate(llvm::Type* type, const std::string& name) {
+        // Every spill has one static slot per call site, not one allocation per
+        // loop iteration. Initialization remains at the original use site.
+        llvm::IRBuilder<> storage(&function_.ir->getEntryBlock(), function_.ir->getEntryBlock().begin());
+        return storage.CreateAlloca(type, nullptr, name);
+    }
     llvm::Value* value(const LirValue& input) {
-        auto* expectedType = scalarType(context_, input.type);
+        auto* expectedType = stringType(context_, input.type, enableStrings_);
         if (input.isUnit || expectedType->isVoidTy()) unsupported("Unit as a scalar operand");
         llvm::Value* result = nullptr;
         const auto id = key(input);
         if (const auto found = slots_.find(id); found != slots_.end()) {
             result = builder_.CreateLoad(found->second->getAllocatedType(), found->second, input.text + ".load");
+        } else if (const auto found = parameterAddresses_.find(id); found != parameterAddresses_.end()) {
+            if (parameterTypes_.at(id) != expectedType) unsupported("indirect parameter type mismatch");
+            result = builder_.CreateLoad(expectedType, found->second, input.text + ".arg.load");
         } else if (const auto found = values_.find(id); found != values_.end()) {
             result = found->second;
+        } else if (enableStrings_ && input.bindingKey.empty() && isSliceType(input.type) && claw::codegen::isStringLiteral(input.text)) {
+            const std::string decoded = claw::codegen::decodeStringLiteral(input.text);
+            const std::string name = ".claw.str." + std::to_string(literalId_++);
+            auto* array = llvm::ConstantDataArray::getString(context_, decoded, true);
+            auto* global = new llvm::GlobalVariable(*module_, array->getType(), true,
+                llvm::GlobalValue::PrivateLinkage, array, name);
+            llvm::SmallVector<llvm::Constant*, 2> indices{
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(context_), 0),
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(context_), 0)};
+            auto* ptr = llvm::ConstantExpr::getInBoundsGetElementPtr(array->getType(), global, indices);
+            result = llvm::ConstantStruct::get(llvm::cast<llvm::StructType>(expectedType),
+                {ptr, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context_), decoded.size())});
+        } else if (!input.bindingKey.empty()) {
+            unsupported("unresolved binding key '" + input.bindingKey + "'");
         } else if (input.type == "Bool" && (input.text == "true" || input.text == "false")) {
             result = llvm::ConstantInt::get(expectedType, input.text == "true");
         } else if (input.type == "Int32") {
@@ -144,14 +196,13 @@ private:
         if (!values_.emplace(name, result).second || slots_.contains(name)) unsupported("duplicate SSA result '" + name + "'");
     }
     void lowerInstruction(const LirObjectInst& inst) {
-        auto* type = scalarType(context_, inst.type);
+        auto* type = stringType(context_, inst.type, enableStrings_);
         if (type->isVoidTy()) unsupported("Unit local storage");
         const auto id = inst.bindingKey.empty() ? inst.name : inst.bindingKey;
         if (slots_.contains(id) || values_.contains(id)) unsupported("duplicate object binding '" + id + "'");
         if (inst.storage != "stack") unsupported("object storage '" + inst.storage + "'");
         // Hoist storage, not initialization, so nested/loop-local allocas dominate uses.
-        llvm::IRBuilder<> allocation(&function_.ir->getEntryBlock(), function_.ir->getEntryBlock().begin());
-        slots_.emplace(id, allocation.CreateAlloca(type, nullptr, inst.name + ".slot"));
+        slots_.emplace(id, allocate(type, inst.name + ".slot"));
     }
     void lowerInstruction(const LirStoreInst& inst) {
         const auto id = inst.targetBindingKey.empty() ? inst.target : inst.targetBindingKey;
@@ -163,8 +214,15 @@ private:
     }
     void lowerInstruction(const LirReturnInst& inst) {
         if (function_.ir->getReturnType()->isVoidTy()) {
-            if (!inst.value.isUnit && inst.value.type != "Unit") unsupported("value return in Unit function");
-            builder_.CreateRetVoid();
+            if (function_.lir->returnType == "String") {
+                if (inst.value.type != "String") unsupported("String return type mismatch");
+                auto* slot = function_.ir->getArg(0);
+                builder_.CreateStore(value(inst.value), slot);
+                builder_.CreateRetVoid();
+            } else {
+                if (!inst.value.isUnit && inst.value.type != "Unit") unsupported("value return in Unit function");
+                builder_.CreateRetVoid();
+            }
         } else {
             auto* operand = value(inst.value);
             if (operand->getType() != function_.ir->getReturnType()) unsupported("return type mismatch");
@@ -177,11 +235,82 @@ private:
         builder_.CreateCondBr(condition, block(inst.trueLabel), block(inst.falseLabel));
     }
     void lowerInstruction(const LirGotoInst& inst) { builder_.CreateBr(block(inst.targetLabel)); }
+    void lowerInstruction(const LirBreakInst& inst) {
+        if (!enableStrings_) unsupported("LIR break outside String control slice");
+        builder_.CreateBr(block(inst.targetLabel));
+    }
+    void lowerInstruction(const LirContinueInst& inst) {
+        if (!enableStrings_) unsupported("LIR continue outside String control slice");
+        builder_.CreateBr(block(inst.targetLabel));
+    }
     void lowerInstruction(const LirPhiInst& inst) {
         // Current Cat LIR uses Control phi as metadata. Value phis are not covered.
         if (inst.type != "Control") unsupported("value phi instruction");
     }
+    void lowerStringDrop(const LirDropInst& inst) {
+        if (!enableStrings_ || inst.type != "String" || !runtimeStringFree_)
+            unsupported("malformed String drop");
+        auto* owner = value(LirValue{inst.name, inst.type, false, inst.bindingKey});
+        builder_.CreateCall(runtimeStringFree_, {builder_.CreateExtractValue(owner, {0}, "string.drop.data")});
+    }
     void lowerInstruction(const LirCallInst& inst) {
+        if (enableStrings_ && inst.kind == LirCallKind::Runtime && inst.callee == "println" &&
+            inst.hook == "runtime.println" && inst.type == "Unit" && inst.args.size() == 1 &&
+            isSliceType(inst.args.front().type) && !inst.result && !inst.builtinTag && !inst.builtinReceiver &&
+            !inst.externalInfo && inst.safety == LirSafetyTag::ProvenSafe) {
+            auto* argument = value(inst.args.front());
+            auto* slot = allocate(argument->getType(), "println.slice.addr");
+            builder_.CreateStore(argument, slot);
+            builder_.CreateCall(runtimePrintSlice_, {slot});
+            return;
+        }
+        if (enableStrings_ && inst.kind == LirCallKind::Builtin && inst.safety == LirSafetyTag::ProvenSafe &&
+            inst.builtinTag.has_value()) {
+            if (inst.externalInfo || inst.hook != "builtin." + *inst.builtinTag)
+                unsupported("malformed String builtin metadata");
+            if (*inst.builtinTag == "String.from") {
+                if (inst.args.size() != 1 || !isSliceType(inst.args[0].type) || inst.type != "String" ||
+                    inst.builtinReceiver || !inst.result || !runtimeStringAlloc_ || !runtimeStringCopy_)
+                    unsupported("malformed String.from");
+                auto* slice = value(inst.args[0]);
+                auto* ptr = builder_.CreateExtractValue(slice, {0}, "string.from.ptr");
+                auto* len = builder_.CreateExtractValue(slice, {1}, "string.from.len");
+                auto* zero = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context_), 0);
+                auto* one = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context_), 1);
+                auto* cap = builder_.CreateSelect(builder_.CreateICmpSGT(len, zero), len, one, "string.from.capacity");
+                auto* data = builder_.CreateCall(runtimeStringAlloc_, {cap}, "string.from.data");
+                builder_.CreateCall(runtimeStringCopy_, {data, ptr, len});
+                llvm::Value* result = llvm::ConstantStruct::getNullValue(stringType(context_, "String", true));
+                result = builder_.CreateInsertValue(result, data, {0}, "string.from.ptr.field");
+                result = builder_.CreateInsertValue(result, len, {1}, "string.from.len.field");
+                result = builder_.CreateInsertValue(result, cap, {2}, inst.result.value_or("string.from.capacity.field"));
+                if (inst.result) bind(*inst.result, result);
+                return;
+            }
+            if (*inst.builtinTag == "String.as_str" || *inst.builtinTag == "String.clone") {
+                if (!inst.builtinReceiver || !inst.args.empty() || inst.builtinReceiver->type != "String")
+                    unsupported("malformed String receiver builtin");
+                auto* owner = value(*inst.builtinReceiver);
+                if (*inst.builtinTag == "String.as_str") {
+                    if (inst.type != "ref Str") unsupported("as_str result type");
+                    llvm::Value* result = llvm::ConstantStruct::getNullValue(stringType(context_, "ref Str", true));
+                    result = builder_.CreateInsertValue(result, builder_.CreateExtractValue(owner, {0}), {0}, "string.as_str.ptr");
+                    result = builder_.CreateInsertValue(result, builder_.CreateExtractValue(owner, {1}), {1}, inst.result.value_or("string.as_str.len"));
+                    if (inst.result) bind(*inst.result, result);
+                    return;
+                }
+                if (inst.type != "String" || !inst.result) unsupported("clone result type/binding");
+                auto* data = builder_.CreateCall(runtimeStringAlloc_, {builder_.CreateExtractValue(owner, {2})}, "string.clone.data");
+                builder_.CreateCall(runtimeStringCopy_, {data, builder_.CreateExtractValue(owner, {0}), builder_.CreateExtractValue(owner, {1})});
+                llvm::Value* result = llvm::ConstantStruct::getNullValue(stringType(context_, "String", true));
+                result = builder_.CreateInsertValue(result, data, {0}, "string.clone.ptr");
+                result = builder_.CreateInsertValue(result, builder_.CreateExtractValue(owner, {1}), {1}, "string.clone.len");
+                result = builder_.CreateInsertValue(result, builder_.CreateExtractValue(owner, {2}), {2}, inst.result.value_or("string.clone.cap"));
+                if (inst.result) bind(*inst.result, result);
+                return;
+            }
+            unsupported("unsupported String builtin '" + *inst.builtinTag + "'");
+        }
         if (inst.kind == LirCallKind::Runtime) {
             if (!runtimeI32_ || inst.callee != "println" || inst.hook != "runtime.println" ||
                 inst.type != "Unit" || inst.result || inst.externalInfo || inst.builtinTag ||
@@ -201,17 +330,36 @@ private:
         auto* callee = found->second.ir;
         if (callee == entry_) unsupported("call to entry main");
         if (callee == function_.ir) unsupported("recursive direct call");
-        if (inst.args.size() != callee->arg_size()) unsupported("call argument count mismatch");
-        if (scalarType(context_, inst.type) != callee->getReturnType()) unsupported("call result type mismatch");
+        if (stringType(context_, inst.type, enableStrings_) != stringType(context_, found->second.lir->returnType, enableStrings_))
+            unsupported("call logical result type mismatch");
+        const bool indirectReturn = found->second.lir->returnType == "String";
+        if (inst.args.size() + (indirectReturn ? 1 : 0) != callee->arg_size()) unsupported("call argument count mismatch");
+        if ((!indirectReturn && stringType(context_, inst.type, enableStrings_) != callee->getReturnType()) ||
+            (indirectReturn && !callee->getReturnType()->isVoidTy())) unsupported("call result type mismatch");
         std::vector<llvm::Value*> arguments;
+        llvm::AllocaInst* returnSlot = nullptr;
+        if (indirectReturn) {
+            if (!inst.result) unsupported("unbound owned call result");
+            returnSlot = allocate(stringType(context_, "String", true), "call.ret.addr");
+            arguments.push_back(returnSlot);
+        }
         for (size_t i = 0; i < inst.args.size(); ++i) {
+            if (stringType(context_, inst.args[i].type, enableStrings_) !=
+                stringType(context_, found->second.lir->params[i].type, enableStrings_))
+                unsupported("call logical argument type mismatch");
             auto* operand = value(inst.args[i]);
-            if (operand->getType() != callee->getFunctionType()->getParamType(i)) unsupported("call argument ABI mismatch");
-            arguments.push_back(operand);
+            auto* expected = callee->getFunctionType()->getParamType(i + (indirectReturn ? 1 : 0));
+            if (operand->getType() == expected) arguments.push_back(operand);
+            else if (expected->isPointerTy() && isStringType(inst.args[i].type)) {
+                auto* slot = allocate(operand->getType(), "call.arg.addr");
+                builder_.CreateStore(operand, slot);
+                arguments.push_back(slot);
+            } else unsupported("call argument ABI mismatch");
         }
         auto* result = builder_.CreateCall(callee, arguments,
             callee->getReturnType()->isVoidTy() ? "" : inst.result.value_or(""));
-        if (inst.result) bind(*inst.result, result);
+        if (indirectReturn && inst.result) bind(*inst.result, builder_.CreateLoad(stringType(context_, "String", true), returnSlot, *inst.result));
+        else if (inst.result) bind(*inst.result, result);
     }
     void lowerInstruction(const LirUnaryInst& inst) {
         // The internal LIR opcode is '-', although its text renderer prints neg.
@@ -284,6 +432,8 @@ private:
         if (inst.op != "eq" && inst.op != "neq" && inst.op != "lt" && inst.op != "lte" &&
             inst.op != "gt" && inst.op != "gte") unsupported("binary operator '" + inst.op + "'");
         if (inst.type != "Bool") unsupported("non-Bool comparison result");
+        if (isStringType(inst.left.type) || isStringType(inst.right.type))
+            unsupported("String comparison is unsupported");
         auto* left = value(inst.left);
         auto* right = value(inst.right);
         if (left->getType() != right->getType()) unsupported("comparison operand type mismatch");
@@ -298,6 +448,7 @@ private:
         else result = builder_.CreateICmpSGE(left, right, inst.result);
         bind(inst.result, result);
     }
+    void lowerInstruction(const LirDropInst& inst) { lowerStringDrop(inst); }
     void lowerInstruction(const LirDiscardInst& inst) {
         if (!inst.value.isUnit && inst.value.type != "Unit") (void)value(inst.value);
     }
@@ -311,7 +462,16 @@ private:
     llvm::Function* runtimeI32_;
     llvm::Function* runtimeDivisionByZero_;
     bool enableArithmeticI32_;
+    bool enableStrings_;
+    llvm::Module* module_;
+    llvm::Function* runtimeStringAlloc_;
+    llvm::Function* runtimeStringCopy_;
+    llvm::Function* runtimeStringFree_;
+    llvm::Function* runtimePrintSlice_;
+    unsigned literalId_ = 0;
     std::unordered_map<std::string, llvm::Value*> values_;
+    std::unordered_map<std::string, llvm::Value*> parameterAddresses_;
+    std::unordered_map<std::string, llvm::Type*> parameterTypes_;
     std::unordered_map<std::string, llvm::AllocaInst*> slots_;
     std::unordered_map<std::string, llvm::BasicBlock*> blocks_;
 };
@@ -386,6 +546,13 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     if (!layout.isLittleEndian() || layout.getPointerSizeInBits() != 64)
         unsupported("target DataLayout: little-endian 64-bit pointers required");
     module.setDataLayout(layout);
+    if (options.enableStrings) {
+        auto* slice = stringType(context, "ref Str", true);
+        auto* buffer = stringType(context, "String", true);
+        if (layout.getTypeAllocSize(slice).getFixedValue() != 16 || layout.getABITypeAlign(slice).value() != 8 ||
+            layout.getTypeAllocSize(buffer).getFixedValue() != 24 || layout.getABITypeAlign(buffer).value() != 8)
+            unsupported("String/Str target layout differs from paired oracle");
+    }
 
     FunctionMap functions;
     std::vector<FunctionInfo> definitions;
@@ -393,8 +560,16 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     llvm::Function* entry = nullptr;
     llvm::Function* runtimeI32 = nullptr;
     llvm::Function* runtimeDivisionByZero = nullptr;
+    llvm::Function* runtimeStringAlloc = nullptr;
+    llvm::Function* runtimeStringCopy = nullptr;
+    llvm::Function* runtimeStringFree = nullptr;
+    llvm::Function* runtimePrintSlice = nullptr;
     constexpr llvm::StringLiteral runtimeSymbol("claw.runtime.println.i32");
     constexpr llvm::StringLiteral divisionDefectSymbol("claw.runtime.defect.division_by_zero");
+    constexpr llvm::StringLiteral stringAllocSymbol("claw.runtime.string.alloc");
+    constexpr llvm::StringLiteral stringCopySymbol("claw.runtime.string.copy");
+    constexpr llvm::StringLiteral stringFreeSymbol("claw.runtime.string.free");
+    constexpr llvm::StringLiteral printSliceSymbol("claw.runtime.println.slice");
     if (options.enableRuntimeI32) {
         for (const auto& declaration : program.realms.front().decls) {
             if (const auto* function = std::get_if<LirFunction>(&declaration);
@@ -409,6 +584,15 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
                 unsupported("reserved runtime symbol collision 'claw.runtime.defect.division_by_zero'");
         }
     }
+    if (options.enableStrings) {
+        for (const auto& declaration : program.realms.front().decls) {
+            if (const auto* function = std::get_if<LirFunction>(&declaration)) {
+                if (function->linkage.symbol == stringAllocSymbol || function->linkage.symbol == stringCopySymbol ||
+                    function->linkage.symbol == stringFreeSymbol || function->linkage.symbol == printSliceSymbol)
+                    unsupported("reserved string runtime symbol collision");
+            }
+        }
+    }
     for (const auto& declaration : program.realms.front().decls) {
         const auto* function = std::get_if<LirFunction>(&declaration);
         if (!function) {
@@ -421,14 +605,37 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
         if (link.symbol.empty() || link.symbol == "main" || !symbols.insert(link.symbol).second)
             unsupported("empty, reserved, or duplicate function symbol '" + link.symbol + "'");
         std::vector<llvm::Type*> parameters;
+        const bool indirectReturn = function->returnType == "String";
+        if (isStringType(function->returnType) && !options.enableStrings)
+            unsupported("String ABI while --strings is disabled");
+        if (indirectReturn && function->returnPassKind != AbiPassKind::Indirect)
+            unsupported("String return requires indirect result slot ABI");
+        if (indirectReturn) parameters.push_back(llvm::PointerType::getUnqual(context));
+        std::unordered_set<std::string> parameterNames;
         for (const auto& parameter : function->params) {
-            auto* type = scalarType(context, parameter.type);
-            if (type->isVoidTy() || parameter.passKind != AbiPassKind::Scalar) unsupported("parameter ABI");
-            parameters.push_back(type);
+            if (parameter.name.empty() || !parameterNames.insert(parameter.name).second)
+                unsupported("empty or duplicate parameter name");
+            auto* type = stringType(context, parameter.type, options.enableStrings);
+            if (type->isVoidTy()) unsupported("parameter ABI");
+            const bool stringParam = isStringType(parameter.type);
+            const bool pointerAbi = stringParam && (parameter.type == "String" ||
+#if defined(_WIN32)
+                parameter.type == "Str" || parameter.type == "ref Str"
+#else
+                false
+#endif
+            );
+            if (!stringParam && parameter.passKind != AbiPassKind::Scalar) unsupported("parameter ABI");
+            if (stringParam && parameter.passKind != (isBufferType(parameter.type) ? AbiPassKind::Indirect : AbiPassKind::Direct))
+                unsupported("string parameter ABI");
+            parameters.push_back(pointerAbi ? llvm::PointerType::getUnqual(context) : type);
         }
-        auto* result = scalarType(context, function->returnType);
-        if (function->returnPassKind != (result->isVoidTy() ? AbiPassKind::Void : AbiPassKind::Scalar))
+        auto* result = stringType(context, function->returnType, options.enableStrings);
+        if (!isStringType(function->returnType) && function->returnPassKind != (result->isVoidTy() ? AbiPassKind::Void : AbiPassKind::Scalar))
             unsupported("return ABI");
+        if (isStringType(function->returnType) && function->returnType != "String" &&
+            function->returnPassKind != AbiPassKind::Direct) unsupported("Str return ABI");
+        if (indirectReturn) result = llvm::Type::getVoidTy(context);
         auto* signature = llvm::FunctionType::get(result, parameters, false);
         auto* ir = llvm::Function::Create(signature,
             link.linkage == LinkageKind::Internal ? llvm::GlobalValue::InternalLinkage : llvm::GlobalValue::ExternalLinkage,
@@ -455,12 +662,20 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
         runtimeDivisionByZero->setCallingConv(llvm::CallingConv::C);
         runtimeDivisionByZero->setDoesNotReturn();
     }
+    if (options.enableStrings) {
+        auto* ptr = llvm::PointerType::getUnqual(context);
+        runtimeStringAlloc = llvm::Function::Create(llvm::FunctionType::get(ptr, {llvm::Type::getInt64Ty(context)}, false), llvm::GlobalValue::ExternalLinkage, stringAllocSymbol, module);
+        runtimeStringCopy = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {ptr, ptr, llvm::Type::getInt64Ty(context)}, false), llvm::GlobalValue::ExternalLinkage, stringCopySymbol, module);
+        runtimeStringFree = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {ptr}, false), llvm::GlobalValue::ExternalLinkage, stringFreeSymbol, module);
+        runtimePrintSlice = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {ptr}, false), llvm::GlobalValue::ExternalLinkage, printSliceSymbol, module);
+    }
     if (!entry || entry->arg_size() != 0 ||
         (!entry->getReturnType()->isVoidTy() && !entry->getReturnType()->isIntegerTy(32)))
         unsupported("entry main signature or symbol");
     for (const auto& info : definitions)
         FunctionLowerer(context, info, functions, entry, runtimeI32, runtimeDivisionByZero,
-                        options.enableArithmeticI32).lower();
+                        options.enableArithmeticI32, options.enableStrings, &module,
+                        runtimeStringAlloc, runtimeStringCopy, runtimeStringFree, runtimePrintSlice).lower();
 
     auto* main = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getInt32Ty(context), false),
                                        llvm::GlobalValue::ExternalLinkage, "main", module);

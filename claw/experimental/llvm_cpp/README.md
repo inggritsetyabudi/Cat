@@ -125,7 +125,7 @@ Workflow opt-in PoC mengaktifkan flag hanya pada job khusus; workflow produksi l
 
 ## Runtime output melalui paket prebuilt terpisah
 
-[Eksperimen runtime Int32](runtime/README.md) menambahkan `CLAW_ENABLE_RUNTIME_POC=OFF` default untuk menyiapkan archive target-native dari runtime C produksi yang tidak dimodifikasi. Persiapan boleh memakai compiler C; **emit/link per source tidak boleh**. Emitter meminta `--runtime-i32`, lalu external LLD menghubungkan object dan archive runtime yang sama, dengan CRT/SDK inputs eksplisit. Default 41 kasus scalar/rejection lama tidak diubah. String/Str, alokasi/drop owned, ABI agregat dan runtime lain tetap tidak didukung; tidak ada klaim compiler sepenuhnya hermetik atau CRT statik.
+[Eksperimen runtime Int32](runtime/README.md) menambahkan `CLAW_ENABLE_RUNTIME_POC=OFF` default untuk menyiapkan archive target-native dari runtime C produksi yang tidak dimodifikasi. Persiapan boleh memakai compiler C; **emit/link per source tidak boleh**. Emitter meminta `--runtime-i32`, lalu external LLD menghubungkan object dan archive runtime yang sama, dengan CRT/SDK inputs eksplisit. Default 41 kasus scalar/rejection lama tidak diubah. Flag ini sendiri tetap tidak membuka String/Str atau alokasi/drop owned; irisan String di bawah memerlukan flag terpisah. Tidak ada klaim compiler sepenuhnya hermetik atau CRT statik.
 
 ## Slice aritmetika Int32 native, opt-in
 
@@ -158,6 +158,78 @@ ctest --test-dir <build> -R llvm-cpp-poc-arithmetic --output-on-failure
 Gate `runtime/test_arithmetic.py` menyiapkan referensi produksi O0 dan `--release` sebelum isolasi, lalu membandingkan stdout/stderr/exit native, IR signed/guard/flag, dan ELF/PE. Emit/link/run memakai PATH tanpa compiler, hanya object + runtime archive immutable + CRT/SDK pada final link. Manifest, hash dan mtime runtime harus tetap identik. Sumber Cat, IR, command/output, audit dependency, ukuran dan timing disimpan di `runtime/artifacts/arithmetic/testdata.json` beserta artefaknya. Gate berjalan pada Linux Release/sanitizer-host dan Windows UCRT native; menambahkan gate bukan klaim lulus sebelum hasil exact-head tersedia.
 
 Lebar integer lain, unsigned, float, bitwise, owned/String, FFI, arbitrary value phi dan canonical Debug checked overflow tetap di luar cakupan. Default 41 kasus dan gate runtime sebelumnya dipertahankan; malformed LIR tetap harus ditolak sebelum publikasi object/IR. Paket runtime C tetap dikompilasi hanya pada persiapan, bukan per source. Sanitizer host menginstrumentasi compiler C++; ini bukan klaim bahwa archive runtime C atau semua executable target ikut terinstrumentasi.
+
+## String/Str eksperimental bounded, opt-in
+
+`--strings` (`ObjectOptions.enableStrings=false` secara default) membuka irisan
+tambahan, bukan dukungan seluruh String atau kesiapan produksi. Ketiga opsi build
+PoC tetap OFF secara default; emitter/runtime/ABI produksi tidak berubah.
+
+Yang diterima: literal `Str` statis (empty, UTF-8 multibyte, embedded NUL),
+`println(Str)`, `String.from(Str)`, `.as_str()`, `.clone()` eksplisit, move/return
+owned melalui helper, argumen scalar, serta cleanup yang sudah diterbitkan
+ownership→OIR→LIR Cat. Tidak ada ownership analyzer pengganti, implicit clone,
+realloc, atau copy berbasis terminator. Constructor memakai `max(len,1)` dan
+menyalin tepat `len` byte; clone menyalin capacity/length produksi dan membuat
+alokasi baru. Borrow view tidak mengalokasikan maupun melakukan drop.
+
+ABI mengikuti paired oracle `116299f0b09ab54b94545c3977396a705605315a`, bukan
+ABI C aggregate yang ditebak: `%claw.slice = {ptr,i64}`, `%claw.buffer =
+{ptr,i64,i64}`, ukuran/alignment 16/8 dan 24/8 diperiksa dengan DataLayout.
+Helper `Str -> Str` memakai parameter aggregate langsung pada Linux, pointer
+record pada Windows GNU/UCRT, dan return aggregate pada keduanya. Helper String
+memakai argumen pointer record serta hidden result-slot pointer pertama dengan
+return `void`; tidak ditambahkan `sret`, `byval`, `nonnull`, atau atribut ABI lain.
+Runtime tetap `alloc(i64)->ptr`, `copy(ptr,ptr,i64)`, `free(ptr)->void`, serta
+`println.slice(ptr-record)->void`, dengan signed length/capacity i64.
+
+Storage dan spill dihoist ke entry, tetapi store/initialization tetap di titik
+LIR asli. Ini mencegah penambahan stack per iterasi. Drop memakai pointer owner
+yang dirujuk binding ID; tidak disintesis ulang dari nama atau urutan source.
+Normal/early return, temporary full-expression, nested scope, branch tak ambigu,
+loop kondisi Bool, `skip`/`stop`, clone setelah owner asal mati, dan tracked local/
+parameter shadowing diuji. Metadata phi `Control` bukan arbitrary aggregate phi.
+
+**Batas fail-closed penting:** LIR saat ini dapat tidak memberi ID unik untuk
+dua owner bernama sama pada sibling branch. Bentuk itu ditolak sebagai duplicate
+binding; adapter tidak menebak provenance atau melemahkan guard. `Result`, choice,
+pick/try, scan/range iterator, generic collections, arbitrary value phi, comparison
+String, slice/index/range view, borrowed shape fields, general ref/FFI/import,
+Arena, f-string/Show tetap tidak didukung. Tidak ada pengecualian borrowed field,
+lifetime syntax baru, atau perubahan Arena.
+
+```cat
+fn relay(value: String) -> String { return value }
+fn main() {
+    val owner = relay(String.from("Aé\0Z"))
+    val copied = owner.clone()
+    println(copied.as_str())
+}
+```
+
+```bash
+claw-llvm-poc example.cat -o example.o --emit-ir example.ll --strings
+# Link example.o + archive runtime target-native + CRT/SDK memakai LLD.
+ctest --test-dir <build> -R llvm-cpp-poc-strings --output-on-failure
+```
+
+Gate terpisah menyimpan 19 program positif/38 alokasi per run observer, referensi
+produksi O0/O2 byte-exact (termasuk CRLF target), OIR/LIR/IR, object, link argv,
+dependency audit, timing/ukuran, OOM forced-allocation-failure, missing archive/
+runtime-symbol, conflicting ownership, dan unsupported-feature rejections.
+`string-legacy-contracts.json` mengunci hash 41 kasus lama, source 29 program
+aritmetika, serta 14-case/63-allocation oracle yang tidak dimodifikasi.
+
+Observer test-only menggunakan malloc/free nyata; kontrol sengaja leak dan
+untracked free harus ditolak validator. Linux juga menautkan archive runtime C
+terinstrumentasi ASan/UBSan/LSan dengan LLD. Archive sanitizer **tanpa registry
+observer** agar pointer registry tidak menyamarkan leak; kontrol leak nyata wajib
+ditemukan LSan. Toolchain C instrumentation dicatat terpisah dari LLVM/LLD23.1.3
+backend. Ini bukan klaim semua instruksi LLVM hasil adapter terinstrumentasi.
+Windows melakukan probe compile/link/run runtime lengkap untuk tiap sanitizer;
+ketidaktersediaan dilaporkan SKIP dengan diagnostic, bukan PASS. Native byte,
+ABI, cleanup dan observer Windows tetap wajib. Hasil yang boleh diklaim harus
+berasal dari exact SHA yang lulus CI native, bukan hasil Linux saja.
 
 ## Oracle ABI/cleanup String produksi — tanpa dukungan adapter baru
 

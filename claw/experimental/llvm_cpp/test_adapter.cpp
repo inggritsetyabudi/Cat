@@ -234,6 +234,76 @@ int main(int argc, char** argv) {
         auto collision = scalarProgram();
         entry(collision).linkage.symbol = "claw.runtime.println.i32";
         require(!emitObject(collision, {(artifacts / "collision.o").string(), {}, true}, error), "runtime symbol collision accepted");
+        auto stringFrom = [] {
+            LirCallInst c;
+            c.result = "%owner"; c.callee = "String.from"; c.args = {{"\"hello\"", "ref Str"}};
+            c.type = "String"; c.builtinTag = "String.from"; c.kind = LirCallKind::Builtin;
+            c.safety = LirSafetyTag::ProvenSafe; c.hook = "builtin.String.from";
+            return c;
+        };
+        auto stringHelper = [](LirProgram& p, const std::string& type = "String") {
+            helper(p);
+            auto& f = std::get<LirFunction>(p.realms.front().decls.back());
+            f.params = {{"x", type, type == "String" ? AbiPassKind::Indirect : AbiPassKind::Direct}};
+            f.returnType = type;
+            f.returnPassKind = type == "String" ? AbiPassKind::Indirect : AbiPassKind::Direct;
+            f.blocks.front().insts = {LirReturnInst{{"x", type}}};
+        };
+        const std::vector<std::pair<std::string, Mutation>> stringNegatives = {
+            {"owned_return_pass", [=](auto& p) { stringHelper(p); std::get<LirFunction>(p.realms.front().decls.back()).returnPassKind = AbiPassKind::Scalar; }},
+            {"owned_parameter_pass", [=](auto& p) { stringHelper(p); std::get<LirFunction>(p.realms.front().decls.back()).params[0].passKind = AbiPassKind::Direct; }},
+            {"slice_parameter_pass", [=](auto& p) { stringHelper(p, "ref Str"); std::get<LirFunction>(p.realms.front().decls.back()).params[0].passKind = AbiPassKind::Indirect; }},
+            {"slice_return_pass", [=](auto& p) { stringHelper(p, "ref Str"); std::get<LirFunction>(p.realms.front().decls.back()).returnPassKind = AbiPassKind::Indirect; }},
+            {"unwritten_result_slot", [=](auto& p) { stringHelper(p); std::get<LirFunction>(p.realms.front().decls.back()).blocks.front().insts.clear(); }},
+            {"pointer_logical_argument", [=](auto& p) { stringHelper(p); auto c = call({{"\"bad\"", "ref Str"}}); c.type = "String"; instructions(p, {c}); }},
+            {"pointer_logical_return", [=](auto& p) { stringHelper(p); auto& f = std::get<LirFunction>(p.realms.front().decls.back()); f.returnType = "Unit"; f.returnPassKind = AbiPassKind::Void; f.blocks.front().insts.clear(); auto c = call(); c.type = "String"; instructions(p, {c}); }},
+            {"unknown_drop_key", [](auto& p) { instructions(p, {LirDropInst{"owner", "String", "unknown:owner"}}); }},
+            {"unresolved_literal_binding", [=](auto& p) { auto c = stringFrom(); c.args[0].bindingKey = "missing:key"; instructions(p, {c}); }},
+            {"aggregate_eq", [](auto& p) { instructions(p, {LirBinaryInst{"%bad", "eq", {"\"a\"", "ref Str"}, {"\"a\"", "ref Str"}, "Bool"}}); }},
+            {"from_wrong_hook", [=](auto& p) { auto c = stringFrom(); c.hook = "builtin.String.clone"; instructions(p, {c}); }},
+            {"from_wrong_tag", [=](auto& p) { auto c = stringFrom(); c.builtinTag = "String.unproved"; instructions(p, {c}); }},
+            {"from_unsafe", [=](auto& p) { auto c = stringFrom(); c.safety = LirSafetyTag::None; instructions(p, {c}); }},
+            {"from_external", [=](auto& p) { auto c = stringFrom(); c.externalInfo = LirExternalCallInfo{}; instructions(p, {c}); }},
+            {"unbound_constructor", [=](auto& p) { auto c = stringFrom(); c.result.reset(); instructions(p, {c}); }},
+            {"from_wrong_arg", [=](auto& p) { auto c = stringFrom(); c.args = {{"1", "Int32"}}; instructions(p, {c}); }},
+            {"clone_missing_receiver", [=](auto& p) { auto c = stringFrom(); c.builtinTag = "String.clone"; c.hook = "builtin.String.clone"; c.args.clear(); instructions(p, {c}); }},
+            {"reserved_alloc", [](auto& p) { entry(p).linkage.symbol = "claw.runtime.string.alloc"; }},
+            {"reserved_copy", [](auto& p) { entry(p).linkage.symbol = "claw.runtime.string.copy"; }},
+            {"reserved_free", [](auto& p) { entry(p).linkage.symbol = "claw.runtime.string.free"; }},
+            {"reserved_print", [](auto& p) { entry(p).linkage.symbol = "claw.runtime.println.slice"; }},
+            {"duplicate_indirect_params", [=](auto& p) { stringHelper(p); auto& f = std::get<LirFunction>(p.realms.front().decls.back()); f.params.push_back(f.params.front()); }},
+            {"forged_indirect_load_type", [=](auto& p) { stringHelper(p); auto& f = std::get<LirFunction>(p.realms.front().decls.back()); f.returnType = "ref Str"; f.returnPassKind = AbiPassKind::Direct; f.blocks.front().insts = {LirReturnInst{{"x", "ref Str"}}}; }},
+        };
+        for (const auto& [name, mutate] : stringNegatives) {
+            auto p = scalarProgram(); mutate(p);
+            const auto obj = artifacts / ("string_reject_" + name + ".o");
+            const auto irPath = artifacts / ("string_reject_" + name + ".ll");
+            std::filesystem::remove(obj); std::filesystem::remove(irPath);
+            require(!emitObject(p, {obj.string(), irPath.string(), false, false, true}, error), "accepted malformed String " + name);
+            require(!error.empty() && !std::filesystem::exists(obj) && !std::filesystem::exists(irPath), "String rejection published artifacts " + name);
+            std::ofstream(artifacts / ("string_reject_" + name + ".log")) << error << '\n';
+        }
+        auto stringProgram = scalarProgram(); stringHelper(stringProgram);
+        auto transfer = call({{"%owner", "String"}}); transfer.type = "String";
+        instructions(stringProgram, {stringFrom(), transfer, LirDropInst{"%call", "String", {}}, LirReturnInst{{"7", "Int32"}}});
+        const auto stringObject = artifacts / "string_indirect_transfer.o";
+        const auto stringIr = artifacts / "string_indirect_transfer.ll";
+        require(emitObject(stringProgram, {stringObject.string(), stringIr.string(), false, false, true}, error), error);
+        require(std::filesystem::file_size(stringObject) > 0, "String transfer artifact missing");
+        auto bytes = [](const std::filesystem::path& path) {
+            std::ifstream input(path, std::ios::binary);
+            return std::string(std::istreambuf_iterator<char>(input), {});
+        };
+        const auto savedStringObject = bytes(stringObject);
+        const auto savedStringIr = bytes(stringIr);
+        auto rejectedString = scalarProgram();
+        instructions(rejectedString, {LirDropInst{"missing", "String", "missing:key"}});
+        require(!emitObject(rejectedString, {stringObject.string(), stringIr.string(), false, false, true}, error), "bad String recompile accepted");
+        require(bytes(stringObject) == savedStringObject && bytes(stringIr) == savedStringIr, "String failure replaced prior object/IR");
+        auto sliceProgram = scalarProgram(); stringHelper(sliceProgram, "ref Str");
+        auto sliceCall = call({{"\"Aé\\0Z\"", "ref Str"}}); sliceCall.type = "ref Str";
+        instructions(sliceProgram, {sliceCall, LirReturnInst{{"7", "Int32"}}});
+        require(emitObject(sliceProgram, {(artifacts / "slice_transfer.o").string(), (artifacts / "slice_transfer.ll").string(), false, false, true}, error), error);
         const auto object = artifacts / "valid.o";
         const auto ir = artifacts / "valid.ll";
         std::filesystem::remove(object);
@@ -246,6 +316,7 @@ int main(int argc, char** argv) {
         entry(bad).returnType = "Float64";
         require(!emitObject(bad, {object.string(), ir.string()}, error), "recompile unexpectedly accepted");
         require(std::filesystem::file_size(object) == size, "failed recompile changed existing object");
+        std::cout << "PASS: " << stringNegatives.size() << " aggregate ABI/builtin/binding rejections; direct Str and indirect String API objects\n";
         std::cout << "PASS: " << negatives.size() << " legacy malformed-LIR rejections, " << arithmeticNegatives.size()
                   << " arithmetic rejections, six dynamic arithmetic opcodes, valid object, stale-error reset, preserved prior output\n";
         return 0;
