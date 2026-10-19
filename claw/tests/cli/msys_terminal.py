@@ -27,12 +27,12 @@ def _cygpath(path: Path) -> str:
                           capture_output=True, text=True, timeout=30).stdout.strip()
 
 
-def build_keeper(directory: Path) -> str:
+def build_keeper(directory: Path, compiler: str = "clang") -> str:
     """Build the small native fixture, never a Cygwin/MSYS executable."""
     directory.mkdir(parents=True, exist_ok=True)
     source = Path(__file__).with_name("fixtures") / "msys_console_keeper.c"
     output = directory / "msys_console_keeper.exe"
-    subprocess.run(["clang", "-O2", _cygpath(source), "-o", _cygpath(output)],
+    subprocess.run([compiler, "-x", "c", "-O2", _cygpath(source), "-o", _cygpath(output)],
                    check=True, timeout=30)
     return str(output)
 

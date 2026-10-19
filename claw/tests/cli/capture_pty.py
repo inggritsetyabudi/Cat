@@ -43,7 +43,9 @@ def main() -> int:
 
         try:
             with tempfile.TemporaryDirectory(prefix="claw-capture-pty-") as temporary:
-                keeper = build_keeper(Path(temporary) / "native-helper")
+                # Linker scenarios put a fake `clang` first on PATH. Build
+                # the native fixture with the real C++ driver in C mode instead.
+                keeper = build_keeper(Path(temporary) / "native-helper", compiler="clang++")
                 with open(stdout_path, "wb") as stdout_file:
                     result = capture(command, env, keeper, timeout=60,
                                      stdout=stdout_file)
