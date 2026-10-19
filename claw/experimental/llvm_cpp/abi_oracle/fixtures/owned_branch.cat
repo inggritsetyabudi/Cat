@@ -1,0 +1,5 @@
+fn choose(flag: Bool) -> String { if flag { String.from("left") } else { String.from("right") } }
+fn main() { val a = choose(true)
+val b = choose(false)
+println(a.as_str())
+println(b.as_str()) }

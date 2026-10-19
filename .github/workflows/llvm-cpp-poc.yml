@@ -99,10 +99,20 @@ jobs:
           ldd build-llvm-poc/experimental/llvm_cpp/lld/claw-lld-link-poc > ci-evidence/lld-dynamic-dependencies.txt
           stat -L -c '%n %s bytes' build-llvm-poc/claw build-llvm-poc/experimental/llvm_cpp/claw-llvm-poc build-llvm-poc/experimental/llvm_cpp/lld/claw-lld-link-poc "$RUNNER_TEMP/llvm23-sdk/bin/lld" | tee ci-evidence/lld-binary-sizes.txt
           du -sb "$RUNNER_TEMP/llvm23-sdk" | tee ci-evidence/sdk-installed-byte-inventory.txt
+      - name: Focused production String ABI and cleanup oracle (no adapter support)
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          ctest --test-dir build-llvm-poc -R '^llvm-cpp-production-string-abi-oracle$' --output-on-failure 2>&1 | tee ci-evidence/string-abi-oracle.log
       - name: Run all PoC gates and original production suites
         run: |
+          set -euo pipefail
           ctest --test-dir build-llvm-poc --output-on-failure 2>&1 | tee ci-evidence/ctest.log
-          CLAW_EXE="$PWD/build-llvm-poc/claw" bash claw/tests/run_all_tests.sh 2>&1 | tee ci-evidence/production-suites.log
+          # Production suites regenerate tracked artifacts: never run them in the evidence checkout.
+          compiler="$PWD/build-llvm-poc/claw"
+          git worktree add --detach "$RUNNER_TEMP/production-suite-src" HEAD
+          CLAW_EXE="$compiler" bash "$RUNNER_TEMP/production-suite-src/claw/tests/run_all_tests.sh" 2>&1 | tee ci-evidence/production-suites.log
       - name: Capture successful native LLD outputs
         run: |
           for mode in embedded external; do
@@ -246,6 +256,12 @@ jobs:
           cat > ci-evidence/runtime-instrumentation-scope.txt <<'EOF'
           Windows native scope: this workflow does not enable sanitizer instrumentation. The optional runtime C target is built with its explicitly configured native toolchain; existing production tests and flags remain unchanged.
           EOF
+      - name: Focused native production String ABI and cleanup oracle
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          ctest --test-dir build-llvm-poc-win -R '^llvm-cpp-production-string-abi-oracle$' --output-on-failure 2>&1 | tee ci-evidence/string-abi-oracle.log
       - name: Run all PoC gates with native Python
         run: |
           set -euo pipefail
@@ -268,7 +284,8 @@ jobs:
           set -euo pipefail
           export CLAW_EXE="$PWD/build-llvm-poc-win/claw.exe"
           export PATH="/usr/bin:/ucrt64/bin:$PATH"
-          bash claw/tests/run_all_tests.sh 2>&1 | tee ci-evidence/production-suites.log
+          git worktree add --detach "$RUNNER_TEMP/production-suite-src" HEAD
+          bash "$RUNNER_TEMP/production-suite-src/claw/tests/run_all_tests.sh" 2>&1 | tee ci-evidence/production-suites.log
       - name: Upload Windows proof
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -1,0 +1,2 @@
+fn main() { val owner = String.from("Aé😀\0Z")
+println(owner.as_str()) }

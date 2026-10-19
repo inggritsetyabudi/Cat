@@ -1,0 +1,103 @@
+{
+  "description": "Fixed expected corpus, reviewed from existing production fixtures and completed read-only audit. Never rewritten by test runner.",
+  "cases": [
+    {
+      "name": "abi_calls",
+      "source": "claw/experimental/llvm_cpp/abi_oracle/fixtures/abi_calls.cat",
+      "stdout_hex": "41c3a9005a0a41c3a9005a0a41c3a9005a0a636f6e7374727563746f720a0a",
+      "exit": 0,
+      "allocations": 5
+    },
+    {
+      "name": "literal_str",
+      "source": "claw/experimental/llvm_cpp/abi_oracle/fixtures/literal_str.cat",
+      "stdout_hex": "41c3a9f09f9880005a0a",
+      "exit": 0,
+      "allocations": 0
+    },
+    {
+      "name": "owned_scope",
+      "source": "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_scope.cat",
+      "stdout_hex": "",
+      "exit": 0,
+      "allocations": 1
+    },
+    {
+      "name": "owned_borrow",
+      "source": "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_borrow.cat",
+      "stdout_hex": "41c3a9f09f9880005a0a",
+      "exit": 0,
+      "allocations": 1
+    },
+    {
+      "name": "owned_helper",
+      "source": "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_helper.cat",
+      "stdout_hex": "41c3a9f09f9880005a0a",
+      "exit": 0,
+      "allocations": 1
+    },
+    {
+      "name": "owned_branch",
+      "source": "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_branch.cat",
+      "stdout_hex": "6c6566740a72696768740a",
+      "exit": 0,
+      "allocations": 2
+    },
+    {
+      "name": "owned_empty_clone",
+      "source": "claw/experimental/llvm_cpp/abi_oracle/fixtures/owned_empty_clone.cat",
+      "stdout_hex": "0ac3a90a",
+      "exit": 0,
+      "allocations": 3
+    },
+    {
+      "name": "revise_string_owner",
+      "source": "claw/tests/native/fixtures/revise_string_owner.cat",
+      "stdout_hex": "737461746963206c69746572616c0a737461746963206c69746572616c0a737461746963206c69746572616c0a737461746963206c69746572616c0a737461746963206c69746572616c0a6f776e65642072657475726e0a6f776e65642072657475726e0a6f776e65642072657475726e0ac3a90a",
+      "exit": 0,
+      "allocations": 5
+    },
+    {
+      "name": "revise_string_temporary_cleanup",
+      "source": "claw/tests/native/fixtures/revise_string_temporary_cleanup.cat",
+      "stdout_hex": "330a350a74656d706f726172790a626f72726f7765640a380a39370a72657461696e65640a72657461696e65640a",
+      "exit": 0,
+      "allocations": 9
+    },
+    {
+      "name": "revise_str_branch_escape_safe",
+      "source": "claw/tests/native/fixtures/revise_str_branch_escape_safe.cat",
+      "stdout_hex": "6f75746572206f776e65720a6f75746572206f776e65720a737461746963207365636f6e640a6f75746572206f776e65720a6e657374656420747275650a6c69746572616c20736166650a6f776e656420747275650a6f776e65642066616c73650a6f75746572206f776e65720a",
+      "exit": 0,
+      "allocations": 4
+    },
+    {
+      "name": "revise_string_escapes",
+      "source": "claw/tests/native/fixtures/revise_string_escapes.cat",
+      "stdout_hex": "4122275c0a090d00f09f9880f09f9880210a",
+      "exit": 0,
+      "allocations": 0
+    },
+    {
+      "name": "try_cleanup_minimal",
+      "source": "claw/tests/integration/fixtures/try_cleanup_minimal.cat",
+      "stdout_hex": "6661696c7572650a61667465720a",
+      "exit": 0,
+      "allocations": 2
+    },
+    {
+      "name": "try_cleanup_manual_else",
+      "source": "claw/tests/integration/fixtures/try_cleanup_manual_else.cat",
+      "stdout_hex": "6661696c7572650a61667465720a",
+      "exit": 0,
+      "allocations": 2
+    },
+    {
+      "name": "composition_owned_result_loops",
+      "source": "claw/tests/integration/fixtures/composition_owned_result_loops.cat",
+      "stdout_hex": "7363616e2d737563636573730a6e6578740a7363616e2d67756172640a6279706173730a6e6578740a7363616e2d67756172640a68616c740a7363616e2d61667465720a320a7265706f72742d61667465720a7363616e2d6661696c7572650a6e6578740a7363616e2d67756172640a6279706173730a6661696c7572650a7265706f72742d61667465720a6c6f6f702d737563636573730a6e6578740a6c6f6f702d67756172640a6279706173730a6e6578740a6c6f6f702d67756172640a68616c740a340a7265706f72742d61667465720a6c6f6f702d6661696c7572650a6e6578740a6c6f6f702d67756172640a6279706173730a6c6f6f702d6572726f720a6661696c7572650a7265706f72742d61667465720a616c6c2d61667465720a",
+      "exit": 0,
+      "allocations": 28
+    }
+  ]
+}

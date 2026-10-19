@@ -94,4 +94,13 @@ if(BUILD_TESTING)
             --artifacts "${CMAKE_CURRENT_BINARY_DIR}/artifacts/arithmetic" --profile "${CLAW_LLVM_POC_PLATFORM}"
             ${_runtime_profile_args})
     set_tests_properties(llvm-cpp-poc-arithmetic PROPERTIES DEPENDS llvm-cpp-poc-runtime TIMEOUT 240)
+    # Production ABI/cleanup evidence only: String remains rejected by the adapter.
+    find_program(CLAW_ABI_ORACLE_CLANG NAMES clang REQUIRED)
+    add_test(NAME llvm-cpp-production-string-abi-oracle
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../abi_oracle/run_oracle.py"
+            --production "$<TARGET_FILE:claw>" --emitter "$<TARGET_FILE:claw-llvm-poc>"
+            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/artifacts/abi-oracle"
+            --cc "${CLAW_ABI_ORACLE_CLANG}" --profile "${CLAW_LLVM_POC_PLATFORM}")
+    set_tests_properties(llvm-cpp-production-string-abi-oracle PROPERTIES
+        DEPENDS llvm-cpp-poc-arithmetic TIMEOUT 600)
 endif()
