@@ -1,0 +1,36 @@
+shape Pair {
+    left: Int32
+    right: Int32
+}
+fn make_pair(seed: Int32) -> Pair {
+    return Pair { left: seed, right: seed + 1 }
+}
+fn main() -> Int32 {
+    var rounds: Int32 = 0
+    var total: Int32 = 0
+    loop rounds < 200000 {
+        val current = make_pair(rounds)
+        val bracket: Array[Int32, 2] = [current.left, current.right]
+        val (left, right) = (bracket[0], bracket[1])
+        if rounds % 2 == 0 {
+            val shared_name = String.from("even")
+            if shared_name.as_str() == "even" {
+                total = total + right - left
+            }
+        } else {
+            val shared_name = String.from("odd")
+            if shared_name.as_str() == "odd" {
+                total = total + right - left
+            }
+        }
+        rounds = rounds + 1
+    }
+    scan item over 0..2 {
+        scan item over 0..3 {
+            total = total + item
+        }
+    }
+    println(rounds)
+    println(total)
+    return 0
+}

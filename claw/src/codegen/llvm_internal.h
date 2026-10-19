@@ -433,6 +433,9 @@ struct FunctionState {
     std::unordered_map<std::string, std::vector<PendingChoiceBinding>> pendingChoiceBindings;
     std::unordered_map<std::string, std::vector<PendingIterBinding>> pendingIterBindings;
     std::unordered_map<std::string, IteratorState> iteratorStates;
+    // Function-entry storage plus constant iterator-state initialization only.
+    // Never put source initializers, calls, drops or body-SSA-dependent stores
+    // here: those must execute at their original control-flow location.
     std::vector<std::string> entryAllocas;
     int nextLocal = 0;
     int nextInlineBlock = 0;

@@ -4,8 +4,8 @@ on:
 permissions:
   contents: read
 jobs:
-  windows-pty-on-driver-candidate:
-    name: Windows full suite (PTY, exact PR head)
+  windows-pty-exact-head:
+    name: Windows full suite (PTY on exact PR head)
     runs-on: windows-latest
     timeout-minutes: 45
     defaults:
@@ -15,7 +15,7 @@ jobs:
       - name: Configure line endings
         shell: pwsh
         run: git config --global core.autocrlf input
-      - name: Check out exact PR head
+      - name: Check out exact pull request head
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -31,22 +31,22 @@ jobs:
             diffutils
             python
             git
-      - name: Verify compiler and terminal-test provenance
+      - name: Record exact source and toolchain provenance
         env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          printf 'Compiler and PTY snapshot: '; git rev-parse HEAD
-          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          printf 'Compiler and tests snapshot: '; git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
           git diff --exit-code
           uname -a
           pacman -Q msys2-runtime python
           clang++ --version
-      - name: Configure and build exact-head compiler
+      - name: Configure and build exact head compiler
         run: |
           cmake -S claw -B claw/build-pty-integration -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
           cmake --build claw/build-pty-integration --target claw --parallel 4
-      - name: Run complete fail-fast suite including terminal contracts
+      - name: Run complete fail-fast suite without skips or assertion changes
         run: |
           export CLAW_EXE="$PWD/claw/build-pty-integration/claw.exe"
           bash claw/tests/run_all_tests.sh

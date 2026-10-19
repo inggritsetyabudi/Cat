@@ -334,7 +334,7 @@ bool LlvmEmitter::emitTry(const LirTryInst& value, FunctionState& state, std::ve
         const std::string returnAddr = state.temp("try.fail.ret.addr");
         const auto returnLayout = abiLayoutForType(state.function.returnType);
         const size_t returnAlign = returnLayout.has_value() ? returnLayout->align : 1;
-        lines.push_back("  " + returnAddr + " = alloca " + llvmType(state.function.returnType) + ", align " + std::to_string(returnAlign));
+        state.entryAllocas.push_back("  " + returnAddr + " = alloca " + llvmType(state.function.returnType) + ", align " + std::to_string(returnAlign));
         constructChoiceValueAtAddress(
             returnAddr,
             state.function.returnType,
