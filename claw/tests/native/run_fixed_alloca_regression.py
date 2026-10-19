@@ -60,12 +60,21 @@ def native_arg(path: Path | str) -> str:
     return value
 
 
+def executable_arg(path: Path | str) -> str:
+    # MSYS Python resolves executable names in its POSIX filesystem. Native
+    # Windows spelling is for arguments consumed by clang/Win32, not execvp.
+    value = str(path)
+    if WINDOWS and os.name != "nt" and shutil.which("cygpath"):
+        return subprocess.check_output(["cygpath", "-u", value], text=True).strip()
+    return native_arg(value) if os.name == "nt" else value
+
+
 def compiler_path() -> str:
     if configured := os.environ.get("CLAW_EXE"):
-        return native_arg(configured)
+        return executable_arg(configured)
     for candidate in (ROOT / "build/claw", ROOT / "build-ucrt64-clang/claw.exe", ROOT / "build-ucrt64-clang/claw-codex.exe"):
         if candidate.is_file():
-            return native_arg(candidate)
+            return executable_arg(candidate)
     raise RuntimeError("missing compiler executable; set CLAW_EXE")
 
 
@@ -126,7 +135,7 @@ def assert_native(exe: Path, expected: str, label: str, *, sanitized: bool = Fal
         env = os.environ.copy()
         env["ASAN_OPTIONS"] = "detect_leaks=1:halt_on_error=1"
         env["UBSAN_OPTIONS"] = "halt_on_error=1:print_stacktrace=1"
-    result = run([native_arg(exe)], limit_stack=not sanitized, env=env)
+    result = run([executable_arg(exe)], limit_stack=not sanitized, env=env)
     if result.returncode or result.stdout.replace("\r\n", "\n") != expected or result.stderr:
         raise AssertionError(f"{label}: exit={result.returncode}, stdout={result.stdout!r}, stderr={result.stderr!r}")
 
