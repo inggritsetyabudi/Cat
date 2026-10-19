@@ -90,6 +90,20 @@ int main(int argc, char** argv) {
             {"call_type", [](auto& p) { helper(p); instructions(p, {call({{"false", "Bool"}})}); }},
             {"call_result_type", [](auto& p) { helper(p); auto c = call({{"3", "Int32"}}); c.type = "Bool"; instructions(p, {c}); }},
             {"unit_result_binding", [](auto& p) { helper(p, "Unit"); auto c = call({{"3", "Int32"}}); c.type = "Unit"; instructions(p, {c}); }},
+            {"duplicate_parameter_name_with_distinct_keys", [](auto& p) {
+                helper(p); auto& f=std::get<LirFunction>(p.realms.front().decls.back());
+                f.params[0].bindingKey="opaque:first";
+                f.params.push_back({"x", "Int32", AbiPassKind::Scalar, "opaque:second"});
+            }},
+            {"duplicate_parameter_key_with_distinct_names", [](auto& p) {
+                helper(p); auto& f=std::get<LirFunction>(p.realms.front().decls.back());
+                f.params[0].bindingKey="opaque:shared";
+                f.params.push_back({"y", "Int32", AbiPassKind::Scalar, "opaque:shared"});
+            }},
+            {"keyed_parameter_use_missing_key", [](auto& p) {
+                helper(p); auto& f=std::get<LirFunction>(p.realms.front().decls.back());
+                f.params[0].bindingKey="opaque:formal";
+            }},
             {"entry_call", [](auto& p) { auto c = call(); c.callee = "main"; instructions(p, {c}); }},
             {"store_type", [](auto& p) { instructions(p, {LirObjectInst{true, "x", "Int32", "stack", "local:x"}, LirStoreInst{"x", {"false", "Bool"}, "local:x"}}); }},
             {"drop_instruction", [](auto& p) { instructions(p, {LirDropInst{"x", "String", "local:x"}}); }},
@@ -119,6 +133,21 @@ int main(int argc, char** argv) {
             require(!std::filesystem::exists(object) && !std::filesystem::exists(ir), name + ": published rejected LIR");
             std::ofstream(artifacts / (name + ".log")) << error << '\n';
             std::cout << "[adapter/reject] " << name << '\n';
+        }
+        {
+            auto program=scalarProgram(); helper(program, "Unit");
+            auto& f=std::get<LirFunction>(program.realms.front().decls.back());
+            f.params[0]={"owner", "String", AbiPassKind::Indirect, "opaque:formal"};
+            f.blocks.front().insts={LirObjectInst{false, "different-label", "String", "stack", "opaque:formal"}};
+            const auto object=artifacts/"formal_slot_object_collision.o";
+            const auto ir=artifacts/"formal_slot_object_collision.ll";
+            std::filesystem::remove(object); std::filesystem::remove(ir);
+            std::string error;
+            require(!emitObject(program, {object.string(),ir.string(),false,false,true},error), "formal pointer/object collision accepted");
+            require(error.find("duplicate object binding")!=std::string::npos, "formal collision did not reach duplicate-object guard: "+error);
+            require(!std::filesystem::exists(object)&&!std::filesystem::exists(ir), "formal collision published output");
+            std::ofstream(artifacts/"formal_slot_object_collision.log")<<error<<'\n';
+            std::cout<<"[adapter/reject] formal_slot_object_collision\n";
         }
         std::string error = "old error must be reset";
         auto runtimeProgram = scalarProgram();

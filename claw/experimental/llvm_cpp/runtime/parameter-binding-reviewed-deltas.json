@@ -1,0 +1,46 @@
+{
+  "base_head": "e0b08f6c36b25fe364cd9c40f4d3893e34cf20c0",
+  "scope": "opt-in formal parameter declaration/use/drop metadata; default OFF",
+  "files": {
+    "claw/experimental/llvm_cpp/adapter.cpp": {
+      "before": "0e0b32b619e1f867b5388a536213a7eb193df2ff2729c9a97d7c72d9779dcfdc",
+      "after": "f594fa0315439e824db48f42618bb8f28a9e32f26c9c4ad89e7d96d07402a4cb"
+    },
+    "claw/experimental/llvm_cpp/test_adapter.cpp": {
+      "before": "e2d50b9500cbed161e19cc6a4d1329e44c5ca9624805938b556e20e65586412f",
+      "after": "7dbeddfcb8ebc42158ee8a1e25ebdf7ba5e126d0c26290ebe26e47405eb5d235"
+    },
+    "claw/src/analysis/ownership.cpp": {
+      "before": "b33fded98114b71d1bd80bfc065e9c3e252c618e7daef2a68ce3414ee2a2669a",
+      "after": "7ee18475cb5a001c944d2643595f82a0ac3ad1de4654de189875c829d87a04bf"
+    },
+    "claw/src/analysis/sema.cpp": {
+      "before": "4efc29447b5bf04b501a9b468140c76fd3afc92e834a1b3230cffc2ce399e46c",
+      "after": "e35b1b6ed66f8be2bb62dfc152040072baf10abd161ddc279415bd64a9b9c474"
+    },
+    "claw/src/analysis/sema.h": {
+      "before": "aa873331dd5e39f400ffd64ba6040e62c21c9917c31102cbcb15cd75bccd0483",
+      "after": "adf3cce5304fc5f71d668ffa25945bd0dfca3d27a352f149c72e54c14f29bd04"
+    },
+    "claw/src/ast/ast.h": {
+      "before": "b1308f01f9d2f61a60b766b24f70e18d0bea655b3cdd88962b496aa28bbc29d3",
+      "after": "520ab4cc5eed6de099b17b0f86f1dea7674546b242d443c2ee116a82e5c76fb9"
+    },
+    "claw/src/ir/lir.cpp": {
+      "before": "7a544f36a5a67555429f57906a7b8c0f13123eee2e8507631e0b8e1bee478633",
+      "after": "9963b9eccf9e3f9469b5658d9086ff37159b1a4186ceb775a35795163f10c305"
+    },
+    "claw/src/ir/lir.h": {
+      "before": "505aacb2f3659f9e96d048a21db01e916d3ede445d99ba53975c97aac34814bf",
+      "after": "b0e6ea8669bb16392851888619266564882888029612fad82dff7d59cd9f2f9c"
+    },
+    "claw/src/ir/oir.cpp": {
+      "before": "15a4c919cf53ed479b6d145c42bf0800ebcba1af104612d3391d29ced102aa72",
+      "after": "a26f6e52d880265a2e80c42bf1f8a0b20a8c804150f1f6f17ba0859eb9a036f9"
+    },
+    "claw/src/ir/oir.h": {
+      "before": "159d5730523d8dc9a6133450f6d1ad707a71a8d935e826f248115ad2241ae17e",
+      "after": "853b288a1319af5934c2c5667b70548c1dd0be1efbdcc8a4c95a405ea3451d7b"
+    }
+  }
+}

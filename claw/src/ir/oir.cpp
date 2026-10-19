@@ -1603,7 +1603,8 @@ OirFunction OirEmitter::lowerFn(const FnDecl* fn, std::string_view realmName, st
             context.function.params.push_back(OirParam{
                 fn->params[i].name,
                 paramType.describe(),
-                layout.has_value() ? layout->passKind : AbiPassKind::Unknown});
+                layout.has_value() ? layout->passKind : AbiPassKind::Unknown,
+                fn->params[i].backendBindingKey});
         }
     }
     const ResolvedType returnType = signature ? signature->returnType : makeUnknownType();

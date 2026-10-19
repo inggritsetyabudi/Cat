@@ -162,6 +162,10 @@ if(BUILD_TESTING)
     target_link_libraries(claw-local-binding-identity-tests PRIVATE claw_frontend)
     add_test(NAME llvm-cpp-local-binding-keys-metadata
         COMMAND claw-local-binding-identity-tests "${CMAKE_CURRENT_BINARY_DIR}/local-binding-metadata")
+    add_executable(claw-parameter-binding-identity-tests test_parameter_binding_identity.cpp)
+    target_link_libraries(claw-parameter-binding-identity-tests PRIVATE claw_frontend)
+    add_test(NAME llvm-cpp-parameter-binding-keys-metadata
+        COMMAND claw-parameter-binding-identity-tests "${CMAKE_CURRENT_BINARY_DIR}/parameter-binding-metadata")
     add_test(NAME llvm-cpp-sdk-version
         COMMAND claw-llvm-sdk-version-probe)
     set_tests_properties(llvm-cpp-sdk-version PROPERTIES

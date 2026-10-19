@@ -233,6 +233,8 @@ struct Decl : public AstNode {
 struct FnParam {
     SourceSpan span;
     std::string name;
+    // Experimental per-analysis declaration identity; empty unless opt-in.
+    std::string backendBindingKey;
     std::unique_ptr<TypeNode> type;
     bool isSelf = false;
 };

@@ -24,7 +24,7 @@ def main():
             'head':a.expected_sha,'profile':a.profile,'decision':'STOP: no universal declaration/use/drop ID before LIR',
             'cases':[],'commands':[]}
     report['local_binding_keys']=a.local_binding_keys
-    if a.local_binding_keys:report['decision']='Opt-in local declaration metadata only; formal/synthetic identity remains out of scope'
+    if a.local_binding_keys:report['decision']='Opt-in local and formal declaration metadata; pattern/synthetic identity remains out of scope'
     def execute(argv,label,env=None,ok=0):
         rec={'phase':label,**run(argv,env=env)};report['commands'].append(rec)
         if ok is not None and rec['exit']!=ok:raise HarnessError(label+': '+rec['stderr'])
@@ -42,13 +42,29 @@ def main():
         if set(deltas)!=allowed:raise HarnessError('wrong local metadata delta set')
         for path,delta in deltas.items():
             if delta['before']!=lock['files'][path]:raise HarnessError('local delta does not match original lock: '+path)
+        # The historical lock and first local delta remain immutable. Formal
+        # parameter correspondence is a separately reviewed, explicit next step.
+        parameter_delta=json.loads((Path(__file__).parent/'parameter-binding-reviewed-deltas.json').read_text())
+        if parameter_delta['base_head']!='e0b08f6c36b25fe364cd9c40f4d3893e34cf20c0':raise HarnessError('wrong parameter metadata base')
+        parameter_files=parameter_delta['files']
+        parameter_allowed={
+            'claw/src/ast/ast.h','claw/src/analysis/sema.cpp','claw/src/analysis/sema.h',
+            'claw/src/analysis/ownership.cpp','claw/src/ir/oir.h','claw/src/ir/oir.cpp',
+            'claw/src/ir/lir.h','claw/src/ir/lir.cpp',
+            'claw/experimental/llvm_cpp/adapter.cpp','claw/experimental/llvm_cpp/test_adapter.cpp'}
+        if set(parameter_files)!=parameter_allowed:raise HarnessError('wrong formal parameter metadata delta set')
+        for path,delta in parameter_files.items():
+            before=deltas[path]['after']if path in deltas else lock['files'][path]
+            if delta['before']!=before:raise HarnessError('parameter delta does not match preceding lock: '+path)
         for path,expected in lock['files'].items():
             if path in deltas:expected=deltas[path]['after']
+            if path in parameter_files:expected=parameter_files[path]['after']
             if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('evidence-only audit changed protected implementation/oracle: '+path)
         tracked=execute([a.git,'-C',repo,'ls-files','--',*lock['protected_paths']],'tracked-implementation-files')['stdout'].splitlines()
         if set(tracked)!=set(lock['files']):raise HarnessError('protected implementation file set changed')
         report['baseline_code_lock']=lock
         report['reviewed_metadata_deltas']=deltas
+        report['reviewed_parameter_metadata_deltas']=parameter_delta
         manifest=json.loads(a.manifest.read_text());archive=Path(manifest['archive']['path']).resolve()
         if archive!=a.runtime.resolve():raise HarnessError('runtime archive/manifest mismatch')
         prep=json.loads(a.string_preparation.read_text())

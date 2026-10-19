@@ -255,7 +255,7 @@ menambahkan `--local-binding-keys` pada driver PoC saja. Token dibuat di sema
 pada deklarasi lokal yang mempunyai correspondence eksplisit, lalu diteruskan
 melalui metadata existing; adapter dan aturan ownership tetap utuh. Tanpa flag,
 audit STOP di atas tetap berlaku, termasuk empat penolakan sibling owner.
-Formal parameter dan synthetic storage tidak diklaim mempunyai source-local ID;
+Pada milestone lokal pertama, formal parameter dan synthetic storage belum mempunyai source-local ID;
 token bukan identitas stabil lintas kompilasi. Opsi ini tidak mempromosikan
 pipeline PoC, self-hosting, Arena atau borrowed-field semantics.
 
@@ -266,3 +266,21 @@ dan runtime sanitizer yang tersedia. Kedua gate menambah, bukan mengganti,
 gate/corpus lama. Lock historis dipertahankan dengan delta hash terpisah yang
 hanya mengizinkan tiga file opsi metadata. Status PASS membutuhkan hasil run
 pada exact SHA; keberadaan gate bukan bukti kelulusan.
+
+## Metadata formal parameter opt-in — correspondence per deklarasi
+
+[Milestone parameter](../../../changelog/2026-10-19-opt-in-formal-parameter-binding-keys.md)
+memperluas opsi yang sama ke deklarasi formal. Token opaque dialokasikan oleh
+sema pada deklarasi, lalu disalin ke resolved use, state/drop ownership,
+parameter OIR/LIR dan lookup slot adapter. Token formal bukan token actual
+pemanggil: transfer ownership dan ABI tetap mengikuti semantik C@ existing.
+Nama tetap label diagnostik/debug, bukan sumber token.
+
+Gate metadata dan corpus native parameter terpisah menambah bukti tanpa
+menulis ulang corpus lokal, arithmetic, String atau ABI sebelumnya. Lock
+historis beserta delta lokal pertama tetap utuh; delta parameter mendokumentasikan
+perubahan berikutnya secara eksplisit. Default tanpa opsi tidak mengalokasikan
+token formal. Tuple/pick/try binders, seluruh synthetic storage, specialization
+dan identitas lintas analisis/modul tidak dipromosikan menjadi canonical universal.
+PR tetap draft, opsi default OFF, dan seluruh v0.1–v0.3 tidak dinyatakan
+production-grade berdasarkan kelulusan irisan ini.

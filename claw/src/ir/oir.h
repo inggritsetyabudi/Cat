@@ -41,6 +41,7 @@ struct OirParam {
     std::string name;
     std::string type;
     AbiPassKind passKind = AbiPassKind::Unknown;
+    std::string bindingKey;
 };
 
 struct OirShapeField {

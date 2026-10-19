@@ -2068,6 +2068,7 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
 
     size_t nonSelfParamIdx = 0;
     for (size_t i = 0; i < fn->params.size(); ++i) {
+        fn->params[i].backendBindingKey.clear();
         ResolvedType type;
         if (fn->params[i].isSelf) {
             if (currentSignature && currentSignature->receiverType.has_value()) {
@@ -2095,7 +2096,10 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
             fn->params[i].span,
             (type.isView() || type.name == "Span" || typeContainsScopeName(type) || isBorrowedStrMaybeType(type))
                 ? std::optional<size_t>(i)
-                : std::nullopt);
+                : std::nullopt,
+            nullptr,
+            &fn->params[i].backendBindingKey,
+            true);
     }
 
     bool hasImplicitTailReturn = false;
@@ -4974,7 +4978,8 @@ void SemanticAnalyzer::defineVariable(
     const SourceSpan& duplicateSpan,
     std::optional<size_t> viewSourceParamIndex,
     BindingStmt* bindingDecl,
-    std::string* backendBindingKeyOut) {
+    std::string* backendBindingKeyOut,
+    bool allocateCanonicalBackendKey) {
     auto sym = std::make_shared<Symbol>();
     sym->name = name;
     sym->kind = SymbolKind::Variable;
@@ -4993,7 +4998,8 @@ void SemanticAnalyzer::defineVariable(
     }
     if ((bindingDecl != nullptr || backendBindingKeyOut != nullptr) &&
         ((canonicalLocalBindings && bindingDecl != nullptr && !bindingDecl->tuplePattern) ||
-         scopes.lookup(name) != nullptr)) {
+         (canonicalLocalBindings && allocateCanonicalBackendKey) ||
+         (!allocateCanonicalBackendKey && scopes.lookup(name) != nullptr))) {
         sym->backendBindingKey = "$local.binding." + std::to_string(nextLocalBindingIdentity++);
         if (bindingDecl != nullptr) {
             if (!bindingDecl->tuplePattern) {

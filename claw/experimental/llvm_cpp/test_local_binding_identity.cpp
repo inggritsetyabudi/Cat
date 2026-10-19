@@ -20,22 +20,30 @@ namespace {
 [[noreturn]] void fail(const std::string& m) { throw std::runtime_error("binding identity: " + m); }
 void need(bool ok, const std::string& m) { if (!ok) fail(m); }
 
-struct Use { const IdentExpr* ident; const BindingStmt* decl; };
-struct Seen { std::vector<const BindingStmt*> bindings; std::vector<Use> uses; };
+struct Identity {
+    const BindingStmt* local = nullptr;
+    const FnParam* formal = nullptr;
+    std::string key() const {
+        return local ? local->backendBindingKey : (formal ? formal->backendBindingKey : "");
+    }
+};
+struct Use { const IdentExpr* ident; Identity decl; };
+struct Seen { std::vector<const BindingStmt*> bindings; std::vector<const FnParam*> formals; std::vector<Use> uses; };
 
 // This is deliberately test-only resolution: the compiler's resolver is not replaced.
 struct Lexical {
-    std::vector<std::unordered_map<std::string, const BindingStmt*>> scopes{{}};
+    std::vector<std::unordered_map<std::string, Identity>> scopes{{}};
     Seen seen;
-    const BindingStmt* find(const std::string& n) const {
+    Identity find(const std::string& n) const {
         for (auto i = scopes.rbegin(); i != scopes.rend(); ++i) {
             auto it = i->find(n); if (it != i->end()) return it->second;
         }
-        return nullptr;
+        return {};
     }
     void enter() { scopes.emplace_back(); }
     void leave() { scopes.pop_back(); }
-    void bind(const BindingStmt* b) { scopes.back()[b->name] = b; seen.bindings.push_back(b); }
+    void bind(const BindingStmt* b) { scopes.back()[b->name] = Identity{b, nullptr}; seen.bindings.push_back(b); }
+    void bind(const FnParam* p) { scopes.back()[p->name] = Identity{nullptr, p}; seen.formals.push_back(p); }
 };
 void walkExpr(Expr*, Lexical&);
 void walkBlock(BlockStmt* b, Lexical& l) {
@@ -114,18 +122,27 @@ void collectLir(const LirProgram& p, Keys& k) {
         }, in);
 }
 
-struct Run { Seen seen; std::vector<std::pair<std::string,std::string>> bindings; std::unordered_set<std::string> localKeys; Keys oir, lir; OwnershipResult ownership; };
+struct Run { Seen seen; std::vector<std::pair<std::string,std::string>> bindings; std::unordered_set<std::string> localKeys, formalKeys; Keys oir, lir; OwnershipResult ownership; };
 Run analyze(const std::filesystem::path& source, bool canonical) {
     claw::workspace::ProjectLoader loader; auto project=loader.load(source); auto& u=project.units[project.entryIndex];
     SemanticAnalyzer sema(u.importedBindings, project.target, canonical); sema.analyze(u.ast.get());
-    Lexical lexical; for(auto& d:u.ast->declarations) if(auto* f=dynamic_cast<FnDecl*>(d.get())) walkBlock(f->body.get(), lexical);
+    Lexical lexical;
+    for(auto& d:u.ast->declarations) if(auto* f=dynamic_cast<FnDecl*>(d.get())) {
+        lexical.enter();
+        for(auto& p:f->params) lexical.bind(&p);
+        walkBlock(f->body.get(), lexical);
+        lexical.leave();
+    }
     Run out; out.seen=std::move(lexical.seen);
     for(auto* b:out.seen.bindings) out.bindings.emplace_back(b->name,b->backendBindingKey);
     for(auto* b:out.seen.bindings) { if(canonical) need(!b->backendBindingKey.empty(),"canonical local key is empty"); if(!b->backendBindingKey.empty()) out.localKeys.insert(b->backendBindingKey); }
     for(const auto& uref:out.seen.uses) {
-        need(uref.ident->backendBindingKey==(uref.decl ? uref.decl->backendBindingKey : ""),"identifier key does not match lexical declaration pointer");
+        need(uref.ident->backendBindingKey==uref.decl.key(),"identifier key does not match lexical declaration pointer");
     }
-    for(const auto& uref:out.seen.uses) if(uref.ident->name=="input") need(uref.ident->backendBindingKey.empty(),"helper formal unexpectedly received a local key");
+    for(const auto* p:out.seen.formals) {
+        need(canonical ? !p->backendBindingKey.empty() : p->backendBindingKey.empty(), "formal opt-in/default policy changed");
+        if(!p->backendBindingKey.empty()) out.formalKeys.insert(p->backendBindingKey);
+    }
     OwnershipChecker own; own.check(u.ast.get(),sema); out.ownership=own.result();
     std::vector<OirUnitView> units{{u.ast.get(),&sema,&out.ownership}}; auto o=buildOirProgram(u.ast->name,units); auto l=buildLirProgram(o); collectOir(o,out.oir); collectLir(l,out.lir);
     return out;
@@ -176,7 +193,10 @@ fn main() {
         need(legacy.bindings.front().second.empty(),"default false changed ordinary first-local behavior");
         std::string mutableKey; for(const auto& b:canonical.bindings) if(b.first=="text") mutableKey=b.second;
         need(!mutableKey.empty(),"mutable fixture declaration missing");
-        std::unordered_set<std::string> requiredDrops;
+        std::unordered_set<std::string> validKeys = canonical.localKeys;
+        validKeys.insert(canonical.formalKeys.begin(), canonical.formalKeys.end());
+        need(validKeys.size()==canonical.localKeys.size()+canonical.formalKeys.size(), "formal aliases a local declaration");
+        std::unordered_set<std::string> requiredDrops = canonical.formalKeys;
         // Every fixture local owns a String. Only `first` is moved into another
         // binding; all other local owners must have cleanup on their own key.
         for(const auto& b:canonical.bindings) if(b.first!="first") requiredDrops.insert(b.second);
@@ -185,11 +205,11 @@ fn main() {
             for(const auto& key:canonical.localKeys) need(keys->decl.count(key)&&(keys->use.count(key)||keys->drop.count(key)),"stage lost declaration/use/drop key: "+key);
             need(keys->store.count(mutableKey),"stage lost mutable target key on store");
             for(const auto& key:requiredDrops) need(keys->drop.count(key),"stage lost exact owner drop: "+key);
-            for(const auto& key:keys->drop) need(canonical.localKeys.count(key),"stage emitted unknown drop key");
+            for(const auto& key:keys->drop) need(validKeys.count(key),"stage emitted unknown drop key");
         }
         std::unordered_set<std::string> ownershipDrops;
-        for(const auto& [_, drops]:canonical.ownership.dropsBeforeStmt) for(const auto& d:drops) if(!d.bindingKey.empty()) { need(canonical.localKeys.count(d.bindingKey),"OwnershipResult drop has wrong key"); ownershipDrops.insert(d.bindingKey); }
-        for(const auto& [_, drops]:canonical.ownership.dropsAtBlockEnd) for(const auto& d:drops) if(!d.bindingKey.empty()) { need(canonical.localKeys.count(d.bindingKey),"block-end drop has wrong key"); ownershipDrops.insert(d.bindingKey); }
+        for(const auto& [_, drops]:canonical.ownership.dropsBeforeStmt) for(const auto& d:drops) if(!d.bindingKey.empty()) { need(validKeys.count(d.bindingKey),"OwnershipResult drop has wrong key"); ownershipDrops.insert(d.bindingKey); }
+        for(const auto& [_, drops]:canonical.ownership.dropsAtBlockEnd) for(const auto& d:drops) if(!d.bindingKey.empty()) { need(validKeys.count(d.bindingKey),"block-end drop has wrong key"); ownershipDrops.insert(d.bindingKey); }
         for(const auto& key:requiredDrops) need(ownershipDrops.count(key),"OwnershipResult lost exact owner drop: "+key);
         std::cout<<"PASS local binding identity: opt-in keys, legacy default, lexical shadowing, mutable store, early return, loop, OIR/LIR and exact ownership drops\n";
         return 0;

@@ -149,4 +149,18 @@ if(BUILD_TESTING)
             ${_runtime_profile_args})
     set_tests_properties(llvm-cpp-local-binding-keys-native PROPERTIES
         DEPENDS "llvm-cpp-binding-identity-audit;llvm-cpp-local-binding-keys-metadata" TIMEOUT 300)
+    # A separate corpus proves formal declaration/use/drop correspondence;
+    # it must not replace or rewrite any of the historical identity cases.
+    add_test(NAME llvm-cpp-parameter-binding-keys-native
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_parameter_binding_identity.py"
+            --local-binding-keys
+            --emitter "$<TARGET_FILE:claw-llvm-poc>" --production "$<TARGET_FILE:claw>"
+            --runtime "$<TARGET_FILE:claw_llvm_cpp_poc_runtime>" --external "${CLAW_LLD_EXECUTABLE}"
+            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/artifacts/parameter-binding-keys"
+            --string-preparation "${CMAKE_CURRENT_BINARY_DIR}/artifacts/strings/preparation/preparation.json"
+            --profile "${CLAW_LLVM_POC_PLATFORM}" --cc "${CLAW_ABI_ORACLE_CLANG}"
+            --git "${CLAW_ABI_ORACLE_GIT}" --expected-sha "${_abi_oracle_source_sha}"
+            ${_runtime_profile_args})
+    set_tests_properties(llvm-cpp-parameter-binding-keys-native PROPERTIES
+        DEPENDS "llvm-cpp-poc-strings;llvm-cpp-parameter-binding-keys-metadata" TIMEOUT 600)
 endif()

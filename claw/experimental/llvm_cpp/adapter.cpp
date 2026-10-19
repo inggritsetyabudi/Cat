@@ -112,17 +112,24 @@ public:
         }
         if (blocks_.empty()) unsupported("function without blocks");
         size_t argumentIndex = function_.lir->returnType == "String" ? 1 : 0;
+        std::unordered_set<std::string> parameterNames;
+        std::unordered_set<std::string> parameterKeys;
         for (size_t i = 0; i < function_.lir->params.size(); ++i, ++argumentIndex) {
-            const auto& name = function_.lir->params[i].name;
+            const auto& param = function_.lir->params[i];
+            const auto& name = param.name;
+            if (!parameterNames.emplace(name).second)
+                unsupported("duplicate parameter name '" + name + "'");
+            const std::string id = param.bindingKey.empty() ? name : param.bindingKey;
+            if (!parameterKeys.emplace(id).second)
+                unsupported("duplicate parameter binding key '" + id + "'");
             auto* argument = function_.ir->getArg(argumentIndex);
             argument->setName(name);
-            const auto& param = function_.lir->params[i];
             if (argument->getType()->isPointerTy() && isStringType(param.type)) {
-                if (!parameterAddresses_.emplace(name, argument).second)
-                    unsupported("duplicate parameter '" + name + "'");
-                parameterTypes_.emplace(name, stringType(context_, param.type, enableStrings_));
-            } else if (!values_.emplace(name, argument).second) {
-                unsupported("duplicate parameter '" + name + "'");
+                if (!parameterAddresses_.emplace(id, argument).second)
+                    unsupported("duplicate parameter slot '" + id + "'");
+                parameterTypes_.emplace(id, stringType(context_, param.type, enableStrings_));
+            } else if (!values_.emplace(id, argument).second) {
+                unsupported("duplicate parameter value '" + id + "'");
             }
         }
         for (const auto& block : function_.lir->blocks) {
@@ -193,13 +200,13 @@ private:
     }
     void bind(const std::string& name, llvm::Value* result) {
         if (!result || result->getType()->isVoidTy()) unsupported("Unit result binding");
-        if (!values_.emplace(name, result).second || slots_.contains(name)) unsupported("duplicate SSA result '" + name + "'");
+        if (!values_.emplace(name, result).second || slots_.contains(name) || parameterAddresses_.contains(name)) unsupported("duplicate SSA result '" + name + "'");
     }
     void lowerInstruction(const LirObjectInst& inst) {
         auto* type = stringType(context_, inst.type, enableStrings_);
         if (type->isVoidTy()) unsupported("Unit local storage");
         const auto id = inst.bindingKey.empty() ? inst.name : inst.bindingKey;
-        if (slots_.contains(id) || values_.contains(id)) unsupported("duplicate object binding '" + id + "'");
+        if (slots_.contains(id) || values_.contains(id) || parameterAddresses_.contains(id)) unsupported("duplicate object binding '" + id + "'");
         if (inst.storage != "stack") unsupported("object storage '" + inst.storage + "'");
         // Hoist storage, not initialization, so nested/loop-local allocas dominate uses.
         slots_.emplace(id, allocate(type, inst.name + ".slot"));

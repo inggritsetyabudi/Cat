@@ -36,8 +36,8 @@ struct NamedBorrowScope {
 
 class SemanticAnalyzer {
 public:
-    // Experimental metadata only; formal parameters and synthetic storage are
-    // outside this local-declaration option. Production callers keep it off.
+    // Experimental metadata only; formal parameters are keyed only when opt-in.
+    // Synthetic storage remains outside this option. Production callers keep it off.
     explicit SemanticAnalyzer(std::vector<ImportedBinding> importedBindings = {}, TargetSpec target = defaultTargetSpec(), bool canonicalLocalBindings = false);
 
     void analyze(RealmDecl* realm);
@@ -164,7 +164,8 @@ private:
         const SourceSpan& duplicateSpan = {},
         std::optional<size_t> viewSourceParamIndex = std::nullopt,
         BindingStmt* bindingDecl = nullptr,
-        std::string* backendBindingKeyOut = nullptr);
+        std::string* backendBindingKeyOut = nullptr,
+        bool allocateCanonicalBackendKey = false);
     bool isConditionLike(const ResolvedType& type) const;
     bool blockDefinitelyTerminates(const BlockStmt* block) const;
     bool stmtDefinitelyTerminates(const Stmt* stmt) const;

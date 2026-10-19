@@ -1,0 +1,91 @@
+{
+  "schema": "cat-parameter-binding-cases/v1",
+  "scope": "formal parameter declaration/use/drop correspondence; tuple, pick, try, synthetic and member identities remain out of scope",
+  "positive_cases": [
+    {
+      "name": "owned_scalar_formal",
+      "source": "fn add(value: Int32) -> Int32 { return value + 5 }\nfn main() { println(add(7)) }\n",
+      "stdout": "12\n",
+      "allocations": 0,
+      "baseline_poc": "pass"
+    },
+    {
+      "name": "owned_string_formal",
+      "source": "fn show(value: String) { println(value.as_str()) }\nfn main() { show(String.from(\"formal\")) }\n",
+      "stdout": "formal\n",
+      "allocations": 1,
+      "baseline_poc": "pass"
+    },
+    {
+      "name": "same_name_formals",
+      "source": "fn left(value: String) { println(value.as_str()) }\nfn right(value: String) { println(value.as_str()) }\nfn main() { left(String.from(\"L\")) right(String.from(\"R\")) }\n",
+      "stdout": "L\nR\n",
+      "allocations": 2,
+      "baseline_poc": "pass"
+    },
+    {
+      "name": "nested_shadow_formal",
+      "source": "fn show(value: String, choose: Bool) { if choose { val value = String.from(\"inner\") println(value.as_str()) } else { val value = String.from(\"else\") println(value.as_str()) } println(value.as_str()) }\nfn main() { show(String.from(\"outer\"), true) show(String.from(\"outer\"), false) }\n",
+      "stdout": "inner\nouter\nelse\nouter\n",
+      "allocations": 4,
+      "baseline_poc": "pass"
+    },
+    {
+      "name": "early_cleanup_formal",
+      "source": "fn show(value: String, early: Bool) { if early { println(value.as_str()) return } println(value.as_str()) }\nfn main() { show(String.from(\"early\"), true) show(String.from(\"late\"), false) }\n",
+      "stdout": "early\nlate\n",
+      "allocations": 2,
+      "baseline_poc": "pass"
+    },
+    {
+      "name": "forward_return_owned_formal",
+      "source": "fn forward(value: String) -> String { return value }\nfn main() { val result = forward(String.from(\"forwarded\")) println(result.as_str()) }\n",
+      "stdout": "forwarded\n",
+      "allocations": 1,
+      "baseline_poc": "pass"
+    },
+    {
+      "name": "branch_cleanup_formal",
+      "source": "fn choose(flag: Bool, value: String) { if flag { println(value.as_str()) } else { println(value.as_str()) } }\nfn main() { choose(true, String.from(\"branch-a\")) choose(false, String.from(\"branch-b\")) }\n",
+      "stdout": "branch-a\nbranch-b\n",
+      "allocations": 2,
+      "baseline_poc": "pass"
+    },
+    {
+      "name": "loop_cleanup_formal",
+      "source": "fn repeat(value: String) { var i: Int32\ni = 0\nloop i < 2 { println(value.as_str()) i = i + 1 } }\nfn main() { repeat(String.from(\"loop\")) }\n",
+      "stdout": "loop\nloop\n",
+      "allocations": 1,
+      "baseline_poc": "pass"
+    }
+  ],
+  "negative_cases": [
+    {
+      "name": "use_after_move_formal",
+      "source": "fn misuse(value: String) { val moved = value println(value.as_str()) println(moved.as_str()) }\nfn main() { misuse(String.from(\"x\")) }\n",
+      "diagnostic_fragments": [
+        "moved",
+        "value"
+      ],
+      "no_outputs": true
+    },
+    {
+      "name": "duplicate_formal_parameter",
+      "source": "fn duplicate(value: String, value: String) { println(value.as_str()) }\nfn main() { duplicate(String.from(\"a\"), String.from(\"b\")) }\n",
+      "diagnostic_fragments": [
+        "duplicate",
+        "parameter"
+      ],
+      "no_outputs": true
+    },
+    {
+      "name": "immutable_formal_assignment",
+      "source": "fn mutate(value: String) { value = String.from(\"x\") }\nfn main() { mutate(String.from(\"a\")) }\n",
+      "diagnostic_fragments": [
+        "immutable",
+        "value"
+      ],
+      "no_outputs": true
+    }
+  ]
+}

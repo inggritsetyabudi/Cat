@@ -443,7 +443,7 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
     lowered.linkage = fn.linkage;
     lowered.params.reserve(fn.params.size());
     for (const auto& param : fn.params) {
-        lowered.params.push_back(LirParam{param.name, param.type, param.passKind});
+        lowered.params.push_back(LirParam{param.name, param.type, param.passKind, param.bindingKey});
     }
 
     int nextDefect = 0;
