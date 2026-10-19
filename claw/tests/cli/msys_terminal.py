@@ -1,8 +1,4 @@
-"""Real MSYS native-console capture with a separate, retained startup phase.
-
-A native keeper establishes the console before the measured process starts.
-Every measured byte is retained, including ESC and CSI-6n; no output is filtered.
-"""
+"""Real MSYS native-console capture; startup and measured bytes are retained."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,7 +6,7 @@ import errno
 import os
 from pathlib import Path
 import pty
-import queue
+import re
 import select
 import subprocess
 import threading
@@ -41,15 +37,31 @@ def build_keeper(directory: Path) -> str:
     return str(output)
 
 
+def validate_startup(output: bytes) -> None:
+    """Fail closed on unexpected startup bytes; never validate measured output here.
+
+    This is the observed MSYS native-console handshake, followed by our keeper
+    marker. Changes in runtime protocol require investigation, not auto-filtering.
+    """
+    pattern = (rb"(?:\x1b\[6n){1,2}\x1b\[\?1004h\x1b\[m\x1b\[\?25h"
+               rb"MSYS-CONSOLE-KEEPER\r?\n")
+    if re.fullmatch(pattern, output) is None:
+        raise RuntimeError(f"unexpected native terminal startup bytes: {output!r}")
+
+
 def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
             timeout: float = 30) -> CaptureResult:
-    """Initialize a fresh console, then capture one command without byte filtering.
+    """Establish a real console and acknowledge its barrier before launching command.
 
-    Only startup requests receive a cursor reply: the fresh terminal starts at
-    row 1/column 1. Measured queries are neither answered nor removed. The helper
-    proves native _isatty and GetConsoleMode, and remains alive through capture.
-    Startup readiness and stream quiescence are required before measurement;
-    any late startup bytes fail the caller's strict assertion, never disappear.
+    All startup bytes must match the complete known handshake; all later bytes
+    are returned untouched. Only startup CSI-6n receives a reply (a fresh terminal
+    starts at row 1/column 1). The measured process is not launched until after
+    the buffer transition. A late startup byte therefore either fails startup
+    validation or appears in measured output, never being silently removed.
+
+    The pump starts before synchronous Popen to service MSYS native startup.
+    Process creation itself, as with Python subprocess.run, is an OS operation;
+    there are no background launchers that can outlive cleanup.
     """
     master, slave = pty.openpty()
     startup, measured = bytearray(), bytearray()
@@ -58,11 +70,7 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
     activity = time.monotonic()
     errors: list[BaseException] = []
     stop = threading.Event()
-    cancelled = threading.Event()
     processes: list[subprocess.Popen[bytes]] = []
-    launch_lock = threading.Lock()
-    launches: list[threading.Thread] = []
-    results: queue.Queue[object] = queue.Queue()
     deadline = time.monotonic() + timeout
 
     def remaining() -> float:
@@ -80,15 +88,15 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
             while not stop.is_set():
                 if not select.select([master], [], [], 0.02)[0]:
                     continue
-                try:
-                    chunk = os.read(master, 8192)
-                except OSError as error:
-                    if error.errno == errno.EIO:
-                        return
-                    raise
-                if not chunk:
-                    return
                 with lock:
+                    try:
+                        chunk = os.read(master, 8192)
+                    except OSError as error:
+                        if error.errno == errno.EIO:
+                            return
+                        raise
+                    if not chunk:
+                        return
                     activity = time.monotonic()
                     if phase == "startup":
                         startup.extend(chunk)
@@ -104,40 +112,20 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
             errors.append(error)
 
     def launch(args: Sequence[str], **kwargs: object) -> subprocess.Popen[bytes]:
-        # Popen itself can block inside MSYS startup; the pump must run first.
-        def run() -> None:
-            try:
-                process = subprocess.Popen(args, env=dict(env), close_fds=True, **kwargs)
-                with launch_lock:
-                    processes.append(process)
-                    if cancelled.is_set():
-                        process.kill()
-                if cancelled.is_set():
-                    process.wait()
-                results.put(process)
-            except BaseException as error:
-                results.put(error)
-        thread = threading.Thread(target=run, daemon=True)
-        launches.append(thread)
-        thread.start()
-        while True:
-            try:
-                value = results.get(timeout=min(0.02, remaining()))
-                if isinstance(value, BaseException):
-                    raise value
-                return value  # type: ignore[return-value]
-            except queue.Empty:
-                pass
+        process = subprocess.Popen(args, env=dict(env), close_fds=True, **kwargs)
+        processes.append(process)
+        remaining()
+        return process
 
-    def settle(require_marker: bool = False) -> None:
-        while True:
+    def receive_line(process: subprocess.Popen[bytes], expected: bytes) -> None:
+        data = bytearray()
+        while expected not in data.splitlines():
             remaining()
-            with lock:
-                ready = not require_marker or b"MSYS-CONSOLE-KEEPER" in startup
-                quiet = time.monotonic() - activity >= 0.10
-            if ready and quiet:
-                return
-            time.sleep(0.01)
+            if select.select([process.stdout], [], [], 0.02)[0]:
+                part = os.read(process.stdout.fileno(), 4096)
+                if not part:
+                    raise RuntimeError(f"native console keeper exited before {expected!r}: {process.poll()}")
+                data.extend(part)
 
     thread = threading.Thread(target=pump, name="msys-terminal-pump", daemon=True)
     try:
@@ -145,43 +133,47 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
         thread.start()
         helper = launch([keeper, "--hold"], stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE, stderr=slave)
-        ready_bytes = bytearray()
-        while b"READY" not in ready_bytes.splitlines():
+        receive_line(helper, b"READY")
+        # The terminal marker is an ordered endpoint of the startup stream.
+        while True:
             remaining()
-            if select.select([helper.stdout], [], [], 0.02)[0]:
-                part = os.read(helper.stdout.fileno(), 4096)
-                if not part:
-                    raise RuntimeError(f"native console keeper exited before READY: {helper.poll()}")
-                ready_bytes.extend(part)
-        settle(require_marker=True)
+            with lock:
+                if startup.endswith((b"MSYS-CONSOLE-KEEPER\n", b"MSYS-CONSOLE-KEEPER\r\n")):
+                    break
+            time.sleep(0.01)
+        helper.stdin.write(b"B")
+        helper.stdin.flush()
+        receive_line(helper, b"BARRIER")
         with lock:
+            validate_startup(bytes(startup))
             phase = "measured"
+            activity = time.monotonic()
         child = launch(list(command), stdin=subprocess.DEVNULL, stdout=slave, stderr=slave)
         os.close(slave)
         slave = -1
         while child.poll() is None:
             remaining()
             time.sleep(0.01)
-        # Wait for the concurrently pumped stream to drain, not a fixed sleep
-        # that could truncate a large output. The keeper is still alive here.
-        settle()
-        with lock:
-            result = CaptureResult(child.returncode, bytes(measured), bytes(startup))
-        return result
+        # The keeper remains alive while pending command output drains. No
+        # teardown bytes or helper marker are used to trim measured output.
+        while True:
+            remaining()
+            with lock:
+                quiet = time.monotonic() - activity >= 0.10
+                pending_bytes = bool(select.select([master], [], [], 0)[0])
+                if quiet and not pending_bytes:
+                    return CaptureResult(child.returncode, bytes(measured), bytes(startup))
+            time.sleep(0.01)
     finally:
-        cancelled.set()
-        for launcher in launches:
-            launcher.join(timeout=2)
-        with launch_lock:
-            for process in processes:
-                if process.poll() is None:
-                    process.kill()
-            for process in processes:
-                process.wait(timeout=5)
-                if process.stdin is not None:
-                    process.stdin.close()
-                if process.stdout is not None:
-                    process.stdout.close()
+        for process in processes:
+            if process.poll() is None:
+                process.kill()
+        for process in processes:
+            process.wait(timeout=5)
+            if process.stdin is not None:
+                process.stdin.close()
+            if process.stdout is not None:
+                process.stdout.close()
         stop.set()
         if thread.ident is not None:
             thread.join(timeout=2)

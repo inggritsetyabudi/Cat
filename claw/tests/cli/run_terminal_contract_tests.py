@@ -14,6 +14,18 @@ ENV = dict(os.environ, NO_COLOR="1", TERM="xterm")
 
 
 def main() -> int:
+    from msys_terminal import validate_startup
+    known_startup = (b"\x1b[6n\x1b[6n\x1b[?1004h\x1b[m\x1b[?25h"
+                     b"MSYS-CONSOLE-KEEPER\r\n")
+    validate_startup(known_startup)
+    for unexpected in (known_startup + b"\x1b[6n", known_startup + b"UNEXPECTED-STARTUP\n"):
+        try:
+            validate_startup(unexpected)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("unexpected startup bytes must fail closed")
+    print("[terminal-contract/pass] complete startup protocol is validated, not silently discarded")
     with tempfile.TemporaryDirectory(prefix="claw-terminal-contract-") as temporary:
         root = Path(temporary)
         keeper = None
@@ -24,7 +36,7 @@ def main() -> int:
         def terminal(command: list[str]) -> tuple[int, bytes]:
             if MSYS:
                 captured = capture(command, ENV, keeper, timeout=10)
-                assert isinstance(captured.startup_output, bytes)
+                validate_startup(captured.startup_output)
                 return captured.returncode, captured.output
             stderr, stdout = root / "stderr", root / "stdout"
             result = subprocess.run([sys.executable, str(HERE / "capture_pty.py"),
@@ -69,6 +81,16 @@ def main() -> int:
             rc, output = terminal([keeper, "--silent"])
             assert rc == 0 and output == b"", (rc, output)
             print("[terminal-contract/pass] timeout cleanup allows a clean subsequent capture")
+            for phase in ("before", "after"):
+                delayed_env = dict(ENV, CLAW_TERMINAL_TEST_LATE_STARTUP=phase)
+                try:
+                    delayed = capture([keeper, "--silent"], delayed_env, keeper, timeout=10)
+                except RuntimeError as error:
+                    assert "unexpected native terminal startup bytes" in str(error), error
+                else:
+                    assert b"UNEXPECTED-STARTUP" in delayed.output, delayed
+                    assert delayed.output != b"", "late startup must fail the silent-child predicate"
+            print("[terminal-contract/pass] bytes injected before/after the startup barrier cannot disappear")
 
         compiler = os.environ.get("CLAW_EXE")
         if not compiler:

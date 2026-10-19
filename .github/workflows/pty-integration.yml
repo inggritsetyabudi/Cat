@@ -37,10 +37,13 @@ jobs:
             python
             git
       - name: Apply only terminal test files and record provenance
+        env:
+          EXPECTED_PTY_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           printf 'Compiler snapshot: '; git rev-parse HEAD
           printf 'PTY snapshot: '; git -C pty-candidate rev-parse HEAD
+          test "$(git -C pty-candidate rev-parse HEAD)" = "$EXPECTED_PTY_SHA"
           for file in claw/tests/cli/msys_terminal.py claw/tests/cli/fixtures/msys_console_keeper.c claw/tests/cli/run_terminal_contract_tests.py claw/tests/frontend/run_lexer_comment_tests.py claw/tests/run_all_tests.sh; do
             mkdir -p "$(dirname "$file")"
             cp "pty-candidate/$file" "$file"

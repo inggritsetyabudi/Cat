@@ -1,6 +1,7 @@
 /* Native fixture: keep a real Windows console alive during measured capture. */
 #include <io.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <windows.h>
 
@@ -35,6 +36,20 @@ int main(int argc, char **argv) {
     fflush(stderr);
     fputs("READY\n", stdout);
     fflush(stdout);
+    if (getchar() != 'B')
+        return 4;
+    const char *late = getenv("CLAW_TERMINAL_TEST_LATE_STARTUP");
+    if (late && strcmp(late, "before") == 0) {
+        fputs("UNEXPECTED-STARTUP\n", stderr);
+        fflush(stderr);
+    }
+    fputs("BARRIER\n", stdout);
+    fflush(stdout);
+    if (late && strcmp(late, "after") == 0) {
+        Sleep(50);
+        fputs("UNEXPECTED-STARTUP\n", stderr);
+        fflush(stderr);
+    }
     (void)getchar();
     return 0;
 }
