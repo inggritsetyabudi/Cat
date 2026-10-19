@@ -176,16 +176,21 @@ fn main() {
         need(legacy.bindings.front().second.empty(),"default false changed ordinary first-local behavior");
         std::string mutableKey; for(const auto& b:canonical.bindings) if(b.first=="text") mutableKey=b.second;
         need(!mutableKey.empty(),"mutable fixture declaration missing");
+        std::unordered_set<std::string> requiredDrops;
+        // Every fixture local owns a String. Only `first` is moved into another
+        // binding; all other local owners must have cleanup on their own key.
+        for(const auto& b:canonical.bindings) if(b.first!="first") requiredDrops.insert(b.second);
         for(const Keys* keys:{&canonical.oir,&canonical.lir}) {
             need(keys->decl.size()>=canonical.localKeys.size(),"stage omitted local declaration metadata");
-            for(const auto& key:canonical.localKeys) need(!keys->decl.count(key)||(keys->use.count(key)||keys->drop.count(key)),"stage lost declaration/use/drop key: "+key);
+            for(const auto& key:canonical.localKeys) need(keys->decl.count(key)&&(keys->use.count(key)||keys->drop.count(key)),"stage lost declaration/use/drop key: "+key);
             need(keys->store.count(mutableKey),"stage lost mutable target key on store");
-            need(!keys->drop.empty(),"stage has no drop metadata");
+            for(const auto& key:requiredDrops) need(keys->drop.count(key),"stage lost exact owner drop: "+key);
             for(const auto& key:keys->drop) need(canonical.localKeys.count(key),"stage emitted unknown drop key");
         }
-        bool sawExactDrop=false; for(const auto& [_, drops]:canonical.ownership.dropsBeforeStmt) for(const auto& d:drops) { if(!d.bindingKey.empty()) { need(canonical.localKeys.count(d.bindingKey),"OwnershipResult drop has wrong key"); sawExactDrop=true; } }
-        for(const auto& [_, drops]:canonical.ownership.dropsAtBlockEnd) for(const auto& d:drops) { if(!d.bindingKey.empty()) { need(canonical.localKeys.count(d.bindingKey),"block-end drop has wrong key"); sawExactDrop=true; } }
-        need(sawExactDrop,"OwnershipResult contained no drop actions");
+        std::unordered_set<std::string> ownershipDrops;
+        for(const auto& [_, drops]:canonical.ownership.dropsBeforeStmt) for(const auto& d:drops) if(!d.bindingKey.empty()) { need(canonical.localKeys.count(d.bindingKey),"OwnershipResult drop has wrong key"); ownershipDrops.insert(d.bindingKey); }
+        for(const auto& [_, drops]:canonical.ownership.dropsAtBlockEnd) for(const auto& d:drops) if(!d.bindingKey.empty()) { need(canonical.localKeys.count(d.bindingKey),"block-end drop has wrong key"); ownershipDrops.insert(d.bindingKey); }
+        for(const auto& key:requiredDrops) need(ownershipDrops.count(key),"OwnershipResult lost exact owner drop: "+key);
         std::cout<<"PASS local binding identity: opt-in keys, legacy default, lexical shadowing, mutable store, early return, loop, OIR/LIR and exact ownership drops\n";
         return 0;
     } catch(const DiagnosticError& e) { for(const auto& d:e.diagnostics()) std::cerr<<d.message<<'\n'; return 1; }

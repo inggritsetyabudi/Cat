@@ -15,7 +15,7 @@ Saat opsi tidak diberikan, alokasi key tetap shadowing-only seperti sebelumnya. 
 - Corpus scalar, arithmetic, String dan ABI oracle lama tidak diubah. Keenam source audit identity beserta expected bytes dan allocation counts tetap utuh.
 - Gate `llvm-cpp-binding-identity-audit` tetap menguji mode lama: empat penolakan tanpa object/IR dan dua positive controls, serta produksi O0/O2 native.
 - Lock implementasi historis tetap utuh. File delta terpisah mengizinkan tepat `sema.cpp`, `sema.h`, dan driver PoC, dengan hash sebelum yang harus sama dengan lock historis serta hash sesudah yang eksplisit. Semua file protected lainnya dan himpunan file tetap dikunci. Ini bukan klaim bahwa tiga file tersebut byte-identical dengan baseline.
-- Gate metadata baru memeriksa metadata AST/ownership/OIR/LIR nyata, bukan hanya pretty-printer.
+- Gate metadata baru memeriksa metadata AST/ownership/OIR/LIR nyata, bukan hanya pretty-printer. Assertion diperketat agar setiap key deklarasi harus ada pada masing-masing tahap dan setiap owner lokal fixture selain nilai yang telah dipindah wajib mempunyai exact-key cleanup di ownership, OIR, dan LIR; jumlah aggregate tidak boleh menutupi key yang hilang.
 - Gate native baru menjalankan corpus yang sama dengan opsi lokal, tanpa compiler di PATH saat emission/link, memakai object native + runtime archive immutable + LLD + CRT/SDK target. Semua output, observer allocation/free dan runtime sanitizer yang tersedia diperiksa. Produksi O0/O2 tetap dijalankan, bukan diganti oracle sintetis.
 
 ## Validasi
