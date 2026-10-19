@@ -36,6 +36,16 @@ LirCallInst call(std::vector<LirValue> arguments = {}) {
     result.type = "Int32";
     return result;
 }
+LirCallInst runtimeCall() {
+    LirCallInst result;
+    result.callee = "println";
+    result.hook = "runtime.println";
+    result.args = {{"7", "Int32"}};
+    result.type = "Unit";
+    result.kind = LirCallKind::Runtime;
+    result.safety = LirSafetyTag::ProvenSafe;
+    return result;
+}
 void helper(LirProgram& program, const std::string& resultType = "Int32") {
     LirFunction function;
     function.name = "helper";
@@ -85,6 +95,16 @@ int main(int argc, char** argv) {
             {"drop_instruction", [](auto& p) { instructions(p, {LirDropInst{"x", "String", "local:x"}}); }},
             {"signed_add", [](auto& p) { instructions(p, {LirBinaryInst{"%sum", "add", {"1", "Int32"}, {"2", "Int32"}, "Int32"}}); }},
             {"multiple_modules", [](auto& p) { p.realms.push_back({"other", {}}); }},
+            {"runtime_default_rejected", [](auto& p) { instructions(p, {runtimeCall(), LirReturnInst{{"7", "Int32"}}}); }},
+            {"runtime_wrong_hook", [](auto& p) { auto c = runtimeCall(); c.hook = "runtime.print"; instructions(p, {c, LirReturnInst{{"7", "Int32"}}}); }},
+            {"runtime_wrong_callee", [](auto& p) { auto c = runtimeCall(); c.callee = "print"; instructions(p, {c, LirReturnInst{{"7", "Int32"}}}); }},
+            {"runtime_arg_count", [](auto& p) { auto c = runtimeCall(); c.args.clear(); instructions(p, {c, LirReturnInst{{"7", "Int32"}}}); }},
+            {"runtime_arg_type", [](auto& p) { auto c = runtimeCall(); c.args = {{"true", "Bool"}}; instructions(p, {c, LirReturnInst{{"7", "Int32"}}}); }},
+            {"runtime_result", [](auto& p) { auto c = runtimeCall(); c.result = "%bad"; instructions(p, {c, LirReturnInst{{"7", "Int32"}}}); }},
+            {"runtime_type", [](auto& p) { auto c = runtimeCall(); c.type = "Int32"; instructions(p, {c, LirReturnInst{{"7", "Int32"}}}); }},
+            {"runtime_safety", [](auto& p) { auto c = runtimeCall(); c.safety = LirSafetyTag::None; instructions(p, {c, LirReturnInst{{"7", "Int32"}}}); }},
+            {"runtime_metadata", [](auto& p) { auto c = runtimeCall(); c.builtinTag = "println"; instructions(p, {c, LirReturnInst{{"7", "Int32"}}}); }},
+            {"runtime_external_metadata", [](auto& p) { auto c = runtimeCall(); c.externalInfo = LirExternalCallInfo{}; instructions(p, {c, LirReturnInst{{"7", "Int32"}}}); }},
         };
         for (const auto& [name, mutate] : negatives) {
             auto program = scalarProgram();
@@ -101,6 +121,20 @@ int main(int argc, char** argv) {
             std::cout << "[adapter/reject] " << name << '\n';
         }
         std::string error = "old error must be reset";
+        auto runtimeProgram = scalarProgram();
+        instructions(runtimeProgram, {runtimeCall(), LirReturnInst{{"7", "Int32"}}});
+        const auto runtimeObject = artifacts / "runtime_i32.o";
+        const auto runtimeIr = artifacts / "runtime_i32.ll";
+        std::filesystem::remove(runtimeObject);
+        std::filesystem::remove(runtimeIr);
+        require(emitObject(runtimeProgram, {runtimeObject.string(), runtimeIr.string(), true}, error), error);
+        require(error.empty() && std::filesystem::file_size(runtimeObject) > 0, "runtime Int32 opt-in failed");
+        std::ifstream runtimeText(runtimeIr);
+        const std::string runtimeIrText((std::istreambuf_iterator<char>(runtimeText)), {});
+        require(runtimeIrText.find("@claw.runtime.println.i32") != std::string::npos, "runtime symbol missing");
+        auto collision = scalarProgram();
+        entry(collision).linkage.symbol = "claw.runtime.println.i32";
+        require(!emitObject(collision, {(artifacts / "collision.o").string(), {}, true}, error), "runtime symbol collision accepted");
         const auto object = artifacts / "valid.o";
         const auto ir = artifacts / "valid.ll";
         std::filesystem::remove(object);

@@ -8,6 +8,7 @@ namespace claw::experimental::llvm_cpp {
 struct ObjectOptions {
     std::string objectPath;
     std::string irPath;
+    bool enableRuntimeI32 = false;
 };
 
 // Low-level, opt-in PoC: lowers the supported scalar subset of LIR directly to LLVM.

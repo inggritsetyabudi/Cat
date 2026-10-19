@@ -18,6 +18,7 @@ namespace {
 void usage() {
     std::cerr << "Experimental, object-only LLVM C++ API PoC (not the production backend).\n"
               << "Usage: claw-llvm-poc <single-file.cat> -o <output.o> [--emit-ir <output.ll>]\n"
+              << "       [--runtime-i32]\n"
               << "Link separately: cc output.o -o program\n";
 }
 }
@@ -42,6 +43,8 @@ int main(int argc, char** argv) {
         } else if (flag == "--emit-ir" && i + 1 < argc && !haveIr) {
             options.irPath = argv[++i];
             haveIr = true;
+        } else if (flag == "--runtime-i32" && !options.enableRuntimeI32) {
+            options.enableRuntimeI32 = true;
         } else {
             usage();
             return 1;

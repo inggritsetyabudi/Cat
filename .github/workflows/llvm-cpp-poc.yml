@@ -57,14 +57,36 @@ jobs:
           fi
           cmake -S claw -B build-llvm-poc -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_C_COMPILER=/usr/bin/gcc-13 \
             -DCLAW_ENABLE_LLVM_CPP_POC=ON \
             -DCLAW_ENABLE_LLD_POC=ON \
+            -DCLAW_ENABLE_RUNTIME_POC=ON \
             -DCLAW_LLVM_CONFIG="$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" \
             -DCLAW_LLD_EXECUTABLE="$RUNNER_TEMP/llvm23-sdk/bin/ld.lld" \
             -DPython3_EXECUTABLE=/usr/bin/python3 "${flags[@]}" \
             2>&1 | tee ci-evidence/configure.log
-      - name: Build all PoC and production targets
-        run: cmake --build build-llvm-poc --parallel 2 2>&1 | tee ci-evidence/build.log
+      - name: Build all PoC and production targets (verbose)
+        run: cmake --build build-llvm-poc --parallel 2 --verbose 2>&1 | tee ci-evidence/build.log
+      - name: Record runtime compiler provenance and instrumentation scope
+        run: |
+          set -euo pipefail
+          {
+            echo 'runtime-artifact-root=build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts'
+            echo 'runtime-preparation-compile-commands-from=ci-evidence/build.log'
+            echo 'runtime-preparation-configure-from=ci-evidence/configure.log'
+            echo 'runtime-compiler-version:'
+            /usr/bin/gcc-13 --version
+            echo 'runtime-compiler-target:'
+            /usr/bin/gcc-13 -dumpmachine
+            echo 'runtime-compiler-target-and-commands:'
+            grep -Ei 'runtime|clang([^ ]*)? .*(-target|--target)|-target|--target' ci-evidence/build.log ci-evidence/configure.log || true
+            echo 'runtime-files:'
+            find build-llvm-poc/experimental/llvm_cpp -path '*/runtime/*' -type f -print | sort
+          } | tee ci-evidence/runtime-compiler-manifest.txt
+          cat > ci-evidence/runtime-instrumentation-scope.txt <<'EOF'
+          Linux sanitizer scope: the existing profile sets CMAKE_CXX_FLAGS and CMAKE_EXE_LINKER_FLAGS to address,undefined; it does not globally set CMAKE_C_FLAGS. The optional runtime C target is therefore uninstrumented unless its own runtime target explicitly opts into C instrumentation. Existing production tests and their flags remain unchanged.
+          Windows native scope: no sanitizer instrumentation is enabled by this workflow.
+          EOF
       - name: Record linked LLVM and exact component closure
         run: |
           build-llvm-poc/experimental/llvm_cpp/claw-llvm-sdk-version-probe | tee ci-evidence/linked-sdk-version.txt
@@ -103,6 +125,16 @@ jobs:
             build-llvm-poc/experimental/llvm_cpp/lld/artifacts/**/*.stderr
             build-llvm-poc/experimental/llvm_cpp/lld/artifacts/*/constant/program
             build-llvm-poc/experimental/llvm_cpp/lld/lld-sdk-provenance.txt
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.txt
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.json
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.map
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.trace
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/inspect.*
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/program.ll
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/program.o
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/program.exe
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.a
+            build-llvm-poc/experimental/llvm_cpp/**/runtime/artifacts/**/*.o
           if-no-files-found: warn
 
   windows-ucrt64-native-poc:
@@ -184,13 +216,34 @@ jobs:
           set -euo pipefail
           cmake -S claw -B build-llvm-poc-win -GNinja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER=/ucrt64/bin/clang++.exe \
+            -DCMAKE_C_COMPILER=/ucrt64/bin/clang.exe \
             -DCLAW_ENABLE_LLVM_CPP_POC=ON \
             -DCLAW_ENABLE_LLD_POC=ON \
+            -DCLAW_ENABLE_RUNTIME_POC=ON \
             -DCLAW_LLVM_CONFIG=/ucrt64/bin/llvm-config.exe \
             -DCLAW_LLD_EXECUTABLE=/ucrt64/bin/ld.lld.exe \
             -DPython3_EXECUTABLE=/ucrt64/bin/python.exe 2>&1 | tee ci-evidence/configure.log
-      - name: Build all targets including version probe
-        run: cmake --build build-llvm-poc-win --parallel 2 2>&1 | tee ci-evidence/build.log
+      - name: Build all targets including version probe (verbose)
+        run: cmake --build build-llvm-poc-win --parallel 2 --verbose 2>&1 | tee ci-evidence/build.log
+      - name: Record runtime compiler provenance
+        run: |
+          set -euo pipefail
+          {
+            echo 'runtime-artifact-root=build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts'
+            echo 'runtime-preparation-compile-commands-from=ci-evidence/build.log'
+            echo 'runtime-preparation-configure-from=ci-evidence/configure.log'
+            echo 'runtime-compiler-version:'
+            /ucrt64/bin/clang.exe --version
+            echo 'runtime-compiler-target:'
+            /ucrt64/bin/clang.exe -dumpmachine
+            echo 'runtime-compiler-target-and-commands:'
+            grep -Ei 'runtime|clang([^ ]*)? .*(-target|--target)|-target|--target' ci-evidence/build.log ci-evidence/configure.log || true
+            echo 'runtime-files:'
+            find build-llvm-poc-win/experimental/llvm_cpp -path '*/runtime/*' -type f -print | sort
+          } | tee ci-evidence/runtime-compiler-manifest.txt
+          cat > ci-evidence/runtime-instrumentation-scope.txt <<'EOF'
+          Windows native scope: this workflow does not enable sanitizer instrumentation. The optional runtime C target is built with its explicitly configured native toolchain; existing production tests and flags remain unchanged.
+          EOF
       - name: Run all PoC gates with native Python
         run: |
           set -euo pipefail
@@ -235,4 +288,14 @@ jobs:
             build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.o
             build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.ll
             build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.exe
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.txt
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.json
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.map
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.trace
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/inspect.*
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/program.ll
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/program.o
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/program.exe
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.a
+            build-llvm-poc-win/experimental/llvm_cpp/**/runtime/artifacts/**/*.o
           if-no-files-found: warn

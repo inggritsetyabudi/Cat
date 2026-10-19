@@ -88,3 +88,7 @@ if(BUILD_TESTING)
             --artifacts "${CMAKE_CURRENT_BINARY_DIR}/artifacts" ${_profile_args})
     set_tests_properties(llvm-cpp-lld-native PROPERTIES DEPENDS llvm-cpp-poc-differential TIMEOUT 180)
 endif()
+
+if(CLAW_ENABLE_RUNTIME_POC)
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../runtime" runtime)
+endif()

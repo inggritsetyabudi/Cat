@@ -103,7 +103,7 @@ Input driver hanya file `.cat` standalone dengan satu modul. Entry tetap `fn mai
 
 Subset yang dituju: nilai scalar `Int32`/`Bool`/`Unit`, fungsi dan pemanggilan langsung scalar, binding lokal, assignment, identitas binding saat shadowing, perbandingan, `not`, branch/goto, return, dan join kontrol hasil lowering `if`. Metadata phi `Control` pada LIR bukan phi nilai LLVM; nilai hasil `if` saat ini lewat storage lokal sebagaimana LIR Cat. Jangan menyimpulkan dukungan semua bentuk phi atau optimasi SSA dari contoh tersebut.
 
-Aritmetika signed, pembagian/remainder, runtime builtins seperti `println`, owned values/drop glue, aggregate, static, float, ref/borrow ABI, FFI, import/workspace, dan cross-compilation bukan cakupan penerimaan tahap ini. Jalur yang belum didukung harus gagal eksplisit. Khusus aritmetika signed dan pembagian, lebih baik ditolak daripada menghasilkan LLVM operation yang melanggar aturan overflow atau defect pembagi nol dalam PRD.
+Aritmetika signed, pembagian/remainder, runtime builtins seperti `println`, owned values/drop glue, aggregate, static, float, ref/borrow ABI, FFI, import/workspace, dan cross-compilation bukan cakupan **default scalar tanpa flag runtime**. Eksperimen runtime terpisah di bawah hanya membuka `println(Int32)` melalui flag eksplisit; bukan seluruh builtin atau String/ownership ABI. Jalur yang belum didukung harus gagal eksplisit. Khusus aritmetika signed dan pembagian, lebih baik ditolak daripada menghasilkan LLVM operation yang melanggar aturan overflow atau defect pembagi nol dalam PRD.
 
 Penyimpanan lokal/parameter `Unit`, tipe `UInt32`, value phi, dan pemanggilan rekursif langsung juga belum didukung. Panggilan ke entry `main` ditolak, termasuk dari helper. Diagnostik pembatasan PoC tidak menjanjikan format/stage yang identik dengan driver produksi.
 
@@ -122,3 +122,7 @@ Workflow opt-in PoC mengaktifkan flag hanya pada job khusus; workflow produksi l
 ## Link object tanpa compiler driver: LLD PoC terpisah
 
 [PoC LLD exact23.1.3](lld/README.md) menambahkan opsi `CLAW_ENABLE_LLD_POC=OFF` default untuk membandingkan executable `ld.lld` dan worker API `lld::lldMain`, dengan CRT/platform inputs eksplisit. Contoh `cc` di atas tetap pembanding asli, bukan fallback. Linker baru hanya diuji pada subset object yang sama dan tidak mengubah driver produksi atau menghilangkan kebutuhan runtime/SDK sistem. Lihat kontrak platform, argv, isolasi tanpa Clang, ukuran dependency dan gate native dalam README linker.
+
+## Runtime output melalui paket prebuilt terpisah
+
+[Eksperimen runtime Int32](runtime/README.md) menambahkan `CLAW_ENABLE_RUNTIME_POC=OFF` default untuk menyiapkan archive target-native dari runtime C produksi yang tidak dimodifikasi. Persiapan boleh memakai compiler C; **emit/link per source tidak boleh**. Emitter meminta `--runtime-i32`, lalu external LLD menghubungkan object dan archive runtime yang sama, dengan CRT/SDK inputs eksplisit. Default 41 kasus scalar/rejection lama tidak diubah. String/Str, alokasi/drop owned, ABI agregat dan runtime lain tetap tidak didukung; tidak ada klaim compiler sepenuhnya hermetik atau CRT statik.

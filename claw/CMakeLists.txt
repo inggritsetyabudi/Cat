@@ -7,8 +7,12 @@ find_package(Threads REQUIRED)
 
 option(CLAW_ENABLE_LLVM_CPP_POC "Build the opt-in LLVM C++ backend PoC" OFF)
 option(CLAW_ENABLE_LLD_POC "Build isolated exact23.1.3 LLD linker probes (never production)" OFF)
+option(CLAW_ENABLE_RUNTIME_POC "Build the optional immutable native runtime archive proof" OFF)
 if(CLAW_ENABLE_LLD_POC AND NOT CLAW_ENABLE_LLVM_CPP_POC)
     message(FATAL_ERROR "CLAW_ENABLE_LLD_POC requires CLAW_ENABLE_LLVM_CPP_POC=ON; no production linker replacement")
+endif()
+if(CLAW_ENABLE_RUNTIME_POC AND (NOT CLAW_ENABLE_LLVM_CPP_POC OR NOT CLAW_ENABLE_LLD_POC))
+    message(FATAL_ERROR "CLAW_ENABLE_RUNTIME_POC requires CLAW_ENABLE_LLVM_CPP_POC=ON and CLAW_ENABLE_LLD_POC=ON")
 endif()
 
 add_library(claw_frontend

@@ -78,8 +78,9 @@ using FunctionMap = std::unordered_map<std::string, FunctionInfo>;
 class FunctionLowerer {
 public:
     FunctionLowerer(llvm::LLVMContext& context, const FunctionInfo& function,
-                    const FunctionMap& functions, llvm::Function* entry)
-        : context_(context), builder_(context), function_(function), functions_(functions), entry_(entry) {}
+                    const FunctionMap& functions, llvm::Function* entry, llvm::Function* runtimeI32)
+        : context_(context), builder_(context), function_(function), functions_(functions), entry_(entry),
+          runtimeI32_(runtimeI32) {}
 
     void lower() {
         for (const auto& block : function_.lir->blocks) {
@@ -179,6 +180,17 @@ private:
         if (inst.type != "Control") unsupported("value phi instruction");
     }
     void lowerInstruction(const LirCallInst& inst) {
+        if (inst.kind == LirCallKind::Runtime) {
+            if (!runtimeI32_ || inst.callee != "println" || inst.hook != "runtime.println" ||
+                inst.type != "Unit" || inst.result || inst.externalInfo || inst.builtinTag ||
+                inst.builtinReceiver || inst.safety != LirSafetyTag::ProvenSafe ||
+                inst.args.size() != 1 || inst.args.front().type != "Int32")
+                unsupported("unsupported runtime call '" + inst.callee + "'");
+            auto* argument = value(inst.args.front());
+            if (!argument->getType()->isIntegerTy(32)) unsupported("runtime println Int32 ABI mismatch");
+            builder_.CreateCall(runtimeI32_, {argument});
+            return;
+        }
         if ((inst.kind != LirCallKind::Direct && inst.kind != LirCallKind::ModuleDirect) ||
             inst.externalInfo || inst.builtinTag || inst.builtinReceiver)
             unsupported("non-direct call '" + inst.callee + "'");
@@ -234,6 +246,7 @@ private:
     FunctionInfo function_;
     const FunctionMap& functions_;
     llvm::Function* entry_;
+    llvm::Function* runtimeI32_;
     std::unordered_map<std::string, llvm::Value*> values_;
     std::unordered_map<std::string, llvm::AllocaInst*> slots_;
     std::unordered_map<std::string, llvm::BasicBlock*> blocks_;
@@ -314,6 +327,15 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     std::vector<FunctionInfo> definitions;
     std::unordered_set<std::string> symbols;
     llvm::Function* entry = nullptr;
+    llvm::Function* runtimeI32 = nullptr;
+    constexpr llvm::StringLiteral runtimeSymbol("claw.runtime.println.i32");
+    if (options.enableRuntimeI32) {
+        for (const auto& declaration : program.realms.front().decls) {
+            if (const auto* function = std::get_if<LirFunction>(&declaration);
+                function && function->linkage.symbol == runtimeSymbol)
+                unsupported("reserved runtime symbol collision 'claw.runtime.println.i32'");
+        }
+    }
     for (const auto& declaration : program.realms.front().decls) {
         const auto* function = std::get_if<LirFunction>(&declaration);
         if (!function) {
@@ -344,10 +366,19 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
         definitions.push_back(info);
         if (link.symbol == program.entrySymbol) entry = ir;
     }
+    if (options.enableRuntimeI32) {
+        if (symbols.contains(runtimeSymbol.str()))
+            unsupported("reserved runtime symbol collision 'claw.runtime.println.i32'");
+        auto* runtimeType = llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                    {llvm::Type::getInt32Ty(context)}, false);
+        runtimeI32 = llvm::Function::Create(runtimeType, llvm::GlobalValue::ExternalLinkage,
+                                            runtimeSymbol, module);
+        runtimeI32->setCallingConv(llvm::CallingConv::C);
+    }
     if (!entry || entry->arg_size() != 0 ||
         (!entry->getReturnType()->isVoidTy() && !entry->getReturnType()->isIntegerTy(32)))
         unsupported("entry main signature or symbol");
-    for (const auto& info : definitions) FunctionLowerer(context, info, functions, entry).lower();
+    for (const auto& info : definitions) FunctionLowerer(context, info, functions, entry, runtimeI32).lower();
 
     auto* main = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getInt32Ty(context), false),
                                        llvm::GlobalValue::ExternalLinkage, "main", module);
