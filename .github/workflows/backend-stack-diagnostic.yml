@@ -1,0 +1,105 @@
+name: Windows backend stack diagnostic
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline-vs-fixed:
+    name: Windows (UCRT64 baseline vs fixed stack diagnostic)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Configure Git line endings for MSYS2
+        shell: pwsh
+        run: git config --global core.autocrlf input
+
+      - name: Check out exact pull request head
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Check out immutable baseline
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: ${{ github.repository }}
+          ref: 28d5e3b2ea554a3a663561fc606c4bae78497540
+          path: stack-baseline
+          fetch-depth: 1
+
+      - name: Set up MSYS2 UCRT64
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            diffutils
+            python
+
+      - name: Record toolchain versions
+        run: |
+          clang --version
+          clang++ --version
+          cmake --version
+          ninja --version
+          python3 --version
+          printf 'Fixed source: '; git rev-parse HEAD
+          printf 'Baseline source: '; git -C stack-baseline rev-parse HEAD
+
+      - name: Configure and build baseline Release compiler
+        run: |
+          rm -rf stack-baseline/claw/build-stack-diagnostic
+          cmake -S stack-baseline/claw -B stack-baseline/claw/build-stack-diagnostic -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
+          cmake --build stack-baseline/claw/build-stack-diagnostic --target claw --parallel 4
+
+      - name: Configure and build fixed Release compiler
+        run: |
+          rm -rf claw/build-stack-diagnostic
+          cmake -S claw -B claw/build-stack-diagnostic -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
+          cmake --build claw/build-stack-diagnostic --target claw --parallel 4
+
+      - name: Build raw Windows process probe
+        run: |
+          mkdir -p diagnostic-artifacts
+          clang -std=c11 -municode \
+            "$(cygpath -w claw/tests/native/fixtures/windows_stack_status_probe.c)" \
+            -o "$PWD/diagnostic-artifacts/windows_stack_status_probe.exe"
+
+      - name: Run baseline-vs-fixed diagnostic
+        id: diagnostic
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 claw/tests/native/probe_windows_stack.py \
+            --baseline "$PWD/stack-baseline/claw/build-stack-diagnostic/claw.exe" \
+            --fixed "$PWD/claw/build-stack-diagnostic/claw.exe" \
+            --baseline-runtime "$PWD/stack-baseline/claw/runtime/native_runtime.c" \
+            --fixed-runtime "$PWD/claw/runtime/native_runtime.c" \
+            --baseline-source "$PWD/stack-baseline/claw/tests/native/fixtures/revise_int16_range.cat" \
+            --fixed-source "$PWD/claw/tests/native/fixtures/revise_int16_range.cat" \
+            --probe "$PWD/diagnostic-artifacts/windows_stack_status_probe.exe" \
+            --output "$PWD/diagnostic-artifacts" 2>&1 | tee diagnostic-artifacts/probe.log
+
+      - name: Upload diagnostic records
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-backend-stack-diagnostic
+          path: diagnostic-artifacts
+          if-no-files-found: error
+
+      - name: Fail if diagnostic failed
+        if: steps.diagnostic.outcome == 'failure'
+        run: exit 1
