@@ -11,9 +11,12 @@ oir.choice Maybe of T [abi=claw link=internal symbol=main::Maybe ffi=false]
 oir.fn propagate() -> Result[Int32, LocalProblem[String]] [indirect] [abi=claw link=internal symbol=main::propagate ffi=false]
   block entry:
     %t0 = call produce() : Result[Int32, Problem[String]]
-    try %t0 -> value propagate
-    %t1 = Ok(value) : Result[Int32, LocalProblem[String]]
-    return %t1 : Result[Int32, LocalProblem[String]]
+    try %t0 -> value, else %t1 -> try_fail_0
+    %t3 = Ok(value) : Result[Int32, LocalProblem[String]]
+    return %t3 : Result[Int32, LocalProblem[String]]
+  block try_fail_0:
+    %t2 = Fail(%t1) : Result[Int32, LocalProblem[String]]
+    return %t2 : Result[Int32, LocalProblem[String]]
 oir.fn main() -> Unit [void] [abi=claw link=internal symbol=main::main ffi=false]
   block entry:
 

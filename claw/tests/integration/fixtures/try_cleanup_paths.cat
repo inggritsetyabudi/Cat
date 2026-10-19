@@ -1,0 +1,185 @@
+choice Label {
+    text(value: String)
+    number(value: Int32)
+}
+
+shape OwnedBundle {
+    payload: Anchor[String],
+    label: String,
+}
+
+fn make_number(flag: Bool, value: Int32) -> Result[Int32, String] {
+    if flag {
+        return Ok(value)
+    }
+    return Fail(String.from("number-failure"))
+}
+
+fn make_anchor(flag: Bool) -> Result[Anchor[String], String] {
+    if flag {
+        return Ok(Anchor.new(String.from("anchor-success")))
+    }
+    return Fail(String.from("anchor-failure"))
+}
+
+fn make_bundle(flag: Bool) -> Result[OwnedBundle, String] {
+    val payload = try make_anchor(flag)
+    return Ok(OwnedBundle { payload: payload, label: String.from("bundle-label") })
+}
+
+fn make_label(flag: Bool) -> Label {
+    if flag {
+        return text(String.from("choice-text"))
+    }
+    return number(99)
+}
+
+fn owned_param_success(value: String) -> Result[Int32, String] {
+    val local = String.from("owned-local")
+    println(value.as_str())
+    println(local.as_str())
+    return Ok(10)
+}
+
+fn owned_param_failure(value: String) -> Result[Int32, String] {
+    val local = String.from("owned-failure-local")
+    println(value.as_str())
+    println(local.as_str())
+    return Fail(String.from("owned-param-failure"))
+}
+
+fn shorthand_owned(flag: Bool) -> Result[Int32, String] {
+    val prior = Anchor.new(String.from("prior-owner"))
+    val result = make_anchor(flag)
+    val moved = result
+    val payload = try moved
+    println(prior.get().as_str())
+    println(payload.get().as_str())
+    return Ok(21)
+}
+
+fn shorthand_owned_failure(flag: Bool) -> Result[Int32, String] {
+    val prior = Anchor.new(String.from("prior-failure-owner"))
+    val result = make_anchor(flag)
+    val moved = result
+    val payload = try moved
+    println(prior.get().as_str())
+    println(payload.get().as_str())
+    return Ok(22)
+}
+
+fn changed_success_type(flag: Bool) -> Result[String, String] {
+    val number = try make_number(flag, 31)
+    return Ok(String.from("changed-success"))
+}
+
+fn shadowed_owner(flag: Bool) -> Result[Int32, String] {
+    val owner = Anchor.new(String.from("outer-owner"))
+    if true {
+        val owner = try make_anchor(flag) else error {
+            println(error)
+            return Fail(error)
+        }
+        println(owner.get().as_str())
+    }
+    println(owner.get().as_str())
+    if flag {
+        val branch_owner = Anchor.new(String.from("branch-owner"))
+        println(branch_owner.get().as_str())
+    }
+    return Ok(32)
+}
+
+fn chained(flag_first: Bool, flag_second: Bool) -> Result[Int32, String] {
+    val first = try make_number(flag_first, 3)
+    val second = try make_number(flag_second, 4)
+    return Ok(first + second)
+}
+
+fn borrowed_success(flag: Bool) -> Result[Int32, String] {
+    val owner = String.from("borrowed-view")
+    val view = owner.as_str()
+    val value = try make_number(flag, 41)
+    println(view)
+    return Ok(value)
+}
+
+fn loop_controls(flag: Bool) -> Result[Int32, String] {
+    var index: Int32 = 0
+    loop index < 3 {
+        val guard = String.from("loop-guard")
+        val value = try make_number(flag, index) else error {
+            println(guard.as_str())
+            println(error)
+            return Fail(error)
+        }
+        println(guard.as_str())
+        println(value)
+        index += 1
+        if index == 1 { skip }
+        stop
+    }
+    return Ok(index)
+}
+
+fn show_number(result: Result[Int32, String]) {
+    pick result {
+        Ok(value) { println(value) }
+        Fail(error) { println(error) }
+    }
+}
+
+fn show_text(result: Result[String, String]) {
+    pick result {
+        Ok(value) { println(value.as_str()) }
+        Fail(error) { println(error.as_str()) }
+    }
+}
+
+fn show_anchor(result: Result[Anchor[String], String]) {
+    pick result {
+        Ok(value) { println(value.get().as_str()) }
+        Fail(error) { println(error.as_str()) }
+    }
+}
+
+fn show_bundle(result: Result[OwnedBundle, String]) {
+    pick result {
+        Ok(value) {
+            println(value.payload.get().as_str())
+            println(value.label.as_str())
+        }
+        Fail(error) { println(error.as_str()) }
+    }
+}
+
+fn show_label(value: Label) {
+    pick value {
+        text(value) { println(value.as_str()) }
+        number(value) { println(value) }
+    }
+}
+
+fn main() -> Int32 {
+    show_number(owned_param_success(String.from("param-success")))
+    show_number(owned_param_failure(String.from("param-failure")))
+    show_anchor(make_anchor(true))
+    show_anchor(make_anchor(false))
+    show_bundle(make_bundle(true))
+    show_bundle(make_bundle(false))
+    show_label(make_label(true))
+    show_label(make_label(false))
+    show_number(shorthand_owned(true))
+    show_number(shorthand_owned_failure(false))
+    show_text(changed_success_type(true))
+    show_text(changed_success_type(false))
+    show_number(shadowed_owner(true))
+    show_number(shadowed_owner(false))
+    show_number(chained(true, true))
+    show_number(chained(true, false))
+    show_number(borrowed_success(true))
+    show_number(borrowed_success(false))
+    show_number(loop_controls(true))
+    show_number(loop_controls(false))
+    return 0
+}

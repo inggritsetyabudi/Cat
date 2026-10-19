@@ -4,12 +4,15 @@
 
 ## Yang benar-benar dijalankan
 
-Setiap fixture positif harus lolos `check`, emisi LLVM, native build, dan eksekusi dengan stdout persis. LLVM hasil native build wajib memiliki wrapper `@main`; LLVM tersebut kemudian dikompilasi ulang dengan Clang pada **O0 dan O2**, baik biasa maupun dengan **ASan/UBSan/LSan**. Dengan runtime sanitizer tersedia, empat fixture menghasilkan **20 eksekusi target**: native driver O2, relink O0/O2, dan relink O0/O2 bersanitizer. Artefak modul LLVM, LLVM executable, dan executable disimpan di `artifacts/` (tidak dimasukkan ke commit).
+Setiap fixture positif harus lolos `check`, emisi LLVM, native build, dan eksekusi dengan stdout persis. LLVM hasil native build wajib memiliki wrapper `@main`; LLVM tersebut kemudian dikompilasi ulang dengan Clang pada **O0 dan O2**, baik biasa maupun dengan **ASan/UBSan/LSan**. Setiap fixture menghasilkan lima eksekusi target bila runtime sanitizer tersedia: native driver O2, relink O0/O2, dan relink O0/O2 bersanitizer. Dua fixture minimal cleanup juga direlink dengan oracle `free` nyata pada O0/O2 (empat eksekusi tambahan). Artefak modul LLVM, LLVM executable, dan executable disimpan di `artifacts/` (tidak dimasukkan ke commit).
 
 - `composition_core.cat`: fungsi dan pilihan nilai `if`/`pick`, `Result`/`Maybe`/`try`, array lintas panggilan dengan scan berindeks dan assignment, nested tuple destructuring, serta view string.
 - `composition_workspace/`: manifest, import alias, shared function melalui modul saudara, choice, `if`/`pick`, dan range scan. Array lintas panggilan ada di `composition_core.cat`, bukan fixture workspace.
 - `composition_ownership_ranges.cat`: owned `String` melalui pilihan, fungsi, dan choice; jalur gagal `Result` dengan cleanup; view dari owner yang tetap hidup; `get` UTF-8 valid/tidak valid; Char scan melintasi surrogate gap; range UInt8 inklusif sampai 255; `loop`/`skip`/`stop`.
 - `composition_implicit_result.cat`: `try` dan implicit return `Ok(...)` di fungsi bertipe `Result`, kemudian consumer `pick`; regresi defect konteks tipe yang ditemukan saat penyusunan matriks.
+- `try_cleanup_minimal.cat`: reproducer leak 10 byte pada main `f8816eb`; shorthand `try` gagal setelah local owned dibuat. `try_cleanup_manual_else.cat` adalah kontrol setara dengan `else error { return Fail(error) }`. Keduanya harus mencetak `failure` lalu `after`, tanpa meneruskan pemakaian guard. Oracle runtime khusus tes wajib melihat cleanup guard **sebelum** output caller, lalu cleanup error setelah pemakaiannya. Oracle tetap memanggil `free` asli dan tidak menggantikan sanitizer pada runtime produksi.
+- `composition_owned_result_loops.cat`: fixture workstream test-only terdahulu yang kini menjadi regresi aktif; owned choice melalui Result lokal, `scan`/`loop`, `pick`, `skip`, `stop`, return awal, serta jalur sukses/gagal shorthand dan explicit `else`.
+- `try_cleanup_paths.cat`: parameter owned, owner yang sudah dipindahkan, Result lokal yang dikonsumsi, success type pemanggil berbeda, scope bersarang/shadowing, cabang dengan owner lokal, chained `try`, owned shape/choice berisi `Anchor[String]`, borrowed view, dan kontrol explicit `else` dengan `skip`/`stop`. Delapan fixture positif menghasilkan **44 eksekusi target** bila sanitizer tersedia (40 biasa/bersanitizer dan empat oracle cleanup).
 
 Dua companion **wajib ada**, bukan skip opsional:
 
