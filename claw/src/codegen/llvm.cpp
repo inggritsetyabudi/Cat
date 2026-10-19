@@ -2,6 +2,26 @@
 
 namespace claw::codegen {
 
+std::string_view nativeTargetTriple() noexcept {
+#if defined(__APPLE__)
+#if defined(__aarch64__)
+    return "aarch64-apple-darwin";
+#else
+    return "x86_64-apple-darwin";
+#endif
+#elif defined(_WIN32)
+    return "x86_64-w64-windows-gnu";
+#elif defined(__linux__)
+#if defined(__aarch64__)
+    return "aarch64-unknown-linux-gnu";
+#else
+    return "x86_64-unknown-linux-gnu";
+#endif
+#else
+    return "x86_64-unknown-unknown";
+#endif
+}
+
 std::string emitLlvmIr(const LirProgram& program) {
     return LlvmEmitter(program).emit();
 }

@@ -258,10 +258,16 @@ int runClangLink(
     claw::driver::NativeBuildProfile profile,
     const std::function<void()>& beforeLinkOutput) {
 #if defined(_WIN32)
+#if defined(__x86_64__) || defined(_M_X64)
+    const auto target = claw::codegen::nativeTargetTriple();
+#endif
     const std::vector<std::wstring> argsStorage = {
         L"clang",
         profile == claw::driver::NativeBuildProfile::Release ? L"-O2" : L"-O0",
         L"-std=c11",
+#if defined(__x86_64__) || defined(_M_X64)
+        L"--target=" + std::wstring(target.begin(), target.end()),
+#endif
         claw::driver::quoteWindowsCommandLineArgument(widen(llvmPath)),
         claw::driver::quoteWindowsCommandLineArgument(widen(runtimePath)),
         L"-o",
@@ -289,6 +295,11 @@ int runClangLink(
         "clang",
         profile == claw::driver::NativeBuildProfile::Release ? "-O2" : "-O0",
         "-std=c11",
+#if defined(__linux__) && (defined(__x86_64__) || defined(__aarch64__))
+        // Bind the existing GNU/Linux host contract, not an inferred vendor alias.
+        // Other POSIX hosts retain their existing driver/deployment policy.
+        "--target=" + std::string(claw::codegen::nativeTargetTriple()),
+#endif
         llvmPath.string(),
         runtimePath.string(),
         "-o",

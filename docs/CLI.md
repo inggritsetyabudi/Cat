@@ -53,6 +53,8 @@ Without an output argument, Claw writes `build/<name>.exe` under the package roo
 
 A sibling `.ll` file is written before linking and retained after success or linker failure. Output parent directories are created as needed. The compiler finds the bundled `runtime/native_runtime.c` relative to its executable and invokes `clang` from `PATH` with `-O0 -std=c11` by default or `-O2 -std=c11` when `--release` is specified, LLVM IR, and that runtime source. Keep the runtime bundle with the compiler. See [Building](BUILDING.md#runtime-packaging).
 
+For the existing GNU/Linux x86_64/aarch64 and Windows x64 host mappings, the IR emitter and native driver share one target triple; Clang receives that exact triple through `--target=` for both IR and runtime C. This binds the declared native target instead of depending on Clang's default vendor spelling. It does not suppress diagnostics, expose cross-compilation, or establish other toolchains/platforms as supported. Apple deployment-target and other fallback-host policies are unchanged; the tested matrix remains Ubuntu x86_64 and Windows UCRT64.
+
 CMake's `Debug`/`Release` controls how Claw itself is built. Independently, plain `claw build` selects the native debug/unoptimized optimization profile and `claw build --release` selects optimized code. `--release` is a build-only flag; it may appear before or after input/output arguments. These are optimization profiles: PRD debug overflow checks, complete debug metadata, and other unaccepted language-level profile behavior are not implied. No general user-selectable linker flags are exposed.
 
 ## Compact build progress

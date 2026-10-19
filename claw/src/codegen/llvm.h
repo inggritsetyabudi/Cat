@@ -8,6 +8,9 @@
 
 namespace claw::codegen {
 
+// Existing compiler-host target contract; not a user-selectable cross target.
+std::string_view nativeTargetTriple() noexcept;
+
 std::string emitLlvmIr(const claw::frontend::LirProgram& program);
 std::string emitLlvmIr(
     std::string_view entryRealm,

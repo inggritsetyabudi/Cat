@@ -46,10 +46,11 @@ def fail(message: str, result: subprocess.CompletedProcess[str] | None = None) -
     raise AssertionError(message)
 
 
-def run(*args: str | Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    argv = [native_arg(CLAW)] + [native_arg(a) if isinstance(a, Path) else str(a) for a in args]
+def run(*args: str | Path, env: dict[str, str] | None = None,
+        executable: Path = CLAW) -> subprocess.CompletedProcess[str]:
+    argv = [native_arg(executable)] + [native_arg(a) if isinstance(a, Path) else str(a) for a in args]
     # Keep executable= POSIX-spelled for MSYS Python, while native-spelling argv.
-    return subprocess.run(argv, executable=str(CLAW), text=True,
+    return subprocess.run(argv, executable=str(executable), text=True,
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, check=False, timeout=120)
 
 
@@ -86,6 +87,55 @@ def assert_stage_contract(stderr: str, modules: tuple[str, ...]) -> None:
             raise AssertionError(f"stage status omitted module label {module!r}")
     if re.search(r"\b(?:Lower|Emit|Link)\b(?!ing)", stderr):
         raise AssertionError("stage status used truncated stage names")
+
+
+def assert_no_override(stderr: str) -> None:
+    """Real native builds must not need Clang's module-triple override suppression."""
+    if "override-module" in stderr.lower() or "overriding the module target triple" in stderr.lower():
+        raise AssertionError(f"native build emitted override-module message/diagnostic flag: {stderr!r}")
+
+
+def assert_native_target(argv: list[str], flag: str, ir_path: Path) -> None:
+    if sys.platform.startswith("linux") or WINDOWS_NATIVE:
+        targets = [arg for arg in argv if arg.startswith("--target=")]
+        if len(targets) != 1:
+            raise AssertionError(f"native Clang must receive exactly one --target= argument: {argv!r}")
+        ir_paths = [arg for arg in argv if arg.lower().endswith(".ll")]
+        if ir_paths != [native_arg(ir_path)]:
+            raise AssertionError(f"native Clang argv did not identify the generated IR file: {argv!r}")
+        # Use the interpreter-native path for I/O, not the Win32 argv spelling.
+        match = re.search(r'^target triple = "([^"]+)"$', ir_path.read_text(encoding="utf-8"), re.MULTILINE)
+        if not match or targets[0] != "--target=" + match.group(1):
+            raise AssertionError(f"native target did not match generated IR triple: {argv!r}")
+    options = [arg for arg in argv if re.fullmatch(r"-O[0-9sz]", arg)]
+    if options != [flag]:
+        raise AssertionError(f"native profile sent incorrect optimization flags: {argv!r}")
+
+
+def run_sentinel_builds(root: Path) -> None:
+    """Use a copied compiler/runtime fixture to prove genuine Clang warnings survive."""
+    sentinel_dir = root / "sentinel compiler"
+    runtime_dir = sentinel_dir / "runtime"
+    runtime_dir.mkdir(parents=True)
+    sentinel_exe = sentinel_dir / CLAW.name
+    shutil.copy2(CLAW, sentinel_exe)
+    runtime = ROOT / "claw" / "runtime" / "native_runtime.c"
+    (runtime_dir / "native_runtime.c").write_text(
+        "#warning claw-native-target-diagnostic-sentinel\n" + runtime.read_text(encoding="utf-8"),
+        encoding="utf-8")
+    single = FIXTURES / "revise_maybe.cat"
+    for args, profile in [((), "debug + unoptimized"), (("--release",), "optimized")]:
+        output = root / ("sentinel-" + ("debug" if not args else "release") + ".exe")
+        result = run("build", *args, single, output, executable=sentinel_exe)
+        assert_build(result, output, profile)
+        if "claw-native-target-diagnostic-sentinel" not in result.stderr or "warning:" not in result.stderr:
+            fail("genuine Clang sentinel warning was not preserved", result)
+        if sys.platform.startswith("linux") or WINDOWS_NATIVE:
+            assert_no_override(result.stderr)
+        executed = subprocess.run([native_arg(output)], executable=str(output),
+                                  capture_output=True, text=True, timeout=30)
+        if executed.returncode != 0 or executed.stdout.replace("\r\n", "\n") != "42\n0\nC@\nworld\n":
+            fail("Clang sentinel changed native executable behavior", executed)
 
 
 def verify_native_flags(root: Path, single: Path) -> None:
@@ -125,9 +175,7 @@ int main(int argc, char **argv) {
         result = run("build", *args, single, output, env=env)
         assert_build(result, output, "optimized" if args else "debug + unoptimized")
         actual = log.read_text(encoding="utf-8").splitlines()
-        options = [arg for arg in actual if re.fullmatch(r"-O[0-9sz]", arg)]
-        if options != [flag]:
-            raise AssertionError(f"native profile sent incorrect optimization flags: {actual!r}")
+        assert_native_target(actual, flag, output.with_suffix(".ll"))
 
 
 def main() -> int:
@@ -139,6 +187,8 @@ def main() -> int:
         default = run("build", single, default_output)
         assert_build(default, default_output, "debug + unoptimized")
         assert_stage_contract(default.stderr, ("revise_maybe::main",))
+        if sys.platform.startswith("linux") or WINDOWS_NATIVE:
+            assert_no_override(default.stderr)
         if "-O0" not in default.stderr and "unoptimized" not in default.stderr:
             fail("default build was not reported as unoptimized", default)
         warning_source = root / "warning with spaces.cat"
@@ -154,6 +204,8 @@ def main() -> int:
         release = run("build", "--release", single, release_output)
         assert_build(release, release_output, "optimized")
         assert_stage_contract(release.stderr, ("revise_maybe::main",))
+        if sys.platform.startswith("linux") or WINDOWS_NATIVE:
+            assert_no_override(release.stderr)
         if "-O2" not in release.stderr and "optimized" not in release.stderr:
             fail("--release build was not reported as optimized", release)
 
@@ -161,6 +213,13 @@ def main() -> int:
         workspace_result = run("build", workspace, workspace_output)
         assert_build(workspace_result, workspace_output, "debug + unoptimized")
         assert_stage_contract(workspace_result.stderr, ("main::main", "main::src::nested"))
+        if sys.platform.startswith("linux") or WINDOWS_NATIVE:
+            assert_no_override(workspace_result.stderr)
+        workspace_release_output = root / "workspace-release.exe"
+        workspace_release = run("build", "--release", workspace, workspace_release_output)
+        assert_build(workspace_release, workspace_release_output, "optimized")
+        if sys.platform.startswith("linux") or WINDOWS_NATIVE:
+            assert_no_override(workspace_release.stderr)
 
         invalid = run("build", "--not-a-real-build-flag", single, root / "bad.exe")
         if invalid.returncode == 0 or invalid.stdout:
@@ -195,6 +254,12 @@ def main() -> int:
                                   capture_output=True, text=True, timeout=30)
         if executed.returncode != 0 or executed.stdout.replace("\r\n", "\n") != "42\n0\nC@\nworld\n":
             fail("default native program behavior changed", executed)
+        for output, expected in [(release_output, "42\n0\nC@\nworld\n"),
+                                 (workspace_output, "workspace\n")]:
+            executed = subprocess.run([native_arg(output)], executable=str(output),
+                                      capture_output=True, text=True, timeout=30)
+            if executed.returncode != 0 or executed.stdout.replace("\r\n", "\n") != expected:
+                fail(f"native program behavior changed for {output.name}", executed)
         for argv in [("build", single, release_output, "--release"),
                      ("build-native", "--release", single, release_output)]:
             assert_build(run(*argv), release_output, "optimized")
@@ -208,6 +273,8 @@ def main() -> int:
         if check.returncode != 0 or not check.stdout.startswith("Check passed for module:"):
             fail("unrelated check command output/argument behavior changed", check)
         verify_native_flags(root, single)
+        if sys.platform.startswith("linux") or WINDOWS_NATIVE:
+            run_sentinel_builds(root)
 
     print("[build-ux/pass] native build UX contract")
     return 0
