@@ -4,8 +4,8 @@ on:
 permissions:
   contents: read
 jobs:
-  windows-pty-on-driver-candidate:
-    name: Windows full suite (PTY overlay on exact PR29)
+  windows-pty-exact-head:
+    name: Windows full suite (PTY on exact PR head)
     runs-on: windows-latest
     timeout-minutes: 45
     defaults:
@@ -15,15 +15,10 @@ jobs:
       - name: Configure line endings
         shell: pwsh
         run: git config --global core.autocrlf input
-      - name: Check out exact independent driver candidate
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
-        with:
-          ref: 12ab6f950e0f316560036caaa23f9295b2ad5967
-      - name: Check out exact PTY candidate for test-only overlay
+      - name: Check out exact pull request head
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          path: pty-candidate
       - name: Set up MSYS2 UCRT64
         uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
         with:
@@ -36,25 +31,18 @@ jobs:
             diffutils
             python
             git
-      - name: Apply only terminal test files and record provenance
+      - name: Record exact source and toolchain provenance
         env:
-          EXPECTED_PTY_SHA: ${{ github.event.pull_request.head.sha }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          printf 'Compiler snapshot: '; git rev-parse HEAD
-          printf 'PTY snapshot: '; git -C pty-candidate rev-parse HEAD
-          test "$(git -C pty-candidate rev-parse HEAD)" = "$EXPECTED_PTY_SHA"
-          for file in claw/tests/cli/msys_terminal.py claw/tests/cli/fixtures/msys_console_keeper.c claw/tests/cli/run_terminal_contract_tests.py claw/tests/frontend/run_lexer_comment_tests.py claw/tests/run_all_tests.sh; do
-            mkdir -p "$(dirname "$file")"
-            cp "pty-candidate/$file" "$file"
-          done
-          rm -rf pty-candidate
-          git diff --exit-code -- claw/src claw/include
-          git status --short
+          printf 'Compiler and tests snapshot: '; git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+          git diff --exit-code
           uname -a
           pacman -Q msys2-runtime python
           clang++ --version
-      - name: Configure and build exact driver compiler
+      - name: Configure and build exact head compiler
         run: |
           cmake -S claw -B claw/build-pty-integration -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
           cmake --build claw/build-pty-integration --target claw --parallel 4

@@ -45,6 +45,7 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             diffutils
             python
+            git
 
       - name: Record toolchain versions
         run: |
