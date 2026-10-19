@@ -1,0 +1,84 @@
+choice Step {
+    next(text: String)
+    bypass(text: String)
+    halt(text: String)
+}
+
+fn make_step(index: Int32, fail_at: Int32) -> Result[Step, String] {
+    if index == fail_at { return Fail(String.from("failure")) }
+    if index == 1 { return Ok(bypass(String.from("bypass"))) }
+    if index == 3 { return Ok(halt(String.from("halt"))) }
+    return Ok(next(String.from("next")))
+}
+
+fn scan_steps(fail_at: Int32) -> Result[Int32, String] {
+    var total: Int32 = 0
+    scan index over 0..5 {
+        val guard = String.from("scan-guard")
+        val result = make_step(index, fail_at)
+        val step = try result
+        pick step {
+            next(text) { println(text) }
+            bypass(text) {
+                println(text)
+                skip
+            }
+            halt(text) {
+                println(text)
+                stop
+            }
+        }
+        println(guard)
+        total += 1
+    }
+    println("scan-after")
+    return Ok(total)
+}
+
+fn loop_steps(fail_at: Int32) -> Result[Int32, String] {
+    var index: Int32 = 0
+    loop index < 5 {
+        val guard = String.from("loop-guard")
+        val result = make_step(index, fail_at)
+        val step = try result else error {
+            println("loop-error")
+            return Fail(error)
+        }
+        index += 1
+        pick step {
+            next(text) { println(text) }
+            bypass(text) {
+                println(text)
+                skip
+            }
+            halt(text) {
+                println(text)
+                return Ok(index)
+            }
+        }
+        println(guard)
+    }
+    println("unreachable-loop-tail")
+    return Ok(99)
+}
+
+fn report(result: Result[Int32, String]) {
+    pick result {
+        Ok(value) { println(value) }
+        Fail(error) { println(error) }
+    }
+    println("report-after")
+}
+
+fn main() -> Int32 {
+    println("scan-success")
+    report(scan_steps(-1))
+    println("scan-failure")
+    report(scan_steps(2))
+    println("loop-success")
+    report(loop_steps(-1))
+    println("loop-failure")
+    report(loop_steps(2))
+    println("all-after")
+    return 0
+}

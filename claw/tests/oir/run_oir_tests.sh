@@ -65,6 +65,7 @@ run_oir_golden "error" "$FIXTURE_DIR/frontend/fixtures/revise_error_handling.cat
 run_oir_golden "try-contract" "$FIXTURE_DIR/native/fixtures/revise_try_contract.cat"
 run_oir_golden "try-owned-result" "$FIXTURE_DIR/native/fixtures/revise_try_owned_result.cat"
 run_oir_golden "try-error-alias" "$FIXTURE_DIR/frontend/fixtures/revise_try_error_alias"
+run_oir_golden "try-cleanup" "$FIXTURE_DIR/integration/fixtures/try_cleanup_minimal.cat"
 run_oir_golden "choice-resolution" "$FIXTURE_DIR/frontend/fixtures/revise_choice_resolution.cat"
 run_oir_golden "anchor-choice" "$FIXTURE_DIR/native/fixtures/revise_anchor_choice.cat"
 run_oir_golden "scope" "$FIXTURE_DIR/frontend/fixtures/revise_scope_refs.cat"

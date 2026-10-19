@@ -1,0 +1,45 @@
+oir.module try_cleanup_minimal
+oir.choice Result of T, E [abi=claw link=internal symbol=try_cleanup_minimal::Result ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case Ok(T)
+  case Fail(E)
+oir.choice Maybe of T [abi=claw link=internal symbol=try_cleanup_minimal::Maybe ffi=false]
+  layout repr=claw-internal kind=template size=0 align=4 pass=indirect ffi=false unresolved=true
+  case None
+  case Some(T)
+oir.fn make_failure() -> Result[Int32, String] [indirect] [abi=claw link=internal symbol=try_cleanup_minimal::make_failure ffi=false]
+  block entry:
+    %t0 = call String.from("failure") : String
+    %t1 = Fail(%t0) : Result[Int32, String]
+    return %t1 : Result[Int32, String]
+oir.fn propagate() -> Result[Int32, String] [indirect] [abi=claw link=internal symbol=try_cleanup_minimal::propagate ffi=false]
+  block entry:
+    %t0 = call String.from("scan-guard") : String
+    val guard: String = %t0
+    %t1 = call make_failure() : Result[Int32, String]
+    try %t1 -> value, else %t2 -> try_fail_0
+    call println(guard) : Unit
+    %t4 = Ok(value) : Result[Int32, String]
+    drop guard : String
+    return %t4 : Result[Int32, String]
+  block try_fail_0:
+    %t3 = Fail(%t2) : Result[Int32, String]
+    drop guard : String
+    return %t3 : Result[Int32, String]
+oir.fn main() -> Int32 [scalar] [abi=claw link=internal symbol=try_cleanup_minimal::main ffi=false]
+  block entry:
+    %t0 = call propagate() : Result[Int32, String]
+    val result: Result[Int32, String] = %t0
+    pick result : Result[Int32, String]
+    case Ok(value) -> pick_Ok_1
+    case Fail(error) -> pick_Fail_2
+  block pick_Ok_1:
+    call println(value) : Unit
+    goto pick_join_0
+  block pick_Fail_2:
+    call println(error) : Unit
+    drop error : String
+    goto pick_join_0
+  block pick_join_0:
+    call println("after") : Unit
+    return 0 : Int32

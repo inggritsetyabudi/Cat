@@ -26,6 +26,20 @@ CASES = [
     ("composition_implicit_result", FIX / "composition_implicit_result.cat", "42\nmissing\n5\nnone\n9\n"),
     ("composition_ownership_ranges", FIX / "composition_ownership_ranges.cat",
      "left\n10\nright\n20\nmissing\né\nboundary\nAéB\n0\n1\n1\n2\n254\n0\n255\n1\n1\n3\n"),
+    ("try_cleanup_minimal", FIX / "try_cleanup_minimal.cat", "failure\nafter\n"),
+    ("try_cleanup_manual_else", FIX / "try_cleanup_manual_else.cat", "failure\nafter\n"),
+    ("composition_owned_result_loops", FIX / "composition_owned_result_loops.cat",
+     "scan-success\nnext\nscan-guard\nbypass\nnext\nscan-guard\nhalt\nscan-after\n2\nreport-after\n"
+     "scan-failure\nnext\nscan-guard\nbypass\nfailure\nreport-after\n"
+     "loop-success\nnext\nloop-guard\nbypass\nnext\nloop-guard\nhalt\n4\nreport-after\n"
+     "loop-failure\nnext\nloop-guard\nbypass\nloop-error\nfailure\nreport-after\nall-after\n"),
+    ("try_cleanup_paths", FIX / "try_cleanup_paths.cat",
+     "param-success\nowned-local\n10\nparam-failure\nowned-failure-local\nowned-param-failure\n"
+     "anchor-success\nanchor-failure\nanchor-success\nbundle-label\nanchor-failure\nchoice-text\n99\n"
+     "prior-owner\nanchor-success\n21\nanchor-failure\nchanged-success\nnumber-failure\n"
+     "anchor-success\nouter-owner\nbranch-owner\n32\nanchor-failure\nanchor-failure\n"
+     "7\nnumber-failure\nborrowed-view\n41\nnumber-failure\n"
+     "loop-guard\n0\nloop-guard\n1\n2\nloop-guard\nnumber-failure\nnumber-failure\n"),
 ]
 SAN_FLAGS = ["-fsanitize=address,undefined,leak", "-fno-omit-frame-pointer", "-g"]
 SAN_ENV = dict(os.environ, ASAN_OPTIONS="detect_leaks=1:halt_on_error=1",
@@ -98,6 +112,19 @@ def main() -> int:
                 execute(variant, expected, sanitized=instrumented)
                 runs += 1
                 print(f"[composition/target/pass] {variant.name}: exact stdout", flush=True)
+            if name in ("try_cleanup_minimal", "try_cleanup_manual_else"):
+                # Observe the real frees as well as LSan: this oracle is mandatory
+                # even on targets without sanitizer runtimes. Guard cleanup must
+                # precede caller output; transferred error cleanup follows its use.
+                observed = ART / f"{name}.{optimization}.cleanup.exe"
+                observed.unlink(missing_ok=True)
+                p = run([clang, "-Wno-override-module", f"-{optimization}", str(ll),
+                         str(HERE / "observe_cleanup_runtime.c"), "-o", str(observed)])
+                if p.returncode or not observed.is_file():
+                    fail(f"cleanup oracle relink failed for {observed.name}", p)
+                execute(observed, "cleanup\nfailure\ncleanup\nafter\n")
+                runs += 1
+                print(f"[composition/cleanup/pass] {observed.name}: exact free timeline", flush=True)
         print(f"[composition/pass] {name}: check/LLVM/native + O0/O2 targets", flush=True)
     for companion in (HERE / "run_negative_composition_tests.py", HERE / "run_pattern_oracle.py"):
         if not companion.is_file():

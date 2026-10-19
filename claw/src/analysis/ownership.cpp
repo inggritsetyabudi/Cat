@@ -801,6 +801,15 @@ const auto bindingTypeIt = semantic->result().bindingTypes.find(bind);
             pathReachable = baselineReachable;
         }
 
+        if (tryStmt->autoPropagate) {
+            // The implicit Fail return exits the entire function. Collect after
+            // consuming the Result, but before introducing its Ok-only binding.
+            // These actions belong to the failure edge, not the success path.
+            for (const auto& drop : collectUnwindDrops(std::nullopt)) {
+                recordDropBeforeStmt(tryStmt, drop.name, drop.type, drop.bindingKey);
+            }
+        }
+
         defineTrackedVar(
             tryStmt->name,
             TrackedVar{okType, false, StorageState::Initialized, {}, std::nullopt, tryStmt->backendBindingKey});

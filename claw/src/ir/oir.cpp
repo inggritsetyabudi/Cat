@@ -1413,7 +1413,20 @@ std::optional<size_t> lowerStmt(
             return std::nullopt;
         }
         if (tryStmt->autoPropagate) {
-            appendInst(context, currentBlockIndex, OirTryInst{value, tryStmt->name, {}, {}, true, tryStmt->backendBindingKey, {}});
+            // Use the ordinary failure CFG so the implicit return performs the
+            // same ownership cleanup as an explicit `else error { return Fail(error) }`.
+            const std::string failLabel = context.blockName("try_fail");
+            const std::string failName = context.tempName();
+            appendInst(context, currentBlockIndex, OirTryInst{
+                value, tryStmt->name, failName, failLabel, false, tryStmt->backendBindingKey, {}});
+            const size_t failIndex = context.addBlock(failLabel);
+            const auto* outcomeType = sema.lookupExprType(tryStmt->expr.get());
+            const std::string failType = outcomeType->params[1].describe();
+            const std::string result = context.tempName();
+            appendInst(context, failIndex, OirChoiceMakeInst{
+                result, context.function.returnType, "Fail", {OirValue{failName, failType, false}}});
+            appendDropInsts(context, failIndex, dropsBeforeStmt(ownership, stmt));
+            appendInst(context, failIndex, OirReturnInst{OirValue{result, context.function.returnType, false}});
             return currentBlockIndex;
         }
 

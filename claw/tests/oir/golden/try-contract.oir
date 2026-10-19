@@ -20,9 +20,12 @@ oir.fn step(flag: Bool [scalar]) -> Result[Int32, String] [indirect] [abi=claw l
 oir.fn propagate(flag: Bool [scalar]) -> Result[Int32, String] [indirect] [abi=claw link=internal symbol=revise_try_contract::propagate ffi=false]
   block entry:
     %t0 = call step(flag) : Result[Int32, String]
-    try %t0 -> value propagate
-    %t1 = Ok(value) : Result[Int32, String]
-    return %t1 : Result[Int32, String]
+    try %t0 -> value, else %t1 -> try_fail_0
+    %t3 = Ok(value) : Result[Int32, String]
+    return %t3 : Result[Int32, String]
+  block try_fail_0:
+    %t2 = Fail(%t1) : Result[Int32, String]
+    return %t2 : Result[Int32, String]
 oir.fn handle_locally(flag: Bool [scalar]) -> Int32 [scalar] [abi=claw link=internal symbol=revise_try_contract::handle_locally ffi=false]
   block entry:
     %t0 = call step(flag) : Result[Int32, String]
@@ -42,8 +45,11 @@ oir.fn nested() -> Result[Result[Int32, String], String] [indirect] [abi=claw li
 oir.fn unwrap_one() -> Result[Int32, String] [indirect] [abi=claw link=internal symbol=revise_try_contract::unwrap_one ffi=false]
   block entry:
     %t0 = call nested() : Result[Result[Int32, String], String]
-    try %t0 -> inner_result propagate
+    try %t0 -> inner_result, else %t1 -> try_fail_0
     return inner_result : Result[Int32, String]
+  block try_fail_0:
+    %t2 = Fail(%t1) : Result[Int32, String]
+    return %t2 : Result[Int32, String]
 oir.fn main() -> Unit [void] [abi=claw link=internal symbol=revise_try_contract::main ffi=false]
   block entry:
     %t0 = call handle_locally(true) : Int32

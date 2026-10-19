@@ -1,0 +1,20 @@
+fn make_failure() -> Result[Int32, String] {
+    return Fail(String.from("failure"))
+}
+
+fn propagate() -> Result[Int32, String] {
+    val guard = String.from("scan-guard")
+    val value = try make_failure() else error { return Fail(error) }
+    println(guard)
+    return Ok(value)
+}
+
+fn main() -> Int32 {
+    val result = propagate()
+    pick result {
+        Ok(value) { println(value) }
+        Fail(error) { println(error) }
+    }
+    println("after")
+    return 0
+}

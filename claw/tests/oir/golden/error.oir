@@ -20,9 +20,12 @@ oir.fn step(flag: Bool [scalar]) -> Result[Int32, String] [indirect] [abi=claw l
 oir.fn unwrap(flag: Bool [scalar]) -> Result[Int32, String] [indirect] [abi=claw link=internal symbol=revise_error_handling::unwrap ffi=false]
   block entry:
     %t0 = call step(flag) : Result[Int32, String]
-    try %t0 -> value propagate
-    %t1 = add value, 1 : Int32
-    %t2 = Ok(%t1) : Result[Int32, String]
+    try %t0 -> value, else %t1 -> try_fail_0
+    %t3 = add value, 1 : Int32
+    %t4 = Ok(%t3) : Result[Int32, String]
+    return %t4 : Result[Int32, String]
+  block try_fail_0:
+    %t2 = Fail(%t1) : Result[Int32, String]
     return %t2 : Result[Int32, String]
 oir.fn show(flag: Bool [scalar]) -> Unit [void] [abi=claw link=internal symbol=revise_error_handling::show ffi=false]
   block entry:
