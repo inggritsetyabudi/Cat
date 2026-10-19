@@ -16,6 +16,7 @@
 #include <vector>
 
 #if defined(_WIN32)
+#include "driver/windows_argv.h"
 #include <process.h>
 #else
 #include <fcntl.h>
@@ -260,10 +261,10 @@ int runClangLink(
         L"clang",
         L"-O2",
         L"-std=c11",
-        widen(llvmPath),
-        widen(runtimePath),
+        claw::driver::quoteWindowsCommandLineArgument(widen(llvmPath)),
+        claw::driver::quoteWindowsCommandLineArgument(widen(runtimePath)),
         L"-o",
-        widen(outputPath),
+        claw::driver::quoteWindowsCommandLineArgument(widen(outputPath)),
     };
 
     std::vector<const wchar_t*> argv;
