@@ -23,6 +23,7 @@ jobs:
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             python
+            git
       - name: Record environment and build independent native controls
         run: |
           uname -a
