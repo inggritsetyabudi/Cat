@@ -36,6 +36,8 @@ def main():
             text = result.stdout+result.stderr
             assert (result.returncode == 0) == success, f'{name}: {text}'
             assert not diagnostic or diagnostic in text, f'{name}: wrong rejection: {text}'
+            if name == 'on-wrong-patch':
+                assert '23.1.30' in text, f'{name}: fake version command did not execute: {text}'
             print('[pass/lld-config]', name, flush=True)
 
 

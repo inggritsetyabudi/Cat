@@ -116,7 +116,10 @@ def profile(args):
 
 
 def link_argv(linker, obj, output, prof, mapfile):
-    argv = [linker, '-flavor', 'gnu', '-m', prof['target'], '--trace', f'--Map={mapfile}']
+    # MinGW's documented --verbose maps to COFF -verbose; unlike ELF it has
+    # no --trace option. Keep audit logs from both streams, not just stdout.
+    audit_flag = '--trace' if sys.platform == 'linux' else '--verbose'
+    argv = [linker, '-flavor', 'gnu', '-m', prof['target'], audit_flag, f'--Map={mapfile}']
     if prof['loader']:
         argv += ['-dynamic-linker', prof['loader']]
     else:
@@ -243,7 +246,7 @@ def run_mode(label, linker, args, base, output, prof, cases):
             fresh(path)
         argv = link_argv(active, obj, exe, prof, mapfile)
         linked = command(argv, env)
-        trace.write_text(linked.stdout)
+        trace.write_text(linked.stdout + linked.stderr)
         (directory/'link.stderr').write_text(linked.stderr)
         if linked.returncode or not mapfile.is_file() or not mapfile.stat().st_size or not trace.stat().st_size:
             raise HarnessError(f"{label}/{name} link failed: {linked.stderr}")
@@ -268,7 +271,7 @@ def run_mode(label, linker, args, base, output, prof, cases):
     fresh(exe)
     literal_argv = link_argv(active, literal, exe, prof, directory/'link.map')
     linked = command(literal_argv, env, expected=0)
-    (directory/'link.trace').write_text(linked.stdout)
+    (directory/'link.trace').write_text(linked.stdout + linked.stderr)
     verify_exe(exe)
     native = command([exe], env, expected=13)
     if native.stdout or native.stderr:
