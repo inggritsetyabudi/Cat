@@ -23,6 +23,10 @@ echo "=== Running C@ Frontend Test Suite ==="
 bash "$SCRIPT_DIR/frontend/run_frontend_tests.sh"
 
 echo ""
+echo "=== Running C@ Terminal Transport Contract Suite ==="
+python3 "$SCRIPT_DIR/cli/run_terminal_contract_tests.py"
+
+echo ""
 echo "=== Running C@ Lexer Comment Regression Suite ==="
 bash "$SCRIPT_DIR/frontend/run_lexer_comment_tests.sh"
 

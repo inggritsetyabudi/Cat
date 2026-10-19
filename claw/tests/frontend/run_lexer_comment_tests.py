@@ -115,27 +115,36 @@ def main() -> int:
 
         if os.name == "posix":
             # NO_COLOR must work on an actual terminal, not just a redirected pipe.
-            import pty
-            master, slave = pty.openpty()
-            try:
-                result = subprocess.run([compiler, "check", str(root / "trailing" / "main.cat")],
-                                        stdout=slave, stderr=slave, env=ENV, timeout=30, check=False)
-                os.close(slave)
-                slave = -1
-                output = b""
-                while True:
-                    try:
-                        part = os.read(master, 65536)
-                    except OSError:
-                        break
-                    if not part:
-                        break
-                    output += part
-                assert result.returncode == 1 and HEADER.encode() in output and b"\x1b" not in output, output
-            finally:
-                if slave != -1:
+            command = [compiler, "check", str(root / "trailing" / "main.cat")]
+            if WINDOWS_NATIVE:
+                sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cli"))
+                from msys_terminal import build_keeper, capture
+                keeper = build_keeper(root / "terminal-helper")
+                captured = capture(command, ENV, keeper, timeout=30)
+                result = subprocess.CompletedProcess(command, captured.returncode)
+                output = captured.output
+            else:
+                import pty
+                master, slave = pty.openpty()
+                try:
+                    result = subprocess.run(command, stdout=slave, stderr=slave,
+                                            env=ENV, timeout=30, check=False)
                     os.close(slave)
-                os.close(master)
+                    slave = -1
+                    output = b""
+                    while True:
+                        try:
+                            part = os.read(master, 65536)
+                        except OSError:
+                            break
+                        if not part:
+                            break
+                        output += part
+                finally:
+                    if slave != -1:
+                        os.close(slave)
+                    os.close(master)
+            assert result.returncode == 1 and HEADER.encode() in output and b"\x1b" not in output, output
             print("[lexer-comment/pass] NO_COLOR on PTY")
     print(f"Lexer comment gate passed: {len(cases)} negative cases x {len(MODES)} modes, positive native execution")
     return 0
