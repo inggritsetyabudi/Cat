@@ -175,3 +175,7 @@ if(BUILD_TESTING)
             --cc "${CLAW_POC_CC}"
             --artifacts "${CMAKE_CURRENT_BINARY_DIR}/artifacts")
 endif()
+
+if(CLAW_ENABLE_LLD_POC)
+    add_subdirectory(lld)
+endif()

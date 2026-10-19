@@ -47,7 +47,7 @@ jobs:
           } | tee ci-evidence/toolchain.txt
           dpkg-query -W > ci-evidence/packages.txt
       - name: Fetch checksum-pinned official SDK
-        run: /usr/bin/python3 claw/experimental/llvm_cpp/fetch_sdk.py --destination "$RUNNER_TEMP/llvm23-sdk" | tee ci-evidence/sdk-fetch.json
+        run: /usr/bin/python3 claw/experimental/llvm_cpp/fetch_sdk.py --destination "$RUNNER_TEMP/llvm23-sdk" --with-lld | tee ci-evidence/sdk-fetch.json
       - name: Configure opt-in exact23 build
         run: |
           flags=()
@@ -58,7 +58,9 @@ jobs:
           cmake -S claw -B build-llvm-poc -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ \
             -DCLAW_ENABLE_LLVM_CPP_POC=ON \
+            -DCLAW_ENABLE_LLD_POC=ON \
             -DCLAW_LLVM_CONFIG="$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" \
+            -DCLAW_LLD_EXECUTABLE="$RUNNER_TEMP/llvm23-sdk/bin/ld.lld" \
             -DPython3_EXECUTABLE=/usr/bin/python3 "${flags[@]}" \
             2>&1 | tee ci-evidence/configure.log
       - name: Build all PoC and production targets
@@ -69,10 +71,21 @@ jobs:
           "$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" --version --host-target --link-static --libfiles core codegen mc target x86codegen x86desc x86info > ci-evidence/sdk-component-libraries.txt
           "$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" --link-static --system-libs core codegen mc target x86codegen x86desc x86info > ci-evidence/sdk-system-libraries.txt
           ldd build-llvm-poc/experimental/llvm_cpp/claw-llvm-poc > ci-evidence/poc-dynamic-dependencies.txt
+          build-llvm-poc/experimental/llvm_cpp/lld/claw-lld-link-poc --sdk-version | tee ci-evidence/lld-linked-sdk-version.txt
+          "$RUNNER_TEMP/llvm23-sdk/bin/ld.lld" --version | tee ci-evidence/lld-external-version.txt
+          cat build-llvm-poc/experimental/llvm_cpp/lld/lld-sdk-provenance.txt | tee ci-evidence/lld-sdk-provenance.txt
+          ldd build-llvm-poc/experimental/llvm_cpp/lld/claw-lld-link-poc > ci-evidence/lld-dynamic-dependencies.txt
+          stat -L -c '%n %s bytes' build-llvm-poc/claw build-llvm-poc/experimental/llvm_cpp/claw-llvm-poc build-llvm-poc/experimental/llvm_cpp/lld/claw-lld-link-poc "$RUNNER_TEMP/llvm23-sdk/bin/lld" | tee ci-evidence/lld-binary-sizes.txt
+          du -sb "$RUNNER_TEMP/llvm23-sdk" | tee ci-evidence/sdk-installed-byte-inventory.txt
       - name: Run all PoC gates and original production suites
         run: |
           ctest --test-dir build-llvm-poc --output-on-failure 2>&1 | tee ci-evidence/ctest.log
           CLAW_EXE="$PWD/build-llvm-poc/claw" bash claw/tests/run_all_tests.sh 2>&1 | tee ci-evidence/production-suites.log
+      - name: Capture successful native LLD outputs
+        run: |
+          for mode in embedded external; do
+            readelf --file-header --dynamic "build-llvm-poc/experimental/llvm_cpp/lld/artifacts/$mode/constant/program" > "ci-evidence/lld-$mode-constant-dynamic-headers.txt"
+          done
       - name: Upload evidence, excluding SDK and executables
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -83,6 +96,13 @@ jobs:
             build-llvm-poc/Testing/Temporary/LastTest.log
             build-llvm-poc/experimental/llvm_cpp/artifacts/results.json
             build-llvm-poc/experimental/llvm_cpp/adapter-artifacts/*.log
+            build-llvm-poc/experimental/llvm_cpp/lld/artifacts/testdata.json
+            build-llvm-poc/experimental/llvm_cpp/lld/artifacts/**/*.trace
+            build-llvm-poc/experimental/llvm_cpp/lld/artifacts/**/*.map
+            build-llvm-poc/experimental/llvm_cpp/lld/artifacts/**/inspect.*
+            build-llvm-poc/experimental/llvm_cpp/lld/artifacts/**/*.stderr
+            build-llvm-poc/experimental/llvm_cpp/lld/artifacts/*/constant/program
+            build-llvm-poc/experimental/llvm_cpp/lld/lld-sdk-provenance.txt
           if-no-files-found: warn
 
   windows-ucrt64-native-poc:
@@ -132,6 +152,16 @@ jobs:
           printf '%s  %s\n' d23bf19409cbafe837b9ef04b29943e81955eda2842e866ac0c77ef3126be569 "$RUNNER_TEMP/$sdk_pkg" | sha256sum -c -
           pacman -U --noconfirm "$RUNNER_TEMP/$sdk_pkg"
           test "$(/ucrt64/bin/llvm-config.exe --version)" = 23.1.3
+      - name: Install and verify exact official LLD package
+        run: |
+          set -euo pipefail
+          lld_pkg=mingw-w64-ucrt-x86_64-lld-23.1.3-1-any.pkg.tar.zst
+          lld_url=https://repo.msys2.org/mingw/ucrt64/$lld_pkg
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/$lld_pkg" "$lld_url"
+          printf '%s  %s\n' 88dd5b3cd86dbda5ea956a51f49066447123ac3b07526bc6becfe91b79189b8c "$RUNNER_TEMP/$lld_pkg" | sha256sum -c -
+          pacman -U --noconfirm "$RUNNER_TEMP/$lld_pkg"
+          /ucrt64/bin/ld.lld.exe --version | grep -E '^LLD 23[.]1[.]3([[:space:](]|$)'
+          /ucrt64/bin/lld-link.exe --version | grep -E '^LLD 23[.]1[.]3([[:space:](]|$)'
       - name: Record source, SDK, package and host provenance
         run: |
           set -euo pipefail
@@ -142,13 +172,22 @@ jobs:
           /ucrt64/bin/llvm-config.exe --version --host-target --link-static --libfiles core codegen mc target x86codegen x86desc x86info | tee ci-evidence/sdk-component-libraries.txt
           /ucrt64/bin/llvm-config.exe --version | tee ci-evidence/sdk-version.txt
           sha256sum "$RUNNER_TEMP/"mingw-w64-ucrt-x86_64-llvm-23.1.3-1-any.pkg.tar.zst | tee ci-evidence/sdk-sha256.txt
+          pacman -Q mingw-w64-ucrt-x86_64-lld | tee ci-evidence/lld-package.txt
+          sha256sum "$RUNNER_TEMP/"mingw-w64-ucrt-x86_64-lld-23.1.3-1-any.pkg.tar.zst | tee ci-evidence/lld-package-sha256.txt
+          /ucrt64/bin/ld.lld.exe --version | tee ci-evidence/lld-external-version.txt
+          /ucrt64/bin/lld-link.exe --version | tee ci-evidence/lld-link-version.txt
+          stat -c '%n %s bytes' /ucrt64/bin/ld.lld.exe /ucrt64/bin/lld-link.exe | tee ci-evidence/lld-binary-sizes.txt
+          stat -c '%n %s bytes' "$RUNNER_TEMP/"mingw-w64-ucrt-x86_64-lld-23.1.3-1-any.pkg.tar.zst "$RUNNER_TEMP/"mingw-w64-ucrt-x86_64-llvm-23.1.3-1-any.pkg.tar.zst | tee ci-evidence/sdk-package-sizes.txt
+          du -sb /ucrt64/include /ucrt64/lib /ucrt64/bin/llvm-config.exe /ucrt64/bin/ld.lld.exe /ucrt64/bin/lld-link.exe | tee ci-evidence/sdk-installed-byte-inventory.txt
       - name: Configure exact native Windows PoC build
         run: |
           set -euo pipefail
           cmake -S claw -B build-llvm-poc-win -GNinja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER=/ucrt64/bin/clang++.exe \
             -DCLAW_ENABLE_LLVM_CPP_POC=ON \
+            -DCLAW_ENABLE_LLD_POC=ON \
             -DCLAW_LLVM_CONFIG=/ucrt64/bin/llvm-config.exe \
+            -DCLAW_LLD_EXECUTABLE=/ucrt64/bin/ld.lld.exe \
             -DPython3_EXECUTABLE=/ucrt64/bin/python.exe 2>&1 | tee ci-evidence/configure.log
       - name: Build all targets including version probe
         run: cmake --build build-llvm-poc-win --parallel 2 2>&1 | tee ci-evidence/build.log
@@ -162,6 +201,13 @@ jobs:
           build-llvm-poc-win/experimental/llvm_cpp/claw-llvm-sdk-version-probe.exe | tee ci-evidence/linked-sdk-version.txt
           llvm-readobj --file-headers build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.o | tee ci-evidence/coff-header.txt
           llvm-readobj --file-headers --coff-imports build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.exe | tee ci-evidence/native-pe-header-imports.txt
+          build-llvm-poc-win/experimental/llvm_cpp/lld/claw-lld-link-poc.exe --sdk-version | tee ci-evidence/lld-linked-sdk-version.txt
+          cat build-llvm-poc-win/experimental/llvm_cpp/lld/lld-sdk-provenance.txt | tee ci-evidence/lld-sdk-provenance.txt
+          llvm-readobj --file-headers build-llvm-poc-win/experimental/llvm_cpp/lld/claw-lld-link-poc.exe | tee ci-evidence/lld-pe-header.txt
+          stat -L -c '%n %s bytes' build-llvm-poc-win/claw.exe build-llvm-poc-win/experimental/llvm_cpp/claw-llvm-poc.exe build-llvm-poc-win/experimental/llvm_cpp/lld/claw-lld-link-poc.exe | tee ci-evidence/compiler-and-worker-sizes.txt
+          for mode in embedded external; do
+            llvm-readobj --file-headers --coff-imports "build-llvm-poc-win/experimental/llvm_cpp/lld/artifacts/$mode/constant/program.exe" > "ci-evidence/lld-$mode-constant-pe-headers.txt"
+          done
       - name: Run all existing production suites unchanged
         run: |
           set -euo pipefail
@@ -179,6 +225,13 @@ jobs:
             build-llvm-poc-win/experimental/llvm_cpp/artifacts/results.json
             build-llvm-poc-win/experimental/llvm_cpp/llvm-sdk-provenance.txt
             build-llvm-poc-win/experimental/llvm_cpp/adapter-artifacts/*.log
+            build-llvm-poc-win/experimental/llvm_cpp/lld/artifacts/testdata.json
+            build-llvm-poc-win/experimental/llvm_cpp/lld/artifacts/**/*.trace
+            build-llvm-poc-win/experimental/llvm_cpp/lld/artifacts/**/*.map
+            build-llvm-poc-win/experimental/llvm_cpp/lld/artifacts/**/inspect.*
+            build-llvm-poc-win/experimental/llvm_cpp/lld/artifacts/**/*.stderr
+            build-llvm-poc-win/experimental/llvm_cpp/lld/artifacts/*/constant/program.exe
+            build-llvm-poc-win/experimental/llvm_cpp/lld/lld-sdk-provenance.txt
             build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.o
             build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.ll
             build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.exe

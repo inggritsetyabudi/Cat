@@ -51,7 +51,7 @@ def _file_hash(path: pathlib.Path) -> str:
     return digest.hexdigest()
 
 
-def _verified(destination: pathlib.Path) -> bool:
+def _verified(destination: pathlib.Path, with_lld: bool = False) -> bool:
     marker = destination / MARKER_NAME
     try:
         data = json.loads(marker.read_text())
@@ -77,6 +77,11 @@ def _verified(destination: pathlib.Path) -> bool:
                 return False
     except (KeyError, TypeError, OSError, ValueError):
         return False
+    if with_lld and (data.get("with_lld") is not True or not all(
+        (destination / name).is_file() for name in (
+            "bin/lld", "bin/ld.lld", "include/lld/Common/Driver.h",
+            "lib/liblldCommon.a", "lib/liblldELF.a", "lib/liblldCOFF.a", "lib/liblldMinGW.a"))):
+        return False
     return (
         data.get("source") == SOURCE_URL
         and data.get("sha256") == EXPECTED_SHA256
@@ -93,9 +98,18 @@ def _safe_parts(name: str) -> tuple[str, ...]:
     return path.parts
 
 
-def _wanted(parts: tuple[str, ...]) -> bool:
+def _wanted(parts: tuple[str, ...], with_lld: bool = False) -> bool:
     if not parts:
         return False
+    if with_lld:
+        if parts[0] == "bin" and len(parts) == 2 and parts[1] in {"lld", "ld.lld", "lld-link"}:
+            return True
+        if parts[0] == "include" and len(parts) >= 2 and parts[1] == "lld":
+            return True
+        if parts[0] in {"lib", "lib64"} and len(parts) == 2 and parts[1] in {
+            "liblldCommon.a", "liblldELF.a", "liblldCOFF.a", "liblldMinGW.a",
+            "libPolly.a", "libPollyISL.a"}:
+            return True
     if parts[0] == "bin" and parts[1:] == ("llvm-config",):
         return True
     if parts[0] == "include" and len(parts) >= 2 and parts[1] in {"llvm", "llvm-c"}:
@@ -109,9 +123,9 @@ def _wanted(parts: tuple[str, ...]) -> bool:
     } or any(token in lowered.split("/")[-1] for token in ("license", "notice"))
 
 
-def fetch(destination: pathlib.Path) -> dict:
+def fetch(destination: pathlib.Path, with_lld: bool = False) -> dict:
     destination = destination.resolve()
-    if _verified(destination):
+    if _verified(destination, with_lld):
         return json.loads((destination / MARKER_NAME).read_text())
     if destination.exists() and (not destination.is_dir() or any(destination.iterdir())):
         raise RuntimeError("Refusing nonempty unverified SDK destination; use a new or empty directory: " + str(destination))
@@ -138,7 +152,7 @@ def fetch(destination: pathlib.Path) -> dict:
                     if raw[0] != root:
                         raise RuntimeError(f"archive contains multiple roots: {member.name!r}")
                     parts = raw[1:]  # official package root, chosen from the original archive
-                    if not parts or not _wanted(parts) or member.isdir():
+                    if not parts or not _wanted(parts, with_lld) or member.isdir():
                         continue
                     if member.size < 0 or selected_bytes + member.size > MAX_DISK:
                         raise RuntimeError("selective SDK extraction exceeds the 2.5 GB disk budget")
@@ -172,7 +186,7 @@ def fetch(destination: pathlib.Path) -> dict:
         while compressed.read(1 << 20):
             pass
         actual = reader.digest.hexdigest()
-        report = {"source": SOURCE_URL, "sha256": actual, "download_bytes": reader.count, "selected_bytes": selected_bytes, "selected": selected, "elapsed_seconds": round(time.monotonic() - started, 3)}
+        report = {"source": SOURCE_URL, "sha256": actual, "download_bytes": reader.count, "with_lld": with_lld, "selected_bytes": selected_bytes, "selected": selected, "elapsed_seconds": round(time.monotonic() - started, 3)}
         if actual != EXPECTED_SHA256 or reader.count != EXPECTED_SIZE:
             partial.write_text(json.dumps(report, indent=2) + "\n")
             raise RuntimeError(f"LLVM SDK checksum/size mismatch: sha256={actual} bytes={reader.count}")
@@ -191,8 +205,9 @@ def fetch(destination: pathlib.Path) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--destination", required=True, type=pathlib.Path)
+    parser.add_argument("--with-lld", action="store_true", help="Also select exact-SDK LLD headers, static components and executable")
     args = parser.parse_args()
-    print(json.dumps(fetch(args.destination), indent=2))
+    print(json.dumps(fetch(args.destination, args.with_lld), indent=2))
     return 0
 
 

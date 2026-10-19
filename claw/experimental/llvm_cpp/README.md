@@ -118,3 +118,7 @@ Workflow opt-in PoC mengaktifkan flag hanya pada job khusus; workflow produksi l
 3. Uji runtime dan linking terpisah di setiap target; bukti subset scalar UCRT tidak membuktikan ABI runtime, ownership, atau seluruh bahasa di Windows.
 4. Jalankan regresi penuh, sanitizer, benchmark, dan review independen pada snapshot yang akan dipromosikan.
 5. Minta keputusan promosi tersendiri. PoC yang lulus tidak otomatis mengizinkan mengganti jalur produksi.
+
+## Link object tanpa compiler driver: LLD PoC terpisah
+
+[PoC LLD exact23.1.3](lld/README.md) menambahkan opsi `CLAW_ENABLE_LLD_POC=OFF` default untuk membandingkan executable `ld.lld` dan worker API `lld::lldMain`, dengan CRT/platform inputs eksplisit. Contoh `cc` di atas tetap pembanding asli, bukan fallback. Linker baru hanya diuji pada subset object yang sama dan tidak mengubah driver produksi atau menghilangkan kebutuhan runtime/SDK sistem. Lihat kontrak platform, argv, isolasi tanpa Clang, ukuran dependency dan gate native dalam README linker.
