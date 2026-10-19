@@ -11,20 +11,20 @@ echo "=== Running C@ Documentation Command CLI Test Suite ==="
 python3 "$SCRIPT_DIR/docs/run_doc_command_tests.py"
 
 echo ""
-echo "=== Running C@ Frontend Test Suite ==="
-bash "$SCRIPT_DIR/frontend/run_frontend_tests.sh"
-
-echo ""
-echo "=== Running C@ Lexer Comment Regression Suite ==="
-bash "$SCRIPT_DIR/frontend/run_lexer_comment_tests.sh"
-
-echo ""
 echo "=== Running C@ Native Path Regression Suite ==="
 python3 "$SCRIPT_DIR/native/run_native_path_tests.py"
 
 echo ""
 echo "=== Running C@ Windows CRT Argument Regression Suite ==="
 python3 "$SCRIPT_DIR/native/run_windows_argv_tests.py"
+
+echo ""
+echo "=== Running C@ Frontend Test Suite ==="
+bash "$SCRIPT_DIR/frontend/run_frontend_tests.sh"
+
+echo ""
+echo "=== Running C@ Lexer Comment Regression Suite ==="
+bash "$SCRIPT_DIR/frontend/run_lexer_comment_tests.sh"
 
 echo ""
 echo "=== Running C@ OIR Formatter Golden Test Suite ==="
