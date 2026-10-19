@@ -29,6 +29,13 @@
 #include <unordered_set>
 #include <variant>
 
+#if defined(_WIN32) && defined(__MINGW64__)
+#include <_mingw.h>
+#endif
+#if defined(CLAW_LLVM_CPP_POC_UCRT_X64) && (!defined(_WIN32) || !defined(__MINGW64__) || !defined(_UCRT))
+#error "Windows PoC objects require the native MinGW UCRT toolchain"
+#endif
+
 #if LLVM_VERSION_MAJOR != 23 || LLVM_VERSION_MINOR != 1 || LLVM_VERSION_PATCH != 3
 #error "The experimental Cat adapter requires exact LLVM 23.1.3 headers"
 #endif
@@ -269,8 +276,8 @@ private:
 };
 
 void emit(const LirProgram& program, const ObjectOptions& options) {
-#if !defined(__linux__) || !defined(__x86_64__)
-    unsupported("host: only native Linux x86_64 is validated");
+#if !defined(__x86_64__) || !(defined(__linux__) || (defined(_WIN32) && defined(CLAW_LLVM_CPP_POC_UCRT_X64)))
+    unsupported("host: native Linux x86_64 or explicitly configured Windows x64 UCRT required");
 #else
     if (options.objectPath.empty()) unsupported("empty object output path");
     if (!options.irPath.empty() && options.irPath == options.objectPath) unsupported("aliased IR/object output paths");
@@ -281,8 +288,13 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     if (!targetReady) throw std::runtime_error("Cannot initialize native LLVM target");
     const std::string triple(claw::codegen::nativeTargetTriple());
     const llvm::Triple targetTriple(triple);
+#if defined(_WIN32)
+    if (targetTriple.getArch() != llvm::Triple::x86_64 || !targetTriple.isWindowsGNUEnvironment() || !targetTriple.isOSBinFormatCOFF())
+        unsupported("target: Windows x64 GNU/UCRT COFF required");
+#else
     if (targetTriple.getArch() != llvm::Triple::x86_64 || !targetTriple.isOSLinux() || !targetTriple.isOSBinFormatELF())
         unsupported("target: only native Linux x86_64 ELF is validated");
+#endif
     std::string targetError;
     const auto* target = llvm::TargetRegistry::lookupTarget(targetTriple, targetError);
     if (!target) throw std::runtime_error("Cannot resolve LLVM target: " + targetError);

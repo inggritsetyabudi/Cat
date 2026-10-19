@@ -84,3 +84,97 @@ jobs:
             build-llvm-poc/experimental/llvm_cpp/artifacts/results.json
             build-llvm-poc/experimental/llvm_cpp/adapter-artifacts/*.log
           if-no-files-found: warn
+
+  windows-ucrt64-native-poc:
+    name: Windows native UCRT64 LLVM C++ PoC (LLVM 23.1.3)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Check out exact pull request head
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Set up pinned MSYS2 UCRT64
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-python
+            python
+            diffutils
+      - name: Install and verify exact official LLVM SDK package
+        run: |
+          set -euo pipefail
+          sdk_pkg=mingw-w64-ucrt-x86_64-llvm-23.1.3-1-any.pkg.tar.zst
+          sdk_url=https://repo.msys2.org/mingw/ucrt64/$sdk_pkg
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/$sdk_pkg" "$sdk_url"
+          printf '%s  %s\n' d23bf19409cbafe837b9ef04b29943e81955eda2842e866ac0c77ef3126be569 "$RUNNER_TEMP/$sdk_pkg" | sha256sum -c -
+          pacman -U --noconfirm "$RUNNER_TEMP/$sdk_pkg"
+          test "$(/ucrt64/bin/llvm-config.exe --version)" = 23.1.3
+      - name: Record source, SDK, package and host provenance
+        run: |
+          set -euo pipefail
+          mkdir -p ci-evidence
+          git rev-parse HEAD | tee ci-evidence/source-revision.txt
+          uname -a | tee ci-evidence/host.txt
+          pacman --version | tee ci-evidence/pacman-version.txt
+          pacman -Q | tee ci-evidence/packages.txt
+          /ucrt64/bin/llvm-config.exe --version --host-target --link-static --libfiles core codegen mc target x86codegen x86desc x86info | tee ci-evidence/sdk-component-libraries.txt
+          /ucrt64/bin/llvm-config.exe --version | tee ci-evidence/sdk-version.txt
+          sha256sum "$RUNNER_TEMP/"mingw-w64-ucrt-x86_64-llvm-23.1.3-1-any.pkg.tar.zst | tee ci-evidence/sdk-sha256.txt
+      - name: Configure exact native Windows PoC build
+        run: |
+          set -euo pipefail
+          cmake -S claw -B build-llvm-poc-win -GNinja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER=/ucrt64/bin/clang++.exe \
+            -DCLAW_ENABLE_LLVM_CPP_POC=ON \
+            -DCLAW_LLVM_CONFIG=/ucrt64/bin/llvm-config.exe \
+            -DPython3_EXECUTABLE=/ucrt64/bin/python.exe 2>&1 | tee ci-evidence/configure.log
+      - name: Build all targets including version probe
+        run: cmake --build build-llvm-poc-win --parallel 2 2>&1 | tee ci-evidence/build.log
+      - name: Run all PoC gates with native Python
+        run: |
+          set -euo pipefail
+          ctest --test-dir build-llvm-poc-win --output-on-failure 2>&1 | tee ci-evidence/ctest.log
+      - name: Capture linked SDK, COFF object and native executable evidence
+        run: |
+          set -euo pipefail
+          build-llvm-poc-win/experimental/llvm_cpp/claw-llvm-sdk-version-probe.exe | tee ci-evidence/linked-sdk-version.txt
+          llvm-readobj --file-headers build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.o | tee ci-evidence/coff-header.txt
+          llvm-readobj --file-headers --coff-imports build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.exe | tee ci-evidence/native-pe-header-imports.txt
+      - name: Run all existing production suites unchanged
+        run: |
+          set -euo pipefail
+          export CLAW_EXE="$PWD/build-llvm-poc-win/claw.exe"
+          export PATH="/usr/bin:/ucrt64/bin:$PATH"
+          bash claw/tests/run_all_tests.sh 2>&1 | tee ci-evidence/production-suites.log
+      - name: Upload Windows proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: llvm-cpp-poc-windows-ucrt64
+          path: |
+            ci-evidence/
+            build-llvm-poc-win/Testing/Temporary/LastTest.log
+            build-llvm-poc-win/experimental/llvm_cpp/artifacts/results.json
+            build-llvm-poc-win/experimental/llvm_cpp/llvm-sdk-provenance.txt
+            build-llvm-poc-win/experimental/llvm_cpp/adapter-artifacts/*.log
+            build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.o
+            build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.ll
+            build-llvm-poc-win/experimental/llvm_cpp/artifacts/constant/program.exe
+          if-no-files-found: warn

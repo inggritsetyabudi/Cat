@@ -19,3 +19,11 @@ Workflow baru khusus PoC mengaktifkan flag ON untuk build Linux release dan ASan
 Bukti lokal ini hanya Linux x86_64. Ketersediaan SDK MSYS2 UCRT23.1.3 bukan bukti adapter Windows: perlu gate native PoC ON yang membuktikan COFF, triple/DataLayout, link object terpisah, dan eksekusi `.exe` sebelum cakupan diperluas. Suite CI/sanitizer, review exact-SHA, serta benchmark terkontrol dilaporkan pada bukti pendamping; tidak ada klaim migrasi, kecepatan universal, atau kesiapan produksi.
 
 Instruksi dan batas subset: [README PoC](../claw/experimental/llvm_cpp/README.md). Semua batas semantik eksperimen awal tetap berlaku.
+
+## Gate native Windows x64 UCRT / COFF
+
+Setelah milestone Linux di atas hijau, ditambahkan konfigurasi Windows terbatas pada host/compiler native x64 MinGW UCRT, SDK23.1.3 Windows GNU, dan static component libraries. Guard `_UCRT`/arsitektur/CRT, target COFF, serta DataLayout64-bit eksplisit. Tidak mengaktifkan PoC pada build produksi default; tidak mengubah ABI/semantik subset.
+
+Job PoC ON Windows tersendiri memasang SDK MSYS2 UCRT23.1.3-1 dengan SHA256 `d23bf19409cbafe837b9ef04b29943e81955eda2842e866ac0c77ef3126be569`, memakai native UCRT Python untuk CTest, serta menyimpan provenance paket, versi library tertaut, dan closure komponen statik. Harness memeriksa object relocatable AMD64 COFF, triple `x86_64-w64-windows-gnu`, DataLayout, link object terpisah, PE32+ x64, serta eksekusi native dan exit/stdout/stderr. Tes isolasi PATH menyalin hanya emitter dan DLL non-sistem yang diaudit, tanpa Clang/linker. Fixture/oracle yang lama tetap sama; sample object/IR/executable dan command aktual dipertahankan.
+
+Ini catatan implementasi guard/gate, bukan pengganti hasil pelaksanaan: verdict Windows harus mengikuti hasil job PoC ON pada exact SHA yang ditinjau. Hasil CI produksi OFF sebelumnya tidak boleh digunakan sebagai bukti adapter. MSVC, MSVCRT, ARM64, cross-compilation, runtime/ownership ABI, dan FFI tetap di luar cakupan.

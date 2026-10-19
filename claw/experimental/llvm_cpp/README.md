@@ -14,6 +14,8 @@ Bahasa Cat tetap memiliki parser, analisis tipe, ownership, dan lowering sendiri
 
 ## Menjalankan
 
+### Linux x86_64 ELF
+
 Prasyarat: host x86-64 GNU/Linux, LLVM development SDK **exact 23.1.3**, CMake, compiler C++20, Python 3, dan `cc` untuk langkah link. Clang diperlukan hanya untuk pembanding jalur produksi pada tes diferensial. LLVM18, versi23 lain, header/library campuran, dan SDK parsial bukan pengganti yang diterima.
 
 [SDK resmi Linux X64 LLVM23.1.3](https://github.com/llvm/llvm-project/releases/tag/llvmorg-23.1.3) menyediakan component libraries statik. PoC tidak memerlukan target CMake monolithic `LLVM` atau seluruh metadata CMake SDK: `CLAW_LLVM_CONFIG` menunjuk executable SDK yang sebenarnya. CMake meminta komponen `core`, `codegen`, `mc`, `target`, `x86codegen`, `x86desc`, dan `x86info`, serta closure dependency dan system libraries dari SDK tersebut. Path setiap library wajib ada; tidak ada pencarian ulang ke LLVM18. Include/definitions/link dependency tetap privat di adapter.
@@ -71,6 +73,30 @@ CTest juga menjalankan `test_adapter.cpp` langsung pada API internal: signature/
 
 Object dan dump IR ditulis ke temporary file terlebih dahulu; kedua penulisan diperiksa sebelum publikasi. Penolakan LIR atau kegagalan staging tidak mengubah artefak lama, dan rename tiap file bersifat atomik. Dua nama file bukan satu transaksi filesystem yang crash-atomic: jangan mengasumsikan rollback pasangan object/IR bila proses mati atau filesystem berubah di antara dua rename.
 
+### Windows native x64 UCRT / COFF
+
+Konfigurasi Windows dibatasi **native x64 MinGW UCRT**. CMake memeriksa host/compiler x64, macro `_UCRT`, SDK Windows GNU exact23.1.3, dan component archives statik; adapter memeriksa triple/COFF/DataLayout. MSVC, MSVCRT, ARM64, cross-compilation, Wine, dan ABI FFI bukan cakupan. Hasil yang diterima harus berasal dari job **Windows native UCRT64 LLVM C++ PoC**, flag ON, pada exact SHA yang dinilai—CI produksi lama dengan PoC OFF bukan bukti ini.
+
+[Paket SDK MSYS2 UCRT](https://packages.msys2.org/package/mingw-w64-ucrt-x86_64-llvm) versi `23.1.3-1` menyediakan static component archives. Workflow memverifikasi SHA256 paket `d23bf19409cbafe837b9ef04b29943e81955eda2842e866ac0c77ef3126be569`, versi executable/header/library, dan menyimpan daftar paket/library aktual. Perubahan rolling package yang tidak cocok harus gagal, bukan turun versi diam-diam atau memakai SDK MSVC.
+
+Pada shell MSYS2 **UCRT64**, setelah memasang SDK exact tersebut, Clang/CMake/Ninja, serta native UCRT Python:
+
+```bash
+cmake -S claw -B claw/build/llvm-cpp-poc-win -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=/ucrt64/bin/clang++.exe \
+  -DCLAW_ENABLE_LLVM_CPP_POC=ON \
+  -DCLAW_LLVM_CONFIG=/ucrt64/bin/llvm-config.exe \
+  -DPython3_EXECUTABLE=/ucrt64/bin/python.exe
+cmake --build claw/build/llvm-cpp-poc-win -j2
+ctest --test-dir claw/build/llvm-cpp-poc-win --output-on-failure
+```
+
+Harness yang sama tidak mengganti fixture/oracle Linux: object harus AMD64 COFF relocatable (`0x8664`, optional-header size0), triple `x86_64-w64-windows-gnu`, DataLayout little-endian64-bit dengan mangling Windows. Linker menerima **hanya object** pada langkah terpisah; output `.exe` harus PE32+ AMD64, dieksekusi native, dan exit/stdout/stderr dibandingkan terhadap nilai fixture serta jalur produksi. Command link/run dan DataLayout lengkap ada pada `results.json`; sample `.o`, `.ll`, `.exe` serta laporan `llvm-readobj` disimpan sebagai bukti CI.
+
+Tes isolasi Windows menyalin emitter dan closure DLL non-sistem yang diaudit lewat COFF imports ke direktori tersendiri; child PATH hanya berisi direktori itu, bukan UCRT `bin` yang juga memuat Clang/linker. DLL sistem tetap dilayani loader Windows. `llvm-readobj` hanya alat audit setup tes, tidak dipanggil adapter untuk menghasilkan object. Gate Linux tetap menggunakan PATH kosong. Suite produksi/PTY lama tetap memakai Python MSYS; CTest PoC memakai Python Windows native.
+
+Penambahan konfigurasi bukan bukti kelulusan: bila gate native ini gagal, jangan menyimpulkan dukungan Windows dari ketersediaan SDK atau dari hasil Linux. Scope yang boleh dilaporkan hanya target yang lulus pada exact SHA tersebut.
+
 ## Batas tahap pertama
 
 Input driver hanya file `.cat` standalone dengan satu modul. Entry tetap `fn main()` tanpa parameter dan berakhir `Unit` atau `Int32`. Driver memakai SemanticAnalyzer dan OwnershipChecker Cat yang ada, bukan pemeriksaan tiruan khusus contoh.
@@ -81,7 +107,7 @@ Aritmetika signed, pembagian/remainder, runtime builtins seperti `println`, owne
 
 Penyimpanan lokal/parameter `Unit`, tipe `UInt32`, value phi, dan pemanggilan rekursif langsung juga belum didukung. Panggilan ke entry `main` ditolak, termasuk dari helper. Diagnostik pembatasan PoC tidak menjanjikan format/stage yang identik dengan driver produksi.
 
-Tidak ada profil debug/release bahasa yang baru. `CMAKE_BUILD_TYPE=Release` mengoptimalkan binary **compiler PoC**, bukan menyatakan seluruh kebijakan release Cat sudah diterapkan. Tidak ada klaim kecepatan, kesetaraan seluruh bahasa, dukungan Windows, atau kesiapan produksi.
+Tidak ada profil debug/release bahasa yang baru. `CMAKE_BUILD_TYPE=Release` mengoptimalkan binary **compiler PoC**, bukan menyatakan seluruh kebijakan release Cat sudah diterapkan. Tidak ada klaim kecepatan, kesetaraan seluruh bahasa, dukungan Windows umum di luar kontrak/gate UCRT di atas, atau kesiapan produksi.
 
 Workflow opt-in PoC mengaktifkan flag hanya pada job khusus; workflow produksi lama tetap menguji jalur default. Suite produksi penuh dan sanitizer tidak boleh diskip atau diubah agar eksperimen hijau. Kegagalan diagnostik Windows baseline-vs-fixed yang menuntut kode stack-overflow pada baseline lama harus dilaporkan terpisah bila baseline menghasilkan access-violation; oracle tersebut tidak dilonggarkan.
 
@@ -89,6 +115,6 @@ Workflow opt-in PoC mengaktifkan flag hanya pada job khusus; workflow produksi l
 
 1. Tambahkan dukungan semantik per irisan, bersama tes diferensial positif/negatif, bukan silent fallback.
 2. Buktikan overflow debug/release, pembagi nol, short-circuit, bounds check, ownership/drop, layout, dan ABI sesuai PRD.
-3. Uji runtime dan linking terpisah, termasuk target Windows UCRT64 yang belum divalidasi di PoC Linux ini.
+3. Uji runtime dan linking terpisah di setiap target; bukti subset scalar UCRT tidak membuktikan ABI runtime, ownership, atau seluruh bahasa di Windows.
 4. Jalankan regresi penuh, sanitizer, benchmark, dan review independen pada snapshot yang akan dipromosikan.
 5. Minta keputusan promosi tersendiri. PoC yang lulus tidak otomatis mengizinkan mengganti jalur produksi.

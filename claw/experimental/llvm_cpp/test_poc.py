@@ -9,19 +9,30 @@ import re
 import struct
 import subprocess
 import sys
+import shutil
 
 
 def verify_target(obj, ir=None):
     data = obj.read_bytes()
-    assert data[:6] == b"\x7fELF\x02\x01", "not a little-endian ELF64 object"
-    assert struct.unpack_from("<HH", data, 16) == (1, 62), "not an x86_64 relocatable object"
-    evidence = {"object_format": "ELF64", "object_machine": "x86_64", "object_bytes": len(data)}
+    if sys.platform == "win32":
+        assert len(data) >= 20 and struct.unpack_from("<H", data, 0)[0] == 0x8664, "not an AMD64 COFF object"
+        sections, optional_size = struct.unpack_from("<HH", data, 2)[0], struct.unpack_from("<H", data, 16)[0]
+        assert sections > 0 and optional_size == 0, "not a relocatable COFF object"
+        evidence = {"object_format": "COFF", "object_machine": "AMD64 (0x8664)",
+                    "coff_sections": sections, "coff_optional_header_size": optional_size,
+                    "object_bytes": len(data)}
+    else:
+        assert data[:6] == b"\x7fELF\x02\x01", "not a little-endian ELF64 object"
+        assert struct.unpack_from("<HH", data, 16) == (1, 62), "not an x86_64 relocatable object"
+        evidence = {"object_format": "ELF64", "object_machine": "x86_64", "object_bytes": len(data)}
     if ir is not None:
         text = ir.read_text()
         triple = re.search(r'^target triple = "([^"]+)"$', text, re.MULTILINE)
         layout = re.search(r'^target datalayout = "([^"]+)"$', text, re.MULTILINE)
-        assert triple and triple.group(1) == "x86_64-unknown-linux-gnu", "unexpected native IR triple"
-        assert layout and layout.group(1).startswith("e-m:e-") and "n8:16:32:64" in layout.group(1), "unexpected x86_64 ELF DataLayout"
+        expected_triple = "x86_64-w64-windows-gnu" if sys.platform == "win32" else "x86_64-unknown-linux-gnu"
+        layout_prefix = "e-m:w-" if sys.platform == "win32" else "e-m:e-"
+        assert triple and triple.group(1) == expected_triple, "unexpected native IR triple"
+        assert layout and layout.group(1).startswith(layout_prefix) and "n8:16:32:64" in layout.group(1), "unexpected native DataLayout"
         evidence.update(target_triple=triple.group(1), data_layout=layout.group(1))
     return evidence
 
@@ -33,15 +44,81 @@ def run(args, *, expected=0, env=None):
     return result
 
 
+def executable(path):
+    """Require the exact fresh output, including an explicit .exe on Windows."""
+    assert path.is_file(), f"missing native executable {path}"
+    if sys.platform == "win32":
+        data = path.read_bytes()
+        assert path.suffix.lower() == ".exe" and data[:2] == b"MZ", "not a native Windows executable"
+        pe = struct.unpack_from("<I", data, 0x3C)[0]
+        assert data[pe:pe + 4] == b"PE\x00\x00" and struct.unpack_from("<H", data, pe + 4)[0] == 0x8664, "not an AMD64 PE executable"
+        assert struct.unpack_from("<H", data, pe + 24)[0] == 0x20B, "not a PE32+ executable"
+    return path
+
+
+def imported_dlls(readobj, binary):
+    result = run([readobj, "--coff-imports", binary])
+    # llvm-readobj has used both `DLL Name:` and `Name:` labels across releases.
+    names = set(re.findall(r"(?:DLL\s+)?Name:\s*([^\r\n]+\.dll)\s*$", result.stdout, re.I | re.M))
+    return {name.strip().strip('"') for name in names}
+
+
+def isolated_windows_emitter(root, poc, readobj):
+    """Copy only the emitter and its non-system DLL closure into an empty PATH."""
+    assert sys.platform == "win32"
+    poc = executable(poc).resolve()
+    isolation = root / "windows-emitter-isolation"
+    isolation.mkdir(exist_ok=True)
+    for prior in isolation.iterdir():
+        assert prior.is_file() and (prior.suffix.lower() == ".dll" or prior.name == poc.name), "unexpected file in emitter isolation directory"
+        prior.unlink()
+    copied = set()
+    queue = [poc.name]
+    search_dirs = [poc.parent] + [Path(p) for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+    system_names = ("api-ms-win", "ext-ms-win")
+    system_directory = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32"
+
+    def is_system_dll(name):
+        return name.lower().startswith(system_names) or (system_directory / name).is_file()
+
+    while queue:
+        name = queue.pop(0)
+        assert Path(name).name == name, "DLL import must be a basename"
+        source = poc if Path(name).name.lower() == poc.name.lower() else next(
+            (directory / name for directory in search_dirs if (directory / name).is_file()), None)
+        assert source and source.is_file(), f"cannot locate emitter dependency {name}"
+        target = isolation / Path(name).name
+        if target.resolve() != source.resolve():
+            shutil.copy2(source, target)
+        if target.name.lower() in copied:
+            continue
+        copied.add(target.name.lower())
+        for dep in imported_dlls(readobj, target):
+            assert not dep.lower().startswith(("llvm", "libllvm")), "static-component emitter unexpectedly imports an LLVM DLL"
+            if is_system_dll(dep):
+                continue
+            queue.append(dep)
+    imports = imported_dlls(readobj, isolation / poc.name)
+    assert imports, "missing COFF import evidence for emitter"
+    assert all((isolation / dep).is_file() or is_system_dll(dep) for dep in imports)
+    assert all(path.name == poc.name or path.suffix.lower() == ".dll" for path in isolation.iterdir()), "external tool copied into isolation directory"
+    env = os.environ.copy()
+    env["PATH"] = str(isolation)
+    return isolation, env
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--poc", type=Path, required=True)
     parser.add_argument("--claw", type=Path, required=True)
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--cc", default="cc")
+    parser.add_argument("--readobj", default=None, help="llvm-readobj used for Windows DLL/import evidence")
     args = parser.parse_args()
-    if sys.platform != "linux" or platform.machine() != "x86_64":
-        parser.error("PoC test suite requires native Linux x86_64; other hosts are not validated.")
+    if platform.machine().lower() not in {"x86_64", "amd64"} or sys.platform not in {"linux", "win32"}:
+        parser.error("PoC test suite requires native x86_64 Linux or native Windows.")
+    if sys.platform == "win32":
+        assert os.name == "nt", "Windows PoC proof must run under native Windows Python"
     root = args.artifacts.resolve()
     root.mkdir(parents=True, exist_ok=True)
     successes = {
@@ -83,7 +160,7 @@ def main():
     for name, (source, expected) in successes.items():
         case = root / name
         case.mkdir(exist_ok=True)
-        src, obj, ir, exe, baseline = [case / filename for filename in (f"{name}.cat", "program.o", "program.ll", "program", "baseline.exe")]
+        src, obj, ir, exe, baseline = [case / filename for filename in (f"{name}.cat", "program.o", "program.ll", "program.exe" if sys.platform == "win32" else "program", "baseline.exe")]
         for output in (obj, ir, exe, baseline, baseline.with_suffix(".ll")):
             output.unlink(missing_ok=True)
         src.write_text(source.replace(";", "\n") + "\n")
@@ -96,14 +173,20 @@ def main():
         if name == "branch_phi":
             assert "br i1" in text and "if_join" in text, "if-expression did not exercise control flow"
         # This is the only link step: no .cat/.ll/runtime C is passed to cc.
-        run([args.cc, obj, "-o", exe])
-        native = run([exe], expected=expected)
+        link_argv = [args.cc, obj, "-o", exe]
+        run(link_argv)
+        native_exe = executable(exe)
+        native = run([native_exe], expected=expected)
         original = run([args.claw, "build", src, baseline])
         (case / "baseline-build.log").write_text(original.stdout + original.stderr)
-        old = run([baseline], expected=expected)
+        old = run([executable(baseline)], expected=expected)
         assert native.stdout == old.stdout and native.stderr == old.stderr
         assert native.stdout == "" and native.stderr == "", f"{name}: unexpected native output"
-        results.append({"name": name, "status": "pass", "exit": expected, "kind": "differential", **target_evidence})
+        results.append({"name": name, "status": "pass", "exit": expected, "kind": "differential",
+                        "link_argv": [str(x) for x in link_argv],
+                        "run_argv": [str(native_exe)],
+                        "run": {"exit": native.returncode, "stdout": native.stdout, "stderr": native.stderr},
+                        **target_evidence})
         print(f"[pass/differential] {name}", flush=True)
     for name, source in negatives.items():
         case = root / name
@@ -137,14 +220,17 @@ def main():
     # Paths containing spaces and shell metacharacters must stay ordinary paths.
     case = root / "space ; literal"
     case.mkdir(exist_ok=True)
-    src, obj, ir, exe = [case / name for name in ("hello ; x.cat", "object ; x.o", "ir ; x.ll", "program ; x")]
+    src, obj, ir, exe = [case / name for name in ("hello ; x.cat", "object ; x.o", "ir ; x.ll", "program ; x.exe" if sys.platform == "win32" else "program ; x")]
     src.write_text("fn main() -> Int32 { return 13 }\n")
     for output in (obj, ir, exe):
         output.unlink(missing_ok=True)
     run([args.poc, src, "-o", obj, "--emit-ir", ir])
-    run([args.cc, obj, "-o", exe])
-    run([exe], expected=13)
-    results.append({"name": "literal_paths", "status": "pass", "kind": "io"})
+    link_argv = [args.cc, obj, "-o", exe]
+    run(link_argv)
+    literal_run = run([executable(exe)], expected=13)
+    results.append({"name": "literal_paths", "status": "pass", "kind": "io",
+                    "link_argv": [str(x) for x in link_argv],
+                    "run": {"exit": literal_run.returncode, "stdout": literal_run.stdout, "stderr": literal_run.stderr}})
     # Failure to create an output must be a diagnostic, not a successful compile.
     source = root / "constant" / "constant.cat"
     bad = run([args.poc, source, "-o", root / "missing-parent" / "program.o"], expected=1)
@@ -192,9 +278,20 @@ def main():
     env["PATH"] = str(empty_path)
     obj = root / "no-toolchain.o"
     obj.unlink(missing_ok=True)
-    run([args.poc.resolve(), source, "-o", obj], env=env)
+    if sys.platform == "win32":
+        readobj = args.readobj or shutil.which("llvm-readobj")
+        assert readobj, "Windows isolation requires llvm-readobj (use --readobj)"
+        isolated, env = isolated_windows_emitter(root, args.poc, Path(readobj))
+        # Deliberately invoke only the copied emitter with PATH containing no compiler/linker.
+        isolated_poc = isolated / executable(args.poc).name
+        run([isolated_poc, source, "-o", obj], env=env)
+        isolation_evidence = {"isolated_path": str(isolated), "isolated_path_entries": [str(isolated)],
+                              "isolated_files": sorted(p.name for p in isolated.iterdir())}
+    else:
+        run([args.poc.resolve(), source, "-o", obj], env=env)
+        isolation_evidence = {"isolated_path_entries": [str(empty_path)]}
     verify_target(obj)
-    results.append({"name": "no_toolchain_path", "status": "pass", "kind": "isolation"})
+    results.append({"name": "no_toolchain_path", "status": "pass", "kind": "isolation", **isolation_evidence})
     (root / "results.json").write_text(json.dumps(results, indent=2) + "\n")
     print(f"PASS: {len(results)} PoC cases; artifacts: {root}")
 
