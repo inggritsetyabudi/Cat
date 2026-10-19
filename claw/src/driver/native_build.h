@@ -10,6 +10,10 @@
 
 namespace claw::driver {
 
+enum class NativeBuildProfile { Debug, Release };
+
+enum class NativeBuildStage { Resolving, Checking, Ownership, Lowering, Emitting, Linking };
+
 std::filesystem::path defaultNativeOutputPath(const claw::workspace::LoadedProject& project);
 
 std::filesystem::path buildNativeExecutable(
@@ -18,6 +22,8 @@ std::filesystem::path buildNativeExecutable(
     const std::vector<claw::frontend::OirUnitView>& units,
     const std::filesystem::path& compilerBinaryPath,
     const std::filesystem::path& outputPath,
+    NativeBuildProfile profile,
+    const std::function<void(NativeBuildStage)>& onStage,
     const std::function<void()>& beforeLinkOutput);
 
 } // namespace claw::driver

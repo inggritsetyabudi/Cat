@@ -1,18 +1,15 @@
 #include <cctype>
 #include <array>
-#include <atomic>
+#include <algorithm>
 #include <chrono>
-#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <mutex>
 #include <sstream>
 #include <string_view>
 #include <system_error>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -70,228 +67,104 @@ std::string colorizeDiagnosticToken(std::string text, std::string_view token, st
 class BuildProgress {
 public:
     explicit BuildProgress(bool enabled)
-        : enabled_(enabled),
-          terminal_(enabled && standardErrorIsTerminal()),
-          color_(terminal_ && ansiColorSupported() && std::getenv("NO_COLOR") == nullptr) {}
+        : enabled_(enabled), terminal_(enabled && standardErrorIsTerminal()),
+          color_(enabled && diagnosticColorEnabled()) {}
 
-    ~BuildProgress() {
-        stopSpinner();
-    }
+    void setContext(std::string context) { context_ = std::move(context); }
+    void setTotal(size_t total) { total_ = total; }
 
     void begin() {
-        if (!enabled_ || started_) {
-            return;
+        if (enabled_ && !started_) {
+            started_ = true;
+            render();
         }
-        started_ = true;
-        std::cerr << styled("C@ Forge | Native optimized (-O2)", "1;35") << '\n';
-        std::cerr << "Key: = complete, > active, . waiting\nPlan: ";
-        for (size_t i = 0; i < kPhases.size(); ++i) {
-            if (i != 0) {
-                std::cerr << " > ";
-            }
-            std::cerr << kPhases[i];
-        }
-        std::cerr << '\n';
-        render(phaseLabel(current_));
     }
 
+    // A completed task is counted only after its work returned successfully.
     void advance() {
-        if (!enabled_ || finished_) {
-            return;
-        }
-        if (!started_) {
-            begin();
-        }
-        stopSpinner();
-        if (current_ >= kPhases.size()) {
-            return;
-        }
-        ++completed_;
-        current_ = completed_;
-        if (current_ < kPhases.size()) {
-            render(phaseLabel(current_));
-            if (current_ == kPhases.size() - 1 && terminal_) {
-                startSpinner();
-            }
-        }
+        if (enabled_ && completed_ < total_) ++completed_;
     }
 
     void beforeMessage() {
-        if (!enabled_) {
-            return;
-        }
-        stopSpinner();
-        if (terminal_ && lineOpen_) {
+        if (enabled_ && terminal_ && lineOpen_) {
             std::cerr << '\n';
             lineOpen_ = false;
-            lastLineWidth_ = 0;
+            lastWidth_ = 0;
         }
+    }
+
+    void stage(claw::driver::NativeBuildStage stage) {
+        if (!enabled_) return;
+        if (activeStage_ >= claw::driver::NativeBuildStage::Lowering && stage > activeStage_) {
+            advance();
+        }
+        activeStage_ = stage;
+        render();
     }
 
     void succeed() {
-        if (!enabled_ || finished_) {
-            return;
-        }
-        if (!started_) {
-            begin();
-        }
-        stopSpinner();
-        completed_ = kPhases.size();
-        current_ = kPhases.size();
-        render("FORGE READY | native artifact ready", false, true);
-        finishLine();
+        if (!enabled_ || finished_) return;
+        advance(); // Native linking has now returned successfully.
+        render();
+        beforeMessage();
         finished_ = true;
     }
 
-    void fail(std::string_view reason) {
-        if (!enabled_ || finished_) {
-            return;
-        }
-        if (!started_) {
-            begin();
-        }
-        stopSpinner();
-        render(std::string("FORGE HALTED | ") + std::string(reason), true);
-        finishLine();
+    void fail(std::string_view) {
+        beforeMessage();
         finished_ = true;
     }
 
 private:
-    static constexpr std::array<std::string_view, 6> kPhases = {
-        "Resolve input path",
-        "Load Cat package graph",
-        "Check types + entry graph",
-        "Verify entry contract",
-        "Check ownership",
-        "Lower LLVM + link native code",
-    };
-
-    static bool ansiColorSupported() {
-#if defined(_WIN32)
-        // Windows terminal ANSI support varies; plain text is the safe fallback.
-        return false;
-#else
-        const char* term = std::getenv("TERM");
-        return term == nullptr || std::string_view(term) != "dumb";
-#endif
-    }
-
-    static bool liveSpinnerSupported() {
-#if defined(_WIN32)
-        return false;
-#else
-        return true;
-#endif
-    }
-
-    std::string phaseLabel(size_t index) const {
-        std::string label(kPhases[index]);
-        if (index == kPhases.size() - 1) {
-            label += " (working; progress is indeterminate)";
-        }
-        return label;
-    }
+    static constexpr std::array<std::string_view, 6> kStages = {
+        "Resolving", "Checking", "Ownership", "Lowering", "Emitting", "Linking"};
 
     std::string styled(std::string_view text, std::string_view ansi) const {
-        if (!color_) {
-            return std::string(text);
-        }
-        return std::string("\x1b[") + std::string(ansi) + "m" + std::string(text) + "\x1b[0m";
+        if (!color_) return std::string(text);
+        return std::string("\033[") + std::string(ansi) + "m" + std::string(text) + "\033[0m";
     }
 
-    void render(std::string_view label, bool failure = false, bool success = false, char active = '>') {
-        std::string plainBar;
-        plainBar.reserve(kPhases.size());
-        for (size_t i = 0; i < kPhases.size(); ++i) {
-            if (i < completed_) {
-                plainBar += '=';
-            } else if (!success && i == current_) {
-                plainBar += failure ? '!' : active;
-            } else {
-                plainBar += '.';
-            }
-        }
-        const std::string plainLine = "[" + plainBar + "] | " + std::string(label);
-        if (terminal_ && lineOpen_) {
-            std::cerr << '\r';
-        }
-        std::cerr << '[';
-        for (size_t i = 0; i < kPhases.size(); ++i) {
-            if (i < completed_) {
-                std::cerr << styled(std::string_view(&plainBar[i], 1), "32;1");
-            } else if (!success && i == current_) {
-                const char* tone = failure ? "31;1" : "36;1";
-                std::cerr << styled(std::string_view(&plainBar[i], 1), tone);
-            } else {
-                std::cerr << styled(std::string_view(&plainBar[i], 1), "2");
-            }
-        }
-        const char* labelTone = failure ? "31;1" : (success ? "32;1" : "36;1");
-        std::cerr << "] | " << styled(label, labelTone);
+    void render() {
+        constexpr size_t width = 20;
+        const size_t filled = width * completed_ / total_;
+        const std::string bar = "[" + std::string(filled, '/') + std::string(width - filled, ':') + "]";
+        const std::string counter = std::to_string(completed_) + "/" + std::to_string(total_);
+        const auto label = kStages[static_cast<size_t>(activeStage_)];
+        const std::string plain = bar + " " + counter + " " + std::string(label) + " " + context_;
+        if (terminal_ && lineOpen_) std::cerr << '\r';
+        std::cerr << styled(bar, "36") << " " << styled(counter, "2") << " "
+                  << styled(label, "1") << " " << styled(context_, "2");
         if (terminal_) {
-            if (lastLineWidth_ > plainLine.size()) {
-                std::cerr << std::string(lastLineWidth_ - plainLine.size(), ' ');
-            }
-            if (plainLine.size() > lastLineWidth_) {
-                lastLineWidth_ = plainLine.size();
-            }
+            if (lastWidth_ > plain.size()) std::cerr << std::string(lastWidth_ - plain.size(), ' ');
+            lastWidth_ = plain.size();
             lineOpen_ = true;
-            std::cerr.flush();
         } else {
             std::cerr << '\n';
         }
+        std::cerr.flush();
     }
 
-    void finishLine() {
-        if (terminal_ && lineOpen_) {
-            std::cerr << '\n';
-            lineOpen_ = false;
-            lastLineWidth_ = 0;
-        }
-    }
-
-    void startSpinner() {
-        if (!terminal_ || !liveSpinnerSupported() || spinnerThread_.joinable()) {
-            return;
-        }
-        stopSpinnerRequested_.store(false);
-        spinnerThread_ = std::thread([this]() {
-            constexpr std::array<char, 4> frames = {'|', '/', '-', '\\'};
-            size_t frame = 0;
-            while (!stopSpinnerRequested_.load()) {
-                render(phaseLabel(current_), false, false, frames[frame % frames.size()]);
-                ++frame;
-                std::unique_lock<std::mutex> lock(spinnerMutex_);
-                spinnerWake_.wait_for(lock, std::chrono::milliseconds(90), [this]() {
-                    return stopSpinnerRequested_.load();
-                });
-            }
-        });
-    }
-
-    void stopSpinner() {
-        if (!spinnerThread_.joinable()) {
-            return;
-        }
-        stopSpinnerRequested_.store(true);
-        spinnerWake_.notify_all();
-        spinnerThread_.join();
-    }
-
-    bool enabled_;
-    bool terminal_;
-    bool color_;
+    bool enabled_ = false;
+    bool terminal_ = false;
+    bool color_ = false;
     bool started_ = false;
     bool finished_ = false;
     bool lineOpen_ = false;
     size_t completed_ = 0;
-    size_t current_ = 0;
-    size_t lastLineWidth_ = 0;
-    std::atomic<bool> stopSpinnerRequested_{false};
-    std::mutex spinnerMutex_;
-    std::condition_variable spinnerWake_;
-    std::thread spinnerThread_;
+    size_t total_ = 6; // The module count is known after resolution.
+    size_t lastWidth_ = 0;
+    claw::driver::NativeBuildStage activeStage_ = claw::driver::NativeBuildStage::Resolving;
+    std::string context_;
 };
+
+void printBuildError(std::string_view message) {
+    std::cerr << (diagnosticColorEnabled() ? "\033[1;31merror:\033[0m " : "error: ")
+              << message << '\n';
+}
+
+void printBuildFailure(std::string_view name) {
+    printBuildError("build failed for `" + std::string(name) + "`");
+}
 
 std::string maybeConvertMsysPath(std::string_view rawPath) {
 #if defined(_WIN32)
@@ -434,7 +307,8 @@ std::string readFileBestEffort(const std::string& path) {
 std::string formatDiagnosticsWithSources(
     const std::vector<claw::frontend::Diagnostic>& diagnostics,
     std::string_view fallbackPath,
-    std::string_view fallbackSource) {
+    std::string_view fallbackSource,
+    bool compact = false) {
     std::unordered_map<std::string, std::string> sourceCache;
     sourceCache[std::string(fallbackPath)] = std::string(fallbackSource);
 
@@ -448,20 +322,34 @@ std::string formatDiagnosticsWithSources(
         if (i > 0) {
             out << "\n\n";
         }
-        out << claw::frontend::formatDiagnostic(diagnostic, fallbackPath, sourceCache[effectivePath]);
+        out << (compact ? claw::frontend::formatBuildDiagnostic(diagnostic, fallbackPath, sourceCache[effectivePath])
+                       : claw::frontend::formatDiagnostic(diagnostic, fallbackPath, sourceCache[effectivePath]));
     }
     std::string formatted = out.str();
     if (!diagnosticColorEnabled()) {
         return formatted;
     }
 
-    formatted = colorizeDiagnosticToken(std::move(formatted), "error[", "\033[1;31m");
-    formatted = colorizeDiagnosticToken(std::move(formatted), "error:", "\033[1;31m");
-    formatted = colorizeDiagnosticToken(std::move(formatted), "warning[", "\033[1;33m");
-    formatted = colorizeDiagnosticToken(std::move(formatted), "warning:", "\033[1;33m");
-    formatted = colorizeDiagnosticToken(std::move(formatted), "Hint:", "\033[1;36m");
-    formatted = colorizeDiagnosticToken(std::move(formatted), "hint:", "\033[1;36m");
-    return formatted;
+    if (!compact) {
+        formatted = colorizeDiagnosticToken(std::move(formatted), "error[", "\033[1;31m");
+        formatted = colorizeDiagnosticToken(std::move(formatted), "error:", "\033[1;31m");
+        formatted = colorizeDiagnosticToken(std::move(formatted), "warning[", "\033[1;33m");
+        formatted = colorizeDiagnosticToken(std::move(formatted), "warning:", "\033[1;33m");
+        formatted = colorizeDiagnosticToken(std::move(formatted), "Hint:", "\033[1;36m");
+        formatted = colorizeDiagnosticToken(std::move(formatted), "hint:", "\033[1;36m");
+        return formatted;
+    }
+    std::ostringstream colored;
+    std::istringstream lines(formatted);
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (line.rfind("error:", 0) == 0) line = "\033[1;31m" + line + "\033[0m";
+        else if (line.rfind("warning:", 0) == 0) line = "\033[1;33m" + line + "\033[0m";
+        else if (line.rfind(" = note:", 0) == 0 || line.rfind("hint:", 0) == 0)
+            line = "\033[1;36m" + line + "\033[0m";
+        colored << line << '\n';
+    }
+    return colored.str();
 }
 
 std::vector<claw::frontend::Diagnostic> attachPath(
@@ -916,6 +804,21 @@ std::string canonicalizeCommand(std::string_view rawCommand) {
     }
     return {};
 }
+
+std::string buildUnitContext(const claw::workspace::LoadedProject& project,
+                             const claw::workspace::LoadedUnit& unit,
+                             std::string_view projectName) {
+    if (!project.structuredPackage) return std::string(projectName) + "::main";
+    std::error_code error;
+    auto relative = std::filesystem::relative(unit.path, project.packageRoot, error);
+    std::string module = error ? unit.path.stem().string() : relative.replace_extension().generic_string();
+    std::string normalized;
+    for (char character : module) {
+        if (character == '/') normalized += "::";
+        else normalized += character;
+    }
+    return std::string(projectName) + "::" + (normalized.empty() ? unit.path.stem().string() : normalized);
+}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -923,37 +826,68 @@ int main(int argc, char** argv) {
         (std::string_view(argv[1]) == "build" || std::string_view(argv[1]) == "build-native");
     BuildProgress buildProgress(requestedBuild);
 
-    if (argc < 3 || argc > 4) {
-        printUsage();
-        buildProgress.fail("command usage incomplete");
+    if (argc < 3) {
+        if (requestedBuild) {
+            printBuildError("usage: claw build [--release] <input> [output]");
+            printBuildFailure("<input>");
+        } else {
+            printUsage();
+        }
         return 1;
     }
 
     const std::string rawCommand = argv[1];
     const std::string command = canonicalizeCommand(rawCommand);
-    const std::string filepath = argv[2];
-    const std::string outputArg = argc >= 4 ? argv[3] : std::string{};
-
     if (command.empty()) {
         std::cerr << "Unknown command: " << rawCommand << "\n";
         printUsage();
         return 1;
     }
+    claw::driver::NativeBuildProfile buildProfile = claw::driver::NativeBuildProfile::Debug;
+    std::vector<std::string> positional;
+    for (int i = 2; i < argc; ++i) {
+        const std::string_view arg(argv[i]);
+        if (command == "build" && arg == "--release") {
+            buildProfile = claw::driver::NativeBuildProfile::Release;
+        } else if (command == "build" && arg.size() > 1 && arg.front() == '-') {
+            printBuildError("unknown build option " + std::string(arg));
+            printBuildFailure(positional.empty() ? "<input>" : positional[0]);
+            return 1;
+        } else {
+            positional.emplace_back(arg);
+        }
+    }
+    if (positional.empty() || positional.size() > 2) {
+        if (command == "build") {
+            printBuildError("usage: claw build [--release] <input> [output]");
+            printBuildFailure(positional.empty() ? "<input>" : positional[0]);
+        } else {
+            printUsage();
+        }
+        return 1;
+    }
+    const std::string filepath = positional[0];
+    const std::string outputArg = positional.size() == 2 ? positional[1] : std::string{};
+
     if (command == "doc" && argc != 3) {
         std::cerr << "Usage: claw doc <source.cat>\n";
         return 1;
     }
 
+    const auto buildStarted = std::chrono::steady_clock::now();
+    buildProgress.setContext(std::filesystem::path(filepath).stem().string() + "::main");
     buildProgress.begin();
 
     std::filesystem::path openedPath;
     std::vector<std::filesystem::path> triedPaths;
     std::string source;
     std::string diagnosticPath;
+    std::string buildName = std::filesystem::path(filepath).stem().string();
     try {
         if (!resolveInputPath(filepath, &openedPath, &triedPaths)) {
             buildProgress.beforeMessage();
             printOpenFailure(filepath, triedPaths);
+            if (command == "build") printBuildFailure(buildName);
             buildProgress.fail("input path unresolved; see details");
             return 1;
         }
@@ -965,11 +899,11 @@ int main(int argc, char** argv) {
     } catch (const std::filesystem::filesystem_error& e) {
         buildProgress.beforeMessage();
         std::cerr << "Input path check failed: " << e.what() << "\n";
+        if (command == "build") printBuildFailure(buildName);
         buildProgress.fail("input path check failed; see error above");
         return 1;
     }
 
-    buildProgress.advance();
     try {
         if (command == "doc") {
             if (!std::filesystem::is_regular_file(openedPath) || openedPath.extension() != ".cat") {
@@ -982,7 +916,7 @@ int main(int argc, char** argv) {
             auto realm = parser.parseFile();
             auto warnings = attachPath(realm->warnings, openedPath);
             if (!warnings.empty()) {
-                std::cerr << formatDiagnosticsWithSources(warnings, diagnosticPath, source) << "\n";
+                std::cerr << formatDiagnosticsWithSources(warnings, diagnosticPath, source, command == "build") << "\n";
             }
             std::cout << renderDocumentation(*realm);
             return 0;
@@ -990,12 +924,20 @@ int main(int argc, char** argv) {
 
         claw::workspace::ProjectLoader loader;
         auto project = loader.load(openedPath.empty() ? std::filesystem::path(filepath) : openedPath);
+        const std::string projectName = project.config.has_value() && !project.config->name.empty()
+            ? project.config->name : project.units[project.entryIndex].ast->name;
+        if (command == "build") {
+            buildName = projectName;
+            buildProgress.setTotal(2 * project.units.size() + 4);
+            buildProgress.setContext(buildUnitContext(project, project.units[project.entryIndex], projectName));
+        }
         buildProgress.advance();
+        buildProgress.stage(claw::driver::NativeBuildStage::Checking);
 
         const auto warnings = collectProjectWarnings(project);
         if (!warnings.empty()) {
             buildProgress.beforeMessage();
-            std::cerr << formatDiagnosticsWithSources(warnings, diagnosticPath, source) << "\n";
+            std::cerr << formatDiagnosticsWithSources(warnings, diagnosticPath, source, command == "build") << "\n";
         }
         neutralizeRootEntrySharedDecls(project);
         validateMainDeclarations(project);
@@ -1005,12 +947,16 @@ int main(int argc, char** argv) {
         analyzers.reserve(project.units.size());
 
         for (const auto& unit : project.units) {
+            if (command == "build") {
+                buildProgress.setContext(buildUnitContext(project, unit, projectName));
+                buildProgress.stage(claw::driver::NativeBuildStage::Checking);
+            }
             auto sema = std::make_unique<claw::frontend::SemanticAnalyzer>(unit.importedBindings, project.target);
             const auto emitSemanticWarnings = [&]() {
                 const auto semanticWarnings = attachPath(sema->warnings(), unit.path);
                 if (!semanticWarnings.empty()) {
                     buildProgress.beforeMessage();
-                    std::cerr << formatDiagnosticsWithSources(semanticWarnings, diagnosticPath, source) << "\n";
+                    std::cerr << formatDiagnosticsWithSources(semanticWarnings, diagnosticPath, source, command == "build") << "\n";
                 }
             };
             try {
@@ -1021,11 +967,10 @@ int main(int argc, char** argv) {
             }
             emitSemanticWarnings();
             analyzers.push_back(std::move(sema));
+            if (command == "build") buildProgress.advance();
         }
 
-        buildProgress.advance();
         validateEntryPoint(project, *analyzers[project.entryIndex], command == "validate" || command == "build");
-        buildProgress.advance();
 
         if (command == "air") {
             claw::frontend::AirEmitter air(*analyzers[project.entryIndex]);
@@ -1036,6 +981,10 @@ int main(int argc, char** argv) {
         std::vector<std::unique_ptr<claw::frontend::OwnershipChecker>> ownershipCheckers;
         ownershipCheckers.reserve(project.units.size());
         for (size_t i = 0; i < project.units.size(); ++i) {
+            if (command == "build") {
+                buildProgress.setContext(buildUnitContext(project, project.units[i], projectName));
+                buildProgress.stage(claw::driver::NativeBuildStage::Ownership);
+            }
             auto ownership = std::make_unique<claw::frontend::OwnershipChecker>();
             try {
                 ownership->check(project.units[i].ast.get(), *analyzers[i]);
@@ -1043,8 +992,8 @@ int main(int argc, char** argv) {
                 throw claw::frontend::DiagnosticError(error.what(), attachPath(error.diagnostics(), project.units[i].path));
             }
             ownershipCheckers.push_back(std::move(ownership));
+            if (command == "build") buildProgress.advance();
         }
-        buildProgress.advance();
 
         if (command == "oir" || command == "lir" || command == "llvm" || command == "build") {
             std::vector<claw::frontend::OirUnitView> units;
@@ -1089,15 +1038,30 @@ int main(int argc, char** argv) {
                 if (!outputPath.has_extension()) {
                     outputPath += ".exe";
                 }
+                buildProgress.setContext(buildUnitContext(project, project.units[project.entryIndex], projectName));
                 const auto builtPath = claw::driver::buildNativeExecutable(
                     project,
                     project.units[project.entryIndex].ast->name,
                     units,
                     std::filesystem::path(argv[0]),
                     outputPath,
+                    buildProfile,
+                    [&buildProgress](claw::driver::NativeBuildStage stage) {
+                        buildProgress.stage(stage);
+                    },
                     [&buildProgress]() { buildProgress.beforeMessage(); });
-                std::cout << "Built native executable: " << builtPath.string() << "\n";
+                const auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - buildStarted).count();
                 buildProgress.succeed();
+                const std::string finished = "Finished native release [" +
+                    std::string(buildProfile == claw::driver::NativeBuildProfile::Release ? "optimized" : "debug + unoptimized") +
+                    "] in " + std::to_string(elapsed) + "s";
+                const std::string output = "     Output " + std::filesystem::absolute(builtPath).string();
+                if (diagnosticColorEnabled()) {
+                    std::cerr << "\033[1;32m" << finished << "\033[0m\n"
+                              << "\033[36;2m" << output << "\033[0m\n";
+                } else {
+                    std::cerr << finished << "\n" << output << "\n";
+                }
             }
             return 0;
         }
@@ -1116,12 +1080,18 @@ int main(int argc, char** argv) {
                   << "\n";
     } catch (const claw::frontend::DiagnosticError& e) {
         buildProgress.beforeMessage();
-        std::cerr << formatDiagnosticsWithSources(e.diagnostics(), diagnosticPath, source) << "\n";
+        std::cerr << formatDiagnosticsWithSources(e.diagnostics(), diagnosticPath, source, command == "build") << "\n";
+        if (command == "build") printBuildFailure(buildName);
         buildProgress.fail("compile rejected; see diagnostics");
         return 1;
     } catch (const std::exception& e) {
         buildProgress.beforeMessage();
-        std::cerr << "Compilation failed: " << e.what() << "\n";
+        if (command == "build") {
+            printBuildError(e.what());
+            printBuildFailure(buildName);
+        } else {
+            std::cerr << "Compilation failed: " << e.what() << "\n";
+        }
         buildProgress.fail("native build failed; see error above");
         return 1;
     }

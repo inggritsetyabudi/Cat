@@ -6,10 +6,11 @@ Claw exposes a small command interface. The commands below reflect the [current 
 
 ```text
 claw <command> <file.cat|workspace-directory|claw.toml> [output]
+claw build [--release] <input> [output]
 claw doc <source.cat>
 ```
 
-Use the optional output argument only with `build`. `doc` explicitly rejects an extra argument; the generic driver accepts the fourth argument for other commands but does not use it as an output destination. Redirect stdout when saving an IR or Markdown listing. There is no implemented `run`, `fmt`, `test`, package-install, profile-selection, or version-report command in this CLI. Calling Claw without sufficient arguments prints usage and exits with failure; do not rely on `--help` or `--version` as supported commands.
+Use the optional output argument only with `build`. `doc` explicitly rejects an extra argument; the generic driver accepts the fourth argument for other commands but does not use it as an output destination. Redirect stdout when saving an IR or Markdown listing. There is no implemented `run`, `fmt`, `test`, package-install, or version-report command in this CLI. Calling Claw without sufficient arguments prints usage and exits with failure; do not rely on `--help` or `--version` as supported commands.
 
 ## Commands and stages
 
@@ -21,7 +22,7 @@ Use the optional output argument only with `build`. `doc` explicitly rejects an 
 | `oir` | Run ownership checks and lower to OIR | Ownership-aware IR on stdout |
 | `lir` | Lower through OIR into backend-facing LIR | LIR on stdout |
 | `llvm` | Lower through LIR and emit LLVM IR | LLVM IR on stdout; does not link an executable |
-| `build` | Validate entry, check ownership, lower LLVM IR, invoke host `clang` with the native runtime | Native executable, sibling `.ll` artifact, success path on stdout |
+| `build` | Validate entry, check ownership, lower LLVM IR, invoke host `clang` with the native runtime | Native executable, sibling `.ll` artifact, progress and success path on stderr; stdout empty |
 | `doc` | Parse one regular `.cat` file only; render documented shared top-level declarations | Deterministic UTF-8 Markdown on stdout |
 
 Aliases are `emit-air`, `emit-oir`, `emit-lir`, `emit-llvm`, and `build-native`. They select the corresponding command above.
@@ -36,6 +37,7 @@ For structured packages rooted at `main.cat`, OIR/LIR/LLVM output includes the l
 claw check ./hello.cat
 claw validate ./my-app
 claw build ./my-app ./out/my-app.exe
+claw build --release ./my-app ./out/my-app-release.exe
 claw air ./hello.cat > ./hello.air
 claw oir ./hello.cat > ./hello.oir
 claw lir ./hello.cat > ./hello.lir
@@ -49,15 +51,30 @@ The examples assume you have created the referenced source files/workspace. Pass
 
 Without an output argument, Claw writes `build/<name>.exe` under the package root. `<name>` comes from the manifest project name when available, otherwise the entry file stem; unsupported filename characters are sanitized. An explicit output without an extension receives `.exe`. The extension is a naming convention, not cross-compilation: Linux builds remain Linux binaries.
 
-A sibling `.ll` file is written before linking and retained after success or linker failure. Output parent directories are created as needed. The compiler finds the bundled `runtime/native_runtime.c` relative to its executable and invokes `clang` from `PATH` with `-O2 -std=c11`, LLVM IR, and that runtime source. Keep the runtime bundle with the compiler. See [Building](BUILDING.md#runtime-packaging).
+A sibling `.ll` file is written before linking and retained after success or linker failure. Output parent directories are created as needed. The compiler finds the bundled `runtime/native_runtime.c` relative to its executable and invokes `clang` from `PATH` with `-O0 -std=c11` by default or `-O2 -std=c11` when `--release` is specified, LLVM IR, and that runtime source. Keep the runtime bundle with the compiler. See [Building](BUILDING.md#runtime-packaging).
 
-CMake's `Debug`/`Release` controls how Claw itself is built. The Cat native driver currently has one optimized profile, `-O2`; it does not provide a debug/unoptimized language profile or user-selectable linker flags through this command line.
+CMake's `Debug`/`Release` controls how Claw itself is built. Independently, plain `claw build` selects the native debug/unoptimized optimization profile and `claw build --release` selects optimized code. `--release` is a build-only flag; it may appear before or after input/output arguments. These are optimization profiles: PRD debug overflow checks, complete debug metadata, and other unaccepted language-level profile behavior are not implied. No general user-selectable linker flags are exposed.
 
-## C@ Forge progress
+## Compact build progress
 
-`build` writes progress to stderr and preserves the final `Built native executable: ...` stdout message on success. The display tracks six phases: input resolution, package graph loading, type/entry graph checking, entry verification, ownership checking, and LLVM lowering/native linking.
+`build` writes progress, warnings, errors, and its final summary to stderr; stdout remains empty. The six stages are Resolving (input/package/module loading), Checking (semantics/types and entry validation), Ownership (ownership/borrow checking), Lowering (OIR/LIR), Emitting (LLVM code generation), and Linking (native Clang invocation).
 
-The status key is `=` complete, `>` active, and `.` waiting; failure uses `!`. The lowering/linking phase is explicitly **indeterminate**, not an estimated percentage. Interactive POSIX terminals can display a spinner and ANSI colors; `NO_COLOR` or `TERM=dumb` disables styling. Windows uses plain text and a static indeterminate label. Redirecting output should not be interpreted as disabling compilation checks.
+```text
+[///:::::::::::::::::] 1/6 Checking hello::main
+```
+
+The exact counter depends on loaded modules: one resolving task, one semantic task and one ownership task per loaded unit, then three native tasks. The initial `0/6` is the single-unit baseline; the total is updated after graph resolution. It counts completed compiler tasks, not estimated time. A TTY reuses one compact line and prints diagnostics on separate lines before continuing safe work. Redirected stderr has newline-separated events, no carriage returns, and no ANSI. The bar is cyan, the counter/module dim, and stage names bold on supported POSIX terminals. `NO_COLOR` or `TERM=dumb` disables ANSI; Windows always uses plain text.
+
+A successful debug build ends with:
+
+```text
+Finished native release [debug + unoptimized] in 0.123s
+     Output /absolute/path/to/hello.exe
+```
+
+`--release` uses `[optimized]` instead. Time is measured with a monotonic clock and the output path is the actual absolute artifact path. The word `release` in the requested summary is retained even for the debug optimization profile; the bracketed profile disambiguates it.
+
+Build diagnostics use `warning:`/`error:` headers, source locations/snippets, and available ownership labels. Other commands retain their existing stage-qualified diagnostic headers. A failed build ends with `error: build failed for ` followed by the project/input name in backticks. Compilation stops when later stages would be invalid; warnings do not prevent continuing. Internal Cat diagnostics print when discovered. POSIX Clang stderr is still captured through the existing hardened descriptor and replayed after Clang exits; live streaming and restyling of external diagnostics are not implemented.
 
 ## Documentation comments
 

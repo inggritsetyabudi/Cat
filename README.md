@@ -99,14 +99,14 @@ See [workspace and module rules](SPEC.md#modules-and-workspaces) and the [CLI re
 | --- | --- |
 | `claw check <input>` | Check parsing, types, ownership, and borrows |
 | `claw validate <input>` | Check a program's entry graph and entry contract |
-| `claw build <input> [output]` | Lower and link a native executable |
+| `claw build [--release] <input> [output]` | Lower and link a native executable |
 | `claw air <input>` | Inspect analyzed AIR, before ownership checking |
 | `claw oir <input>` | Inspect ownership-aware OIR |
 | `claw lir <input>` | Inspect backend-facing LIR |
 | `claw llvm <input>` | Emit LLVM IR |
 | `claw doc <source.cat>` | Emit Markdown for documented shared top-level declarations |
 
-`<input>` can be a source file, workspace directory, or `claw.toml`, except that `doc` accepts one source file only. The [CLI reference](docs/CLI.md) covers aliases, output paths, diagnostics, and the **C@ Forge** build status display. The compiler currently has one native optimization profile (`-O2`), not selectable debug/release language profiles.
+`<input>` can be a source file, workspace directory, or `claw.toml`, except that `doc` accepts one source file only. The [CLI reference](docs/CLI.md) covers aliases, output paths, diagnostics, and the compact build status display. Native builds default to debug/unoptimized (`-O0`); add `--release` for optimized (`-O2`) output. These select native optimization, not complete PRD debug/release language semantics.
 
 ## Project status
 

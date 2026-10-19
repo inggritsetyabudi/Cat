@@ -40,7 +40,7 @@ export CLAW_EXE="$PWD/claw/build-ci/claw"
 bash claw/tests/run_all_tests.sh
 ```
 
-For a compiler development build, use a separate directory such as `claw/build-dev` with `-DCMAKE_BUILD_TYPE=Debug`. Do not reuse a CMake cache after changing toolchains. Native Cat builds still invoke `clang -O2` in the current implementation.
+For a compiler development build, use a separate directory such as `claw/build-dev` with `-DCMAKE_BUILD_TYPE=Debug`. Do not reuse a CMake cache after changing toolchains. Native Cat builds independently default to `clang -O0`; use `claw build --release` for `clang -O2`. This optimization selection does not complete PRD debug/release language semantics.
 
 ## Windows: MSYS2 UCRT64
 

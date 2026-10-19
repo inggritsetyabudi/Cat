@@ -175,6 +175,16 @@ void OwnershipChecker::reportError(const AstNode* node, const std::string& msg) 
     reportError(node ? node->span : SourceSpan{}, msg);
 }
 
+void OwnershipChecker::reportError(const SourceSpan& span, const std::string& msg,
+    const std::string& primaryLabel, const std::vector<DiagnosticLabel>& secondaryLabels) {
+    diagnostics.emplace_back("ownership", msg, span, std::string{}, DiagnosticSeverity::Error,
+        primaryLabel, secondaryLabels);
+}
+
+std::optional<SourceSpan> OwnershipChecker::borrowOrigin(const BorrowToken& token) const {
+    return token.originSpan.isValid() ? std::optional<SourceSpan>(token.originSpan) : std::nullopt;
+}
+
 void OwnershipChecker::check(RealmDecl* realm, const SemanticAnalyzer& semanticAnalyzer) {
     semantic = &semanticAnalyzer;
     diagnostics.clear();
@@ -266,7 +276,13 @@ void OwnershipChecker::consumePatternSource(const Expr* expr) {
     auto& sourceState = sourceIt->second;
     if (hasActiveBorrow(sourceState)) {
         if (const auto* borrow = firstActiveBorrow(sourceState)) {
-            reportError(source, ownerMutationConflictMessage(source->name, *borrow, "move"));
+            const auto origin = borrowOrigin(*borrow);
+            if (origin.has_value() && origin->isValid()) {
+                reportError(source->span, ownerMutationConflictMessage(source->name, *borrow, "move"),
+                    "move occurs here", {DiagnosticLabel{*origin, "borrow starts here", {}}});
+            } else {
+                reportError(source, ownerMutationConflictMessage(source->name, *borrow, "move"));
+            }
         } else {
             reportError(source, "Cannot move value while it is borrowed -> " + source->name);
         }
@@ -328,10 +344,17 @@ void OwnershipChecker::checkStmt(Stmt* stmt) {
                         auto& sourceState = sourceIt->second;
                         if (hasActiveBorrow(sourceState)) {
                             if (const auto* borrow = firstActiveBorrow(sourceState)) {
-                                reportError(source, ownerMutationConflictMessage(source->name, *borrow, "move"));
+                                const auto origin = borrowOrigin(*borrow);
+                                if (origin.has_value() && origin->isValid()) {
+                                    reportError(source->span, ownerMutationConflictMessage(source->name, *borrow, "move"),
+                                        "move occurs here", {DiagnosticLabel{*origin, "borrow starts here", {}}});
+                                } else {
+                                    reportError(source, ownerMutationConflictMessage(source->name, *borrow, "move"));
+                                }
                             } else {
                                 reportError(source, "Cannot move value while it is borrowed -> " + source->name);
                             }
+
                         } else {
                             sourceState.storageState = StorageState::Moved;
                             sourceState.activeBorrows.clear();
@@ -1107,7 +1130,13 @@ void OwnershipChecker::checkExpr(Expr* expr, bool isConsume) {
         if (isConsume && isTrackedOwned(state.type)) {
             if (hasActiveBorrow(state)) {
                 if (const auto* borrow = firstActiveBorrow(state)) {
-                    reportError(ident, ownerMutationConflictMessage(ident->name, *borrow, "move"));
+                    const auto origin = borrowOrigin(*borrow);
+                    if (origin.has_value()) {
+                        reportError(ident->span, ownerMutationConflictMessage(ident->name, *borrow, "move"),
+                            "move occurs here", {DiagnosticLabel{*origin, "borrow starts here", {}}});
+                    } else {
+                        reportError(ident, ownerMutationConflictMessage(ident->name, *borrow, "move"));
+                    }
                 } else {
                     reportError(ident, "Cannot move value while it is borrowed -> " + ident->name);
                 }
@@ -1691,7 +1720,11 @@ bool OwnershipChecker::acquireBorrowToken(const BorrowToken& token, const AstNod
         }
     }
 
-    state.activeBorrows.push_back(token);
+    auto activeToken = token;
+    if (!activeToken.originSpan.isValid() && node) {
+        activeToken.originSpan = node->span;
+    }
+    state.activeBorrows.push_back(std::move(activeToken));
     return true;
 }
 
