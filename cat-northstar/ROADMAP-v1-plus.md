@@ -1,6 +1,6 @@
 # Roadmap C@ setelah v1
 
-Semua isi dokumen ini berstatus **usulan desain**. Belum ada yang diputuskan kecuali: `rewrite` (macro) ada di v1.x, dan self-hosting dimulai setelah v1 terpenuhi. Dokumen ini terpisah dari *Perubahan PRD v0.1 sampai v1.0* supaya v1 tetap kecil dan bisa diuji.
+Isi fitur dan peta versi dokumen ini berstatus **usulan desain**. Belum ada yang diputuskan kecuali: `rewrite` (macro) ada di v1.x, dan self-hosting dimulai setelah v1 terpenuhi. Dokumen ini terpisah dari *Perubahan PRD v0.1 sampai v1.0* supaya v1 tetap kecil dan bisa diuji. Prinsip lintas versi yang telah diratifikasi pada catatan berikut bukan usulan fitur roadmap.
 
 ---
 
@@ -215,3 +215,9 @@ scan msg over rx { println(msg) }    // berhenti saat semua pengirim selesai
 | `as` penyempitan | Diputuskan: defect di debug, terpotong di release; konversi aman lewat `to` yang mengembalikan `Maybe` | v0.5 | tes tabel konversi |
 | Arena | Eksperimental di v1; resmi di v1.6 sebagai pool memori tetap (isi sekali, baca saja) | v1.6 | `alloc` memakai `ref Arena`; hanya tipe polos |
 | Arena untuk AST compiler | Pakai `Anchor` atau `vec` + indeks | v1.2 | keputusan berdasarkan data waktu kompilasi |
+
+---
+
+### Prinsip normatif lintas versi
+
+**Prinsip normatif lintas versi — keputusan Setya, 19 Oktober 2026:** [teknologi Cat yang mandiri](PRD.md#prinsip-normatif-teknologi-cat-yang-mandiri) berlaku mulai sekarang, tidak menunggu v0.5 atau pasca-v1. Konsep compiler umum boleh dipelajari, tetapi teknologi Cat harus mempunyai semantik, nama, spesifikasi, dan implementasi mandiri sesuai kebutuhan Cat; tidak boleh copy-paste atau rename-only internal Rust. Istilah umum dan perbandingan konseptual bukan izin menyalin atau persetujuan semantik Rust. Lebih baik daripada Rust adalah tujuan pada aspek terukur, bukan capaian yang diklaim di sini; bukti mengikuti [kriteria review lintas versi](PRD-CHANGES-v0.1-to-v1.0.md#prinsip-lintas-versi-desain-mandiri-mulai-sekarang). Catatan ini tidak menentukan atau meratifikasi pipeline, urutan pass, nama tahap baru, atau fitur roadmap, tidak mengubah semantik yang sudah diratifikasi maupun staging versi, dan tidak menandai implementasi selesai. Perubahan material tetap membutuhkan keputusan Setya tersendiri.

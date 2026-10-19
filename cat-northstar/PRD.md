@@ -734,3 +734,14 @@ fn main() {}
 ```
 
 Bukti ini hanya `claw check` untuk dua signature di atas, bukan matriks exit-code native atau semua aturan entrypoint. [Contoh migrasi bernama](GLOBAL-EXAMPLES.md) merupakan pendamping dokumentasi, bukan acceptance compiler.
+
+---
+
+### Prinsip normatif: teknologi Cat yang mandiri
+
+**Keputusan Setya — 19 Oktober 2026:** prinsip ini berlaku mulai sekarang untuk pekerjaan desain dan implementasi Cat pada v0.x, v1, dan sesudahnya; tidak menunggu v0.5. Tujuannya mencegah ketergantungan desain dan revisi besar yang menumpuk ketika Cat digunakan luas.
+
+- **Belajar konsep, bukan menyalin internal.** Konsep compiler umum boleh dipelajari dari Rust maupun sumber lain, tetapi teknologi Cat wajib memiliki semantik, nama, spesifikasi, dan implementasi mandiri yang berangkat dari kebutuhan Cat serta Fast, Safe, Simple. Dilarang copy-paste internal Rust atau sekadar mengganti namanya lalu menyatakannya sebagai teknologi Cat. Nama baru saja bukan bukti kemandirian.
+- **Identitas teknis harus bisa dijelaskan.** Setiap usulan teknologi harus menjelaskan masalah Cat yang diselesaikan, kontrak semantik dan invariant, alasan penamaan, alternatif serta trade-off, dan rencana implementasi beserta tesnya. Bila belajar dari sumber lain, cantumkan sumber konsep dan jelaskan keputusan yang diambil secara mandiri. Istilah standar compiler tetap boleh digunakan; prinsip ini bukan kewajiban menciptakan istilah baru untuk setiap konsep umum.
+- **Lebih baik adalah tujuan yang diuji.** Cat menargetkan perbaikan atas Rust pada aspek yang dinyatakan secara spesifik, bukan mengklaim sudah unggul secara menyeluruh. Sebelum implementasi, tetapkan kriteria penerimaan yang terukur; klaim hasil hanya boleh dibuat dengan tes atau benchmark yang relevan, baseline dan versi pembanding, konfigurasi/toolchain, workload, metrik, serta hasil yang dapat direproduksi. Keunggulan pada satu aspek tidak membuktikan keunggulan pada semua aspek; gerbang Fast/Safe/Simple yang sudah diratifikasi tetap berlaku.
+- **Batas keputusan tetap jujur.** Ini adalah prinsip normatif, bukan persetujuan pipeline, urutan pass, nama tahap, atau teknologi baru tertentu. Perbandingan dengan Rust dalam dokumen lain hanya rujukan konsep, bukan izin menyalin. Keputusan semantik yang telah diratifikasi dan batas versi tetap berlaku; perubahan material atau penggantian nama yang memengaruhi kontrak memerlukan usulan dan ratifikasi Setya tersendiri. Prinsip ini tidak menyatakan bahwa implementasi lama telah diaudit atau fitur compiler telah selesai.
