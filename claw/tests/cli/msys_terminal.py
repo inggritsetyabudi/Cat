@@ -12,7 +12,7 @@ import subprocess
 import threading
 import time
 import tty
-from typing import Mapping, Sequence
+from typing import BinaryIO, Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -27,12 +27,12 @@ def _cygpath(path: Path) -> str:
                           capture_output=True, text=True, timeout=30).stdout.strip()
 
 
-def build_keeper(directory: Path) -> str:
+def build_keeper(directory: Path, compiler: str = "clang") -> str:
     """Build the small native fixture, never a Cygwin/MSYS executable."""
     directory.mkdir(parents=True, exist_ok=True)
     source = Path(__file__).with_name("fixtures") / "msys_console_keeper.c"
     output = directory / "msys_console_keeper.exe"
-    subprocess.run(["clang", "-O2", _cygpath(source), "-o", _cygpath(output)],
+    subprocess.run([compiler, "-x", "c", "-O2", _cygpath(source), "-o", _cygpath(output)],
                    check=True, timeout=30)
     return str(output)
 
@@ -50,7 +50,7 @@ def validate_startup(output: bytes) -> None:
 
 
 def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
-            timeout: float = 30) -> CaptureResult:
+            timeout: float = 30, stdout: BinaryIO | int | None = None) -> CaptureResult:
     """Establish a real console and acknowledge its barrier before launching command.
 
     All startup bytes must match the complete known handshake; all later bytes
@@ -111,8 +111,10 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
         except BaseException as error:
             errors.append(error)
 
-    def launch(args: Sequence[str], **kwargs: object) -> subprocess.Popen[bytes]:
-        process = subprocess.Popen(args, env=dict(env), close_fds=True, **kwargs)
+    def launch(args: Sequence[str], *, process_env: Mapping[str, str] | None = None,
+               **kwargs: object) -> subprocess.Popen[bytes]:
+        process = subprocess.Popen(args, env=dict(env if process_env is None else process_env),
+                                   close_fds=True, **kwargs)
         processes.append(process)
         remaining()
         return process
@@ -131,8 +133,11 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
     try:
         tty.setraw(slave)
         thread.start()
+        # Initialize only the transport with a capable terminal. The measured
+        # child below still receives env unchanged, including TERM=dumb.
         helper = launch([keeper, "--hold"], stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE, stderr=slave)
+                        stdout=subprocess.PIPE, stderr=slave,
+                        process_env=dict(env, TERM="xterm-256color"))
         receive_line(helper, b"READY")
         # The terminal marker is an ordered endpoint of the startup stream.
         while True:
@@ -148,7 +153,8 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
             validate_startup(bytes(startup))
             phase = "measured"
             activity = time.monotonic()
-        child = launch(list(command), stdin=subprocess.DEVNULL, stdout=slave, stderr=slave)
+        child = launch(list(command), stdin=subprocess.DEVNULL,
+                       stdout=slave if stdout is None else stdout, stderr=slave)
         os.close(slave)
         slave = -1
         while child.poll() is None:

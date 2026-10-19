@@ -56,4 +56,12 @@ echo "=== Running C@ CLI Build Status Test Suite ==="
 bash "$SCRIPT_DIR/cli/run_cli_status_tests.sh"
 
 echo ""
+echo "=== Running C@ CLI Diagnostic Format Suite ==="
+bash "$SCRIPT_DIR/cli/run_diagnostic_format_tests.sh"
+
+echo ""
+echo "=== Running C@ CLI Build UX Contract Suite ==="
+python3 "$SCRIPT_DIR/cli/run_build_ux_tests.py"
+
+echo ""
 echo "=== All C@ test suites passed successfully! ==="

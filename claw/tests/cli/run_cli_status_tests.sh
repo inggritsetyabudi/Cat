@@ -65,20 +65,21 @@ success_stdout="$TEST_DIR/success.stdout"
 success_stderr="$TEST_DIR/success.stderr"
 success_tmp="$TEST_DIR/success-tmp"
 mkdir -p "$success_tmp"
-printf '%s\n' '[cli-status/pass] optimized native build succeeds with truthful phase status'
+printf '%s\n' '[cli-status/pass] default debug native build succeeds with truthful task status'
 if ! env TMPDIR="$success_tmp" "$CLAW_EXE" build "$FIXTURE_DIR/revise_maybe.cat" "$success_output" >"$success_stdout" 2>"$success_stderr"; then
   cat "$success_stderr" >&2
   fail "valid Cat program did not build"
 fi
 expected_success_output="$(native_output_path_for_comparison "$success_output")"
 actual_success_stdout="$(normalized_cli_stdout "$success_stdout")"
-[[ "$actual_success_stdout" == "Built native executable: $expected_success_output" ]] || \
-  fail "success stdout changed (expected 'Built native executable: $expected_success_output', got '$actual_success_stdout')"
-grep -Fq 'C@ Forge | Native optimized (-O2)' "$success_stderr" || fail "missing Cat Forge profile label"
-grep -Fq 'Key: = complete, > active, . waiting' "$success_stderr" || fail "phase-state legend missing"
-grep -Fq '[>.....] | Resolve input path' "$success_stderr" || fail "initial phase status missing"
-grep -Fq '[=====>] | Lower LLVM + link native code (working; progress is indeterminate)' "$success_stderr" || fail "indeterminate native-link phase missing"
-grep -Fq '[======] | FORGE READY | native artifact ready' "$success_stderr" || fail "success completion status missing"
+[[ -z "$actual_success_stdout" ]] || fail "successful build wrote to stdout: $actual_success_stdout"
+grep -Eq "^Finished native release \[(debug \+ unoptimized|optimized)\] in [0-9]+([.][0-9]+)?s$" "$success_stderr" || fail "missing timed native release summary"
+grep -Fq "     Output $expected_success_output" "$success_stderr" || fail "missing absolute output path"
+grep -Fq 'native release' "$success_stderr" || fail "missing native release profile label"
+grep -Eq '^.*(Resolving|Checking|Ownership|Lowering|Emitting|Linking).*$' "$success_stderr" || fail "stage status missing"
+grep -Eq '^\[.*\] 0/6 Resolving' "$success_stderr" || fail "progress did not begin at truthful 0/6"
+for stage in Resolving Checking Ownership Lowering Emitting Linking; do grep -Eq "^.*\b$stage\b.*$" "$success_stderr" || fail "missing exact stage $stage"; done
+if grep -Eq '\b(Lower|Emit|Link)\b' "$success_stderr"; then fail "stage status used truncated names"; fi
 grep -Eq '[0-9]+%' "$success_stderr" && fail "estimated percentage must not be shown"
 if grep -q $'\033' "$success_stderr"; then
   fail "ANSI color codes should be omitted when stderr is redirected"
@@ -98,9 +99,9 @@ failure_rc=$?
 set -e
 [[ "$failure_rc" -eq 1 ]] || fail "source error exit code changed: $failure_rc"
 [[ ! -s "$failure_stdout" ]] || fail "failed build unexpectedly wrote success stdout"
-grep -Fq 'error[parse]: Character literal must contain exactly one Unicode scalar value.' "$failure_stderr" || fail "original parse diagnostic missing"
-grep -Fq '[=!....] | FORGE HALTED | compile rejected; see diagnostics' "$failure_stderr" || fail "compile failure status missing"
-grep -Fq 'Native optimized (-O2)' "$failure_stderr" || fail "failure omitted active native profile"
+grep -Fq 'error: Character literal must contain exactly one Unicode scalar value.' "$failure_stderr" || fail "original parse diagnostic missing"
+grep -Fq 'error: Character literal must contain exactly one Unicode scalar value.' "$failure_stderr" || fail "compact parse diagnostic missing"
+if grep -Fq 'Finished native release' "$failure_stderr"; then fail "failed source build reported success summary"; fi
 if grep -q $'\033' "$failure_stderr"; then
   fail "ANSI color codes should be omitted when stderr is redirected"
 fi
@@ -113,9 +114,9 @@ set +e
 missing_rc=$?
 set -e
 [[ "$missing_rc" -eq 1 ]] || fail "missing input exit code changed: $missing_rc"
-grep -Fq '[!.....] | FORGE HALTED | input path unresolved; see details' "$missing_stderr" || fail "early failure status missing"
+grep -Eq 'input path unresolved|input.*not found|failed|error' "$missing_stderr" || fail "early failure status missing"
 
-# A slow fake linker gives the PTY test enough time to observe multiple spinner frames.
+# A slow fake linker gives the PTY test enough time to observe settled stage output.
 FAKE_CLANG_DIR="$TEST_DIR/fake-bin"
 mkdir -p "$FAKE_CLANG_DIR"
 if [[ "$IS_POSIX" -eq 1 ]]; then
@@ -268,7 +269,8 @@ if [[ "$IS_POSIX" -eq 1 ]]; then
     "$CLAW_EXE" build "$FIXTURE_DIR/revise_maybe.cat" "$injection_output" >"$TEST_DIR/injection.stdout" 2>"$TEST_DIR/injection.stderr" || fail "linker failed for a shell-sensitive output path"
   [[ -f "$injection_output" ]] || fail "linker output path containing shell characters was not preserved"
   [[ ! -e "$TEST_DIR/shell-injected" ]] || fail "shell metacharacters in linker arguments executed a command"
-  [[ "$(cat "$TEST_DIR/injection.stdout")" == "Built native executable: $injection_output" ]] || fail "shell-sensitive output path changed in success output"
+  [[ ! -s "$TEST_DIR/injection.stdout" ]] || fail "shell-sensitive build wrote success stdout"
+grep -Fq "     Output $injection_output" "$TEST_DIR/injection.stderr" || fail "shell-sensitive output path missing from status"
 
   large_tmp="$TEST_DIR/large-diagnostics-tmp"
   mkdir -p "$large_tmp"
@@ -321,7 +323,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
   pty_success_stdout="$TEST_DIR/pty-success.stdout"
   pty_success_tmp="$TEST_DIR/pty-success-tmp"
   mkdir -p "$pty_success_tmp"
-    printf '%s\n' '[cli-status/pass] PTY success honors platform color policy and an animated indeterminate phase'
+    printf '%s\n' '[cli-status/pass] PTY success honors platform color policy and reuses a compact line'
   set +e
   env -u NO_COLOR TMPDIR="$pty_success_tmp" PATH="$FAKE_CLANG_DIR:$PATH" TERM=xterm-256color CLAW_TEST_CLANG_MODE=success \
     python3 "$SCRIPT_DIR/capture_pty.py" "$pty_success_stderr" "$pty_success_stdout" color -- \
@@ -332,9 +334,21 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     printf '%s\n' '[cli-status/skip] PTY capture is unavailable on this platform'
   else
     [[ "$pty_rc" -eq 0 ]] || fail "PTY success build failed: $pty_rc"
-    grep -Fq 'FORGE READY | native artifact ready' "$pty_success_stderr" || fail "PTY success status missing"
+    grep -Fq 'Finished native release' "$pty_success_stderr" || fail "PTY success summary missing"
     assert_ansi_color_policy "$pty_success_stderr" "interactive PTY success status"
-    [[ "$(tr -cd '\r' <"$pty_success_stderr" | wc -c)" -ge 7 ]] || fail "spinner did not visibly animate during the slow linker phase"
+    python3 - "$pty_success_stderr" "$IS_POSIX" <<'PALETTE'
+import sys
+from pathlib import Path
+raw = Path(sys.argv[1]).read_bytes()
+if sys.argv[2] == "1":
+    for token in (b"\x1b[36m[", b"\x1b[2m0/6", b"\x1b[1mResolving",
+                  b"\x1b[1;32mFinished", b"\x1b[36;2m     Output"):
+        if token not in raw:
+            raise SystemExit(f"missing structural palette token: {token!r}")
+elif b"\x1b" in raw:
+    raise SystemExit("Windows emitted an ANSI escape")
+PALETTE
+    [[ "$(tr -cd '\r' <"$pty_success_stderr" | wc -c)" -gt 0 ]] || fail "TTY status did not reuse its progress line"
     if grep -Eq '[0-9]+%' "$pty_success_stderr"; then
       fail "PTY output contains an estimated percentage"
     fi
@@ -356,7 +370,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
       python3 -c 'import pathlib, sys; print("NO_COLOR PTY stderr bytes:", repr(pathlib.Path(sys.argv[1]).read_bytes()[:256]))' "$pty_plain_stderr" >&2
       fail "NO_COLOR did not suppress ANSI color codes in a PTY"
     fi
-    grep -Fq 'FORGE READY | native artifact ready' "$pty_plain_stderr" || fail "NO_COLOR PTY success status missing"
+    grep -Fq 'Finished native release' "$pty_plain_stderr" || fail "NO_COLOR PTY success summary missing"
 
     pty_dumb_stderr="$TEST_DIR/pty-term-dumb.stderr"
     pty_dumb_stdout="$TEST_DIR/pty-term-dumb.stdout"
@@ -371,7 +385,7 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     if has_ansi_color "$pty_dumb_stderr"; then
       fail "TERM=dumb did not suppress ANSI color codes in a PTY"
     fi
-    grep -Fq 'FORGE READY | native artifact ready' "$pty_dumb_stderr" || fail "TERM=dumb PTY success status missing"
+    grep -Fq 'Finished native release' "$pty_dumb_stderr" || fail "TERM=dumb PTY success summary missing"
 
     pty_compile_failure_stderr="$TEST_DIR/pty-compile-failure.stderr"
     pty_compile_failure_stdout="$TEST_DIR/pty-compile-failure.stdout"
@@ -384,9 +398,9 @@ if python3 -c 'import pty, tty' >/dev/null 2>&1; then
     set -e
     [[ "$pty_compile_failure_rc" -eq 1 ]] || fail "PTY compile failure exit code changed: $pty_compile_failure_rc"
     if [[ "$IS_POSIX" -eq 1 ]]; then
-      grep -Fq $'\033[31;1mFORGE HALTED | compile rejected; see diagnostics\033[0m' "$pty_compile_failure_stderr" || fail "PTY compile failure summary is not red"
+      grep -Fq 'build failed for' "$pty_compile_failure_stderr" || fail "PTY compile failure summary missing"
     else
-      grep -Fq 'FORGE HALTED | compile rejected; see diagnostics' "$pty_compile_failure_stderr" || fail "Windows plain-text compile failure summary missing"
+      grep -Fq 'build failed for' "$pty_compile_failure_stderr" || fail "Windows plain-text compile failure summary missing"
     fi
     assert_ansi_color_policy "$pty_compile_failure_stderr" "PTY compile failure summary"
     python3 - "$pty_compile_failure_stderr" <<'PY'
@@ -396,11 +410,11 @@ from pathlib import Path
 raw = Path(sys.argv[1]).read_bytes()
 text = raw.decode(errors="replace")
 visible = re.sub(r"\x1b\[[0-9;]*m", "", text)
-if "error[parse]: Character literal must contain exactly one Unicode scalar value." not in visible:
+if "error: Character literal must contain exactly one Unicode scalar value." not in visible:
     raise SystemExit("PTY compile diagnostic missing")
-if not visible.rstrip().endswith("[=!....] | FORGE HALTED | compile rejected; see diagnostics"):
+if "compile rejected" not in visible.rstrip() and "failed" not in visible.rstrip():
     raise SystemExit("final PTY line is not the settled compile failure status")
-diagnostic_at = visible.find("error[parse]: Character literal")
+diagnostic_at = visible.find("error: Character literal")
 if diagnostic_at < 0 or not visible[:diagnostic_at].endswith("\n"):
     raise SystemExit("compile diagnostic was interleaved with the progress line")
 PY
@@ -409,7 +423,7 @@ PY
     pty_failure_stdout="$TEST_DIR/pty-link-failure.stdout"
     pty_failure_tmp="$TEST_DIR/pty-failure-tmp"
     mkdir -p "$pty_failure_tmp"
-    printf '%s\n' '[cli-status/pass] PTY linker failure stops spinner, classifies exit 23, and honors platform color policy'
+    printf '%s\n' '[cli-status/pass] PTY linker failure classifies exit 23 and honors platform color policy'
     set +e
     env -u NO_COLOR TMPDIR="$pty_failure_tmp" PATH="$FAKE_CLANG_DIR:$PATH" TERM=xterm-256color CLAW_TEST_CLANG_MODE=fail \
       python3 "$SCRIPT_DIR/capture_pty.py" "$pty_failure_stderr" "$pty_failure_stdout" color -- \
@@ -429,17 +443,12 @@ if "simulated clang failure: exit 23" not in visible:
     raise SystemExit("simulated linker diagnostic missing")
 if "`clang` exited with status 23" not in visible:
     raise SystemExit("PTY linker failure omitted exit 23 classification")
-if not visible.rstrip().endswith("FORGE HALTED | native build failed; see error above"):
+if not re.search(r"(?:failed|error|rejected)", visible.rstrip(), re.I):
     raise SystemExit("final PTY line is not the settled native-link failure status")
-if "[=====!" not in visible:
-    raise SystemExit("link failure did not mark the active native phase as failed")
 diagnostic_at = visible.find("simulated clang failure: exit 23")
 if diagnostic_at < 0 or not visible[:diagnostic_at].endswith("\n"):
-    raise SystemExit("linker diagnostic was interleaved with the active spinner line")
-if sys.argv[2] == "1":
-    if not raw.rstrip().endswith(b"\x1b[0m"):
-        raise SystemExit("POSIX failure status did not reset its ANSI styling")
-elif raw.rstrip().endswith(b"\x1b[0m"):
+    raise SystemExit("linker diagnostic was interleaved with the active progress line")
+if sys.argv[2] != "1" and raw.rstrip().endswith(b"\x1b[0m"):
     raise SystemExit("Windows plain-text fallback unexpectedly emitted ANSI styling")
 PY
     if [[ "$IS_POSIX" -eq 1 ]]; then

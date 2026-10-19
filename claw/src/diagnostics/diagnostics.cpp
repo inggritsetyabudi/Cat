@@ -42,13 +42,23 @@ std::string lineAt(std::string_view source, size_t targetLine) {
 }
 
 std::string caretLine(const SourceSpan& span) {
-    if (!span.isValid()) {
-        return {};
-    }
-
+    if (!span.isValid()) return {};
     const size_t padding = span.column > 0 ? span.column - 1 : 0;
     const size_t width = std::max<size_t>(1, span.length);
     return std::string(padding, ' ') + std::string(width, '^');
+}
+
+std::string clippedCaretLine(const SourceSpan& span, std::string_view line) {
+    if (!span.isValid() || span.column > line.size() + 1) return {};
+    const size_t padding = span.column - 1;
+    const size_t available = line.size() >= padding ? line.size() - padding : 0;
+    const size_t width = std::min(std::max<size_t>(1, span.length),
+        std::max<size_t>(1, available));
+    std::string prefix;
+    for (size_t i = 0; i < padding; ++i) {
+        prefix += line[i] == '\t' ? '\t' : ' ';
+    }
+    return prefix + std::string(width, '^');
 }
 
 } // namespace
@@ -95,6 +105,46 @@ std::string formatDiagnostic(
         out << "\n " << std::string(lineNumber.size(), ' ') << " | " << caretLine(diagnostic.span);
     }
 
+    return out.str();
+}
+
+std::string formatBuildDiagnostic(
+    const Diagnostic& diagnostic,
+    std::string_view path,
+    std::string_view source) {
+    std::ostringstream out;
+    const std::string effectivePath = diagnostic.path.empty() ? std::string(path) : diagnostic.path;
+    out << severityName(diagnostic.severity) << ": " << diagnostic.message;
+
+    auto render = [&](const SourceSpan& span, std::string_view label,
+                      std::string_view labelPath, bool primary) {
+        const std::string shownPath = labelPath.empty() ? effectivePath : std::string(labelPath);
+        if (!span.isValid()) {
+            return;
+        }
+        if (!primary && !labelPath.empty() && labelPath != effectivePath) {
+            out << "\n = note: " << shownPath << ":" << span.line << ":" << span.column;
+            if (!label.empty()) out << " " << label;
+            return;
+        }
+        const std::string lineText = lineAt(source, span.line);
+        out << "\n --> " << shownPath << ":" << span.line << ":" << span.column;
+        if (!lineText.empty()) {
+            const std::string lineNumber = std::to_string(span.line);
+            out << "\n " << lineNumber << " | " << lineText;
+            const std::string caret = clippedCaretLine(span, lineText);
+            if (!caret.empty()) {
+                out << "\n " << std::string(lineNumber.size(), ' ') << " | " << caret;
+                if (!label.empty()) out << " " << label;
+            }
+        }
+    };
+
+    render(diagnostic.span, diagnostic.primaryLabel, {}, true);
+    for (const auto& secondary : diagnostic.secondaryLabels) {
+        render(secondary.span, secondary.label, secondary.path, false);
+    }
+    if (!diagnostic.span.isValid()) out << "\n --> " << effectivePath;
     return out.str();
 }
 

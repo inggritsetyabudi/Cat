@@ -14,6 +14,7 @@ MODES = ("check", "validate", "air", "emit-air", "oir", "emit-oir",
 BUILDS = ("build", "build-native")
 ENV = dict(os.environ, NO_COLOR="1", TERM="xterm")
 HEADER = "error[lexer]: Unterminated block comment."
+BUILD_SOURCE = "error: Unterminated block comment."
 WINDOWS_NATIVE = os.name == "nt" or sys.platform.startswith(("msys", "cygwin"))
 
 
@@ -74,8 +75,15 @@ def main() -> int:
                 # Normalize only path separators, keeping one exact full location.
                 locations = [part[5:].replace("\\", "/") for part in stderr.splitlines()
                              if part.startswith(" --> ")]
+                headers = [part for part in stderr.splitlines()
+                           if part.startswith("error")]
+                if mode in BUILDS:
+                    expected_headers = [BUILD_SOURCE,
+                                        f"error: build failed for `{path.stem}`"]
+                else:
+                    expected_headers = [HEADER]
                 valid = (result.returncode == 1 and not result.stdout
-                         and stderr.count(HEADER) == 1
+                         and headers == expected_headers
                          and locations == [location.replace("\\", "/")]
                          and any(part.strip() == "|" + " " * column + "^^"
                                  for part in stderr.splitlines())

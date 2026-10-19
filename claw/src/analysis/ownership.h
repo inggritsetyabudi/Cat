@@ -28,7 +28,14 @@ struct BorrowToken {
     std::string viewKind;
     std::string rootBindingIdentity;
 
-    bool operator==(const BorrowToken& other) const = default;
+    // Diagnostic metadata travels with the active token through branch snapshots.
+    // It is deliberately excluded from semantic borrow identity.
+    SourceSpan originSpan;
+
+    bool operator==(const BorrowToken& other) const {
+        return rootName == other.rootName && accessPath == other.accessPath &&
+            viewKind == other.viewKind && rootBindingIdentity == other.rootBindingIdentity;
+    }
 };
 
 enum class StorageState {
@@ -102,6 +109,8 @@ private:
     void reportError(const std::string& msg);
     void reportError(const SourceSpan& span, const std::string& msg);
     void reportError(const AstNode* node, const std::string& msg);
+    void reportError(const SourceSpan& span, const std::string& msg, const std::string& primaryLabel, const std::vector<DiagnosticLabel>& secondaryLabels);
+    std::optional<SourceSpan> borrowOrigin(const BorrowToken& token) const;
     void checkDecl(Decl* decl);
     void checkFnDecl(FnDecl* fn);
     void checkStmt(Stmt* stmt);

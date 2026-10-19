@@ -26,7 +26,9 @@ run_negative() {
   done
   local out="$ARTIFACT_DIR/$name.exe"; rm -f "$out" "${out%.exe}.ll"
   if "$CLAW_EXE" build "$src" "$out" >"$RUN_DIR/$name.build.log" 2>&1; then echo "build unexpectedly accepted $name" >&2; exit 1; fi
-  [[ "$(grep -Foc "$diag" "$RUN_DIR/$name.build.log" || true)" == 1 && "$(grep -Ec '^error\[' "$RUN_DIR/$name.build.log" || true)" == 1 ]] || { echo "non-exact diagnostic for $name/build" >&2; cat "$RUN_DIR/$name.build.log" >&2; exit 1; }
+  build_errors="$(grep -Ec '^error: ' "$RUN_DIR/$name.build.log" || true)"
+  build_failure="$(grep -Foc "error: build failed for \`$name\`" "$RUN_DIR/$name.build.log" || true)"
+  [[ "$(grep -Foc "$diag" "$RUN_DIR/$name.build.log" || true)" == 1 && "$build_errors" == 2 && "$build_failure" == 1 ]] || { echo "non-exact diagnostic for $name/build" >&2; cat "$RUN_DIR/$name.build.log" >&2; exit 1; }
   expect_no_outputs "$out"
   echo "[check/oir/llvm/build/pass] $name"
 }

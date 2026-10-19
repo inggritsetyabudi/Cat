@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -46,6 +47,7 @@ def main() -> int:
         for name, source, diagnostic, line, column in cases:
             path = root / f"{name}.cat"
             path.write_text(source, encoding="utf-8")
+            reference_messages = None
             for mode in ("check", "oir", "llvm", "build"):
                 exe = root / f"{name}-{mode}.exe"
                 args = [compiler, mode, str(path)]
@@ -55,9 +57,25 @@ def main() -> int:
                                         encoding="utf-8", env=env, timeout=30, check=False)
                 stderr = result.stderr.replace("\r", "")
                 expected_location = f"{name}.cat:{line}:{column}"
+                headers = re.findall(r"^error(?:\[([^\]]+)\])?: (.*)$", stderr,
+                                     re.MULTILINE)
+                if mode == "build":
+                    final = ("", f"build failed for `{name}`")
+                    diagnostic_ok = (bool(headers) and headers[-1] == final
+                                     and headers.count(final) == 1
+                                     and all(stage == "" for stage, _ in headers))
+                    messages = [message for _, message in headers[:-1]]
+                else:
+                    diagnostic_ok = bool(headers) and all(stage == "semantic" for stage, _ in headers)
+                    messages = [message for _, message in headers]
+                # Some existing semantic cases intentionally produce multiple errors;
+                # preserve their complete messages consistently across all commands.
+                if reference_messages is None:
+                    reference_messages = messages
+                diagnostic_ok = (diagnostic_ok and messages == reference_messages
+                                 and any(diagnostic in message for message in messages))
                 valid = (result.returncode != 0 and not result.stdout
-                         and "error[semantic]" in stderr and diagnostic in stderr
-                         and expected_location in stderr
+                         and diagnostic_ok and expected_location in stderr
                          and not exe.exists() and not exe.with_suffix(".ll").exists())
                 if not valid:
                     raise SystemExit(f"FAIL {name}/{mode}: expected semantic rejection at "

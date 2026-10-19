@@ -5,6 +5,7 @@ import os
 import select
 import subprocess
 import sys
+import tempfile
 import time
 
 
@@ -30,6 +31,32 @@ def main() -> int:
     elif mode != "color":
         print(f"unknown PTY test mode: {mode}", file=sys.stderr)
         return 2
+
+    is_msys = sys.platform.startswith(("msys", "cygwin"))
+    if is_msys:
+        # Native MSYS launches perform a console startup handshake on the PTY.
+        # Keep that protocol outside the command's measured stderr; do not
+        # filter bytes from the measured stream itself.
+        from pathlib import Path
+
+        from msys_terminal import build_keeper, capture
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="claw-capture-pty-") as temporary:
+                # Linker scenarios put a fake `clang` first on PATH. Build
+                # the native fixture with the real C++ driver in C mode instead.
+                keeper = build_keeper(Path(temporary) / "native-helper", compiler="clang++")
+                with open(stdout_path, "wb") as stdout_file:
+                    result = capture(command, env, keeper, timeout=60,
+                                     stdout=stdout_file)
+                with open(stderr_path, "wb") as stderr_file:
+                    stderr_file.write(result.output)
+                with open(stderr_path + ".startup", "wb") as startup_file:
+                    startup_file.write(result.startup_output)
+                return result.returncode
+        except (OSError, RuntimeError, TimeoutError) as error:
+            print(f"PTY capture failed: {error}", file=sys.stderr)
+            return 1
 
     try:
         master, slave = pty.openpty()

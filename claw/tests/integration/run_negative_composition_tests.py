@@ -36,8 +36,17 @@ def main() -> int:
                 result = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", env=env, timeout=30)
                 stderr = result.stderr.replace("\r", "")
                 location = f"{copied.name}:{case['line']}:{case['column']}"
-                headers = re.findall(r"^error\[[^\]]+\]: (.*)$", stderr, re.MULTILINE)
-                exact_diagnostic = case["diagnostic"] in headers
+                headers = re.findall(r"^error(?:\[[^\]]+\])?: (.*)$", stderr, re.MULTILINE)
+                final_failure = f"build failed for `{copied.stem}`"
+                if mode == "build":
+                    exact_diagnostic = (headers.count(case["diagnostic"]) == 1
+                                        and headers.count(final_failure) == 1
+                                        and len(headers) == 2)
+                else:
+                    exact_diagnostic = (headers == [case["diagnostic"]]
+                                        and re.search(r"^error\[[^\]]+\]: " +
+                                                      re.escape(case["diagnostic"]),
+                                                      stderr, re.MULTILINE) is not None)
                 exact_location = re.search(r"^ --> .*[/\\]" + re.escape(location) + r"$", stderr, re.MULTILINE)
                 ok = (result.returncode > 0 and result.stdout == ""
                       and exact_diagnostic and exact_location

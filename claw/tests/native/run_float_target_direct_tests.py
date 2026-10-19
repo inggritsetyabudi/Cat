@@ -131,8 +131,18 @@ def main() -> None:
             for command in ("check", "build"):
                 result = run([claw, command, str(source)] + ([str(target)] if command == "build" else []))
                 assert result.returncode != 0, f"{name} unexpectedly passed {command}"
-                assert "error[semantic]" in result.stdout and diagnostic in result.stdout, f"{name}/{command}:\n{result.stdout}"
-                assert "Compilation failed:" not in result.stdout, f"{name} failed too late in lowering"
+                headers = re.findall(r"^error(?:\[[^\]]+\])?: .*\S.*$",
+                                     result.stdout, re.MULTILINE)
+                if command == "build":
+                    source_headers = [header for header in headers
+                                      if header.startswith("error: ")
+                                      and not header.startswith("error: build failed for ")]
+                    assert (len(source_headers) == 1 and diagnostic in source_headers[0]
+                            and headers.count(f"error: build failed for `{name}`") == 1
+                            and len(headers) == 2), f"{name}/{command}:\n{result.stdout}"
+                else:
+                    assert (len(headers) == 1 and headers[0].startswith("error[semantic]: ")
+                            and diagnostic in headers[0]), f"{name}/{command}:\n{result.stdout}"
                 assert not target.exists() and not target.with_suffix(".ll").exists(), name
     print(f"[float/pass] {len(cases)} independent rejection cases through check and build")
 
