@@ -12,39 +12,32 @@ The currently verified implementation includes a revised syntax subset, workspac
 
 ## System shape
 
-```text
-C@ source (.cat) / workspace (claw.toml)
-        |
-        v
-  input resolution and package/module loading
-        |
-        v
-  lexer -> parser -> AST
-        |
-        v
-  semantic analysis (types, names, imports, visibility, constructs)
-        |
-        +--> AIR   (`claw air`)
-        |
-        v
-  ownership / borrow checking (supported checked paths)
-        |
-        v
-  OIR (typed/lowered control flow, bindings, drops, choices, try)
-        |
-        v
-  LIR (backend-facing blocks, layouts, ABI and safety metadata)
-        |
-        v
-  LLVM IR
-        |
-        +--> `claw llvm` output
-        |
-        v
-  clang -O2 + bundled native_runtime.c
-        |
-        v
-  native executable (`.exe` on the current documented flow)
+```mermaid
+flowchart TD
+    A["C@ source (.cat) / workspace (claw.toml)"]
+    B["input resolution and package/module loading"]
+    C["lexer -> parser -> AST"]
+    D["semantic analysis (types, names, imports, visibility, constructs)"]
+    AIR["AIR (claw air)"]
+    E["ownership / borrow checking (supported checked paths)"]
+    F["OIR (typed/lowered control flow, bindings, drops, choices, try)"]
+    G["LIR (backend-facing blocks, layouts, ABI and safety metadata)"]
+    H["LLVM IR"]
+    LLVM["claw llvm output"]
+    I["clang -O2 + bundled native_runtime.c"]
+    J["native executable (.exe on the current documented flow)"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    D --> AIR
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+    H --> LLVM
+    I --> J
 ```
 
 The stages are implemented in [`claw/src/`](./claw/src). The command driver is [`claw/src/driver/main.cpp`](./claw/src/driver/main.cpp); it owns command dispatch, project validation, diagnostics, and orchestration. The native link boundary is [`claw/src/driver/native_build.cpp`](./claw/src/driver/native_build.cpp).
