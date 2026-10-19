@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Threads REQUIRED)
 
+option(CLAW_ENABLE_LLVM_CPP_POC "Build the opt-in LLVM C++ backend PoC" OFF)
+
 add_library(claw_frontend
     src/diagnostics/diagnostics.cpp
     src/lexer/lexer.cpp
@@ -47,3 +49,8 @@ add_custom_command(TARGET claw POST_BUILD
     COMMENT "Bundling Claw native runtime"
     VERBATIM
 )
+
+if(CLAW_ENABLE_LLVM_CPP_POC)
+    include(CTest)
+    add_subdirectory(experimental/llvm_cpp)
+endif()
