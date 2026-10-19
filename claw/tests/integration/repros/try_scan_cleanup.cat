@@ -1,0 +1,23 @@
+fn make_failure() -> Result[Int32, String] {
+    return Fail(String.from("failure"))
+}
+
+fn scan_failure() -> Result[Int32, String] {
+    scan index over 0..1 {
+        val guard = String.from("scan-guard")
+        val value = try make_failure()
+        println(guard)
+        return Ok(value)
+    }
+    return Ok(0)
+}
+
+fn main() -> Int32 {
+    val result = scan_failure()
+    pick result {
+        Ok(value) { println(value) }
+        Fail(error) { println(error) }
+    }
+    println("after")
+    return 0
+}

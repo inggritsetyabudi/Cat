@@ -26,6 +26,11 @@ CASES = [
     ("composition_implicit_result", FIX / "composition_implicit_result.cat", "42\nmissing\n5\nnone\n9\n"),
     ("composition_ownership_ranges", FIX / "composition_ownership_ranges.cat",
      "left\n10\nright\n20\nmissing\né\nboundary\nAéB\n0\n1\n1\n2\n254\n0\n255\n1\n1\n3\n"),
+    ("composition_owned_result_loops", FIX / "composition_owned_result_loops.cat",
+     "scan-success\nnext\nscan-guard\nbypass\nnext\nscan-guard\nhalt\nscan-after\n2\nreport-after\n"
+     "scan-failure\nnext\nscan-guard\nbypass\nfailure\nreport-after\n"
+     "loop-success\nnext\nloop-guard\nbypass\nnext\nloop-guard\nhalt\n4\nreport-after\n"
+     "loop-failure\nnext\nloop-guard\nbypass\nloop-error\nfailure\nreport-after\nall-after\n"),
 ]
 SAN_FLAGS = ["-fsanitize=address,undefined,leak", "-fno-omit-frame-pointer", "-g"]
 SAN_ENV = dict(os.environ, ASAN_OPTIONS="detect_leaks=1:halt_on_error=1",
