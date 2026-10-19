@@ -43,3 +43,5 @@ Main `f1b74544f32b989d1c5c016fb552dd972edad9e0` was merged into the existing UI 
 The CLI status capture now uses the established native console keeper/barrier on MSYS/Cygwin before measuring the child. Startup protocol bytes are retained separately, validated fail-closed, and never filtered from measured output. An optional stdout sink preserves the compiler stdout/stderr separation. Existing no-ANSI, palette, error, and status assertions are unchanged. POSIX capture is unchanged.
 
 The inherited Windows baseline-stack diagnostic oracle remains `0xC00000FD`. A run observing a different raw baseline exception is recorded as a failed diagnostic, not relaxed into a pass; independent comparison evidence is retained separately from UI acceptance. All updated-HEAD full-suite and review results must be read from the PR, not inferred from earlier SHA results.
+
+The console keeper alone initializes with a capable terminal environment; the measured child retains the original environment exactly, including `TERM=dumb` and `NO_COLOR`. This keeps the pre-measurement transport setup separate from the compiler color-policy scenario under test.

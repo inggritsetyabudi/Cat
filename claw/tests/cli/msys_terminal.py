@@ -111,8 +111,10 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
         except BaseException as error:
             errors.append(error)
 
-    def launch(args: Sequence[str], **kwargs: object) -> subprocess.Popen[bytes]:
-        process = subprocess.Popen(args, env=dict(env), close_fds=True, **kwargs)
+    def launch(args: Sequence[str], *, process_env: Mapping[str, str] | None = None,
+               **kwargs: object) -> subprocess.Popen[bytes]:
+        process = subprocess.Popen(args, env=dict(env if process_env is None else process_env),
+                                   close_fds=True, **kwargs)
         processes.append(process)
         remaining()
         return process
@@ -131,8 +133,11 @@ def capture(command: Sequence[str], env: Mapping[str, str], keeper: str,
     try:
         tty.setraw(slave)
         thread.start()
+        # Initialize only the transport with a capable terminal. The measured
+        # child below still receives env unchanged, including TERM=dumb.
         helper = launch([keeper, "--hold"], stdin=subprocess.PIPE,
-                        stdout=subprocess.PIPE, stderr=slave)
+                        stdout=subprocess.PIPE, stderr=slave,
+                        process_env=dict(env, TERM="xterm-256color"))
         receive_line(helper, b"READY")
         # The terminal marker is an ordered endpoint of the startup stream.
         while True:
