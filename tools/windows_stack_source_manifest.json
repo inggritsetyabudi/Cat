@@ -24,10 +24,22 @@
       "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
       "type": "blob"
     },
+    ".github/workflows/pair-layout-proof.yml": {
+      "mode": "100644",
+      "oid": "253bb413f571647a2251b47b146af8edeefd8c38",
+      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
+      "type": "blob"
+    },
     "changelog/2026-10-20-immutable-stack-oracle-adapter-boundary.md": {
       "mode": "100644",
       "oid": "968ac0943cac11f983b261a3c225f5ff78369834",
       "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
+      "type": "blob"
+    },
+    "changelog/2026-10-20-pair-int32-layout-proof.md": {
+      "mode": "100644",
+      "oid": "99a8204ec268be0eac0ffa874dde4872f8e35236",
+      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
       "type": "blob"
     },
     "changelog/2026-10-20-pair-int32-production-native-roundtrip.md": {
@@ -70,6 +82,24 @@
       "mode": "100644",
       "oid": "92a019504c51f16df2d0d5fe88ca1e638f1607cc",
       "reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
+      "type": "blob"
+    },
+    "tools/pair_layout/CMakeLists.txt": {
+      "mode": "100644",
+      "oid": "9481cd59121078a79ca7dc9b7ce70d51909b6dc1",
+      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
+      "type": "blob"
+    },
+    "tools/pair_layout/probe.cpp": {
+      "mode": "100644",
+      "oid": "381e581a0377256c0280ddd7ad7950aa333f0467",
+      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
+      "type": "blob"
+    },
+    "tools/pair_layout/run.py": {
+      "mode": "100644",
+      "oid": "716b212f53813a0e88a25ad1b5b32cbdb4861f66",
+      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
       "type": "blob"
     },
     "tools/windows_stack_contract.py": {

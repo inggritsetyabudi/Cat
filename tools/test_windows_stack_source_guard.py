@@ -88,6 +88,36 @@ class SourceGuardTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.reject_changed(path)
 
+    def test_negative_all_reviewed_blob_deletions_and_mode_changes(self):
+        for path in self.manifest['reviewed_changes']:
+            for entry in (None, ('100755', 'blob', self.allowed[path][2]),
+                          ('120000', 'blob', self.allowed[path][2])):
+                changed = dict(self.allowed)
+                if entry is None:
+                    del changed[path]
+                else:
+                    changed[path] = entry
+                with self.subTest(path=path, entry=entry), self.assertRaises(ValueError):
+                    guard.validate(self.baseline, changed, self.manifest)
+
+    def test_pair_layout_utility_has_exact_pins_not_maintenance_exemptions(self):
+        paths = {
+            '.github/workflows/pair-layout-proof.yml',
+            'tools/pair_layout/CMakeLists.txt',
+            'tools/pair_layout/probe.cpp',
+            'tools/pair_layout/run.py',
+            'changelog/2026-10-20-pair-int32-layout-proof.md',
+        }
+        self.assertTrue(paths <= set(self.manifest['reviewed_changes']))
+        self.assertFalse(paths & set(self.manifest['prototype_maintenance_paths']))
+        self.assertEqual(set(self.manifest['prototype_maintenance_paths']), {
+            '.github/workflows/windows-stack-oracle-prototype.yml',
+            'tools/windows_stack_source_guard.py',
+            'tools/test_windows_stack_source_guard.py',
+            'tools/windows_stack_source_manifest.json',
+            'changelog/2026-10-20-stack-oracle-source-manifest-guard.md',
+        })
+
     def test_negative_deleted_or_mode_changed_production_file(self):
         path = 'claw/src/codegen/llvm.cpp'
         for entry in (None, ('100755', 'blob', self.allowed[path][2])):
