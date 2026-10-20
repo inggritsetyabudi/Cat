@@ -1,0 +1,89 @@
+name: Windows stack oracle prototype (TEST ONLY)
+on:
+  push:
+    branches: [diag/windows-stack-oracle-20261020, poc/llvm-cpp-adapter-20261019]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  immutable-oracle:
+    name: Immutable first-chance oracle (${{ matrix.worker }})
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [a, b]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 6d697e88a8f679e26732f906f85ae831cdc52bca
+          path: original-source
+      - name: Preserve immutable failed attempt and verify its provenance
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_TEST_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          New-Item -ItemType Directory -Force evidence | Out-Null
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -ne $env:EXPECTED_TEST_HEAD) { throw 'Test checkout is not exact event head' }
+          $actual | Out-File evidence/test-head.txt
+          gh api repos/inggritsetyabudi/Cat/actions/artifacts/12238612261 > evidence/immutable-artifact.json
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact metadata fetch failed' }
+          $meta = Get-Content evidence/immutable-artifact.json -Raw | ConvertFrom-Json
+          if ($meta.workflow_run.id -ne 39364055321 -or $meta.workflow_run.head_sha -ne '6d697e88a8f679e26732f906f85ae831cdc52bca') { throw 'Wrong artifact source run/head' }
+          gh api repos/inggritsetyabudi/Cat/actions/artifacts/12238612261/zip > evidence/attempt-1-original.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Immutable artifact download failed' }
+          $hash = (Get-FileHash evidence/attempt-1-original.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne '1e3ca92e235812654583885841a688a6bdf81512eae9ef0f12ef7aeae7e2bc8c') { throw 'Original archive SHA256 mismatch' }
+          Expand-Archive evidence/attempt-1-original.zip original
+          Copy-Item original/windows-stack-diagnostic.json evidence/attempt-1-FAILED.json
+          gh api repos/inggritsetyabudi/Cat/actions/runs/39364055321/attempts/1 > evidence/attempt-1-run.json
+          if ($LASTEXITCODE -ne 0) { throw 'Attempt-1 metadata fetch failed' }
+          $run = Get-Content evidence/attempt-1-run.json -Raw | ConvertFrom-Json
+          if ($run.run_attempt -ne 1 -or $run.conclusion -ne 'failure') { throw 'Attempt-1 failure not preserved' }
+          $claw = (git rev-parse HEAD:claw).Trim()
+          $originalClaw = (git -C original-source rev-parse HEAD:claw).Trim()
+          if ($claw -ne $originalClaw) { throw 'This immutable prototype does not cover changed production/test source' }
+          foreach ($file in @('.github/workflows/backend-stack-diagnostic.yml','CMakeLists.txt')) {
+            if ((Test-Path $file) -and (Test-Path "original-source/$file")) {
+              if ((Get-FileHash $file).Hash -ne (Get-FileHash "original-source/$file").Hash) { throw "Original gate/default file changed: $file" }
+            }
+          }
+          [ordered]@{testHead=$actual; sourceHead='6d697e88a8f679e26732f906f85ae831cdc52bca'; clawTree=$claw; computer=$env:COMPUTERNAME; imageOS=$env:ImageOS; imageVersion=$env:ImageVersion; cwd=(Get-Location).Path} | ConvertTo-Json | Out-File evidence/provenance.json
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-binutils
+            python
+            git
+      - name: Build observer and negative controls; run paired native/debugged binaries
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          clang --version > evidence/clang-version.txt
+          objdump --version > evidence/objdump-version.txt
+          uname -a > evidence/msys-version.txt
+          clang -std=c11 -Wall -Wextra -municode "$(cygpath -w tools/windows_stack_oracle_debug.c)" -o evidence/oracle-debug.exe
+          printf '#include <windows.h>\nint main(void){void*p=VirtualAlloc(0,4096,MEM_RESERVE|MEM_COMMIT,PAGE_NOACCESS);if(!p)return 2;*(volatile int*)p=1;return 0;}\n' > evidence/unrelated-av.c
+          printf '#include <windows.h>\nint main(void){RaiseException(0xC00000FD,0,0,0);return 0;}\n' > evidence/synthetic-so.c
+          clang -O0 evidence/unrelated-av.c -o evidence/unrelated-av.exe
+          clang -O0 evidence/synthetic-so.c -o evidence/synthetic-so.exe
+          python3 tools/windows_stack_oracle.py --root "$PWD/original" --output "$PWD/evidence/oracle" \
+            --debugger "$PWD/evidence/oracle-debug.exe" --probe "$PWD/original/windows_stack_status_probe.exe" \
+            --controls "$PWD/evidence" --source-root "$PWD/original-source" --repetitions 16 \
+            2>&1 | tee evidence/oracle-run.log
+      - name: Retain every raw debug event and the original failed attempt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-stack-oracle-${{ matrix.worker }}
+          path: evidence
+          if-no-files-found: error
