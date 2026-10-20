@@ -3,6 +3,7 @@
 import copy
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 import windows_stack_source_guard as guard
@@ -36,6 +37,22 @@ class SourceGuardTests(unittest.TestCase):
 
     def test_positive_actual_committed_head(self):
         guard.validate(self.baseline, guard.tree_entries(ROOT, 'HEAD'), self.manifest)
+
+    def test_manifest_windows_crlf_checkout(self):
+        raw = guard.git(ROOT, 'show', 'HEAD:tools/windows_stack_source_manifest.json')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'manifest.json'
+            for content in (raw, raw.replace(b'\n', b'\r\n')):
+                path.write_bytes(content)
+                self.assertEqual(guard.load_manifest(path), self.manifest)
+
+    def test_manifest_content_tamper_rejected(self):
+        raw = guard.git(ROOT, 'show', 'HEAD:tools/windows_stack_source_manifest.json')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'manifest.json'
+            path.write_bytes(raw.replace(b'"format"', b'"tamper"'))
+            with self.assertRaisesRegex(ValueError, 'checkout differs'):
+                guard.load_manifest(path)
 
     def test_negative_production_sentinel(self):
         self.reject_changed('claw/src/codegen/llvm.cpp')

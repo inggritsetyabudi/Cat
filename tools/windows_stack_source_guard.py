@@ -26,9 +26,14 @@ def git(root, *args):
 
 
 def load_manifest(path):
-    raw = Path(path).read_bytes()
+    # Windows checkout may expand LF to CRLF. Hash the committed blob, not
+    # checkout bytes; require the working copy to agree apart from CRLF only.
+    root = Path(__file__).resolve().parents[1]
+    raw = git(root, 'show', 'HEAD:tools/windows_stack_source_manifest.json')
     if hashlib.sha256(raw).hexdigest() != MANIFEST_SHA256:
         raise ValueError('source manifest digest differs from reviewed manifest')
+    if Path(path).read_bytes().replace(b'\r\n', b'\n') != raw:
+        raise ValueError('source manifest checkout differs from committed blob')
     result = json.loads(raw)
     if (result['source_head'], result['adapter_reviewed_head'],
         result['pair_reviewed_head'], result['adapter_path']) != (

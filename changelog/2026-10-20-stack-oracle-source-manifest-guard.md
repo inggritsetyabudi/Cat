@@ -22,6 +22,14 @@ only explicit reviewed exceptions recorded in a digest-pinned manifest.
   fail closed. Focused controls exercise accepted exact pair/adapter content and
   rejected production sentinels, original inputs, unknown paths and adapter drift.
 
+The initial correction `26668d4` passed 12 local controls and independent review,
+but its exact-head CI remained 8/10: both Windows prototype workers rejected the
+manifest digest before tests because checkout line endings differed. That failed
+run is retained as run `39382543535`. The follow-up hashes the exact committed
+manifest blob (unchanged digest), checks checkout equivalence allowing CRLF-to-LF
+conversion only, and adds LF/CRLF positive and content-tampering negative controls.
+No production or reviewed adapter/pair blob exception is broadened.
+
 The original stack workflow, observer, binary/archive hashes, provenance and
 accepted exception/status rules are unchanged. Historical attempt-1 raw AV
 `0xC0000005` remains **unresolved**, irrespective of later green executions.
