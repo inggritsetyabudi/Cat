@@ -122,7 +122,9 @@ jobs:
       - name: Compare unchanged legacy corpora against exact b148 baseline
         run: |
           set -euo pipefail
-          git worktree add --detach "$RUNNER_TEMP/pair-legacy-baseline" b148ab71a622582245878082cc342448424994ba
+          native_git="$(cygpath -u "${PROGRAMFILES:-C:/Program Files}")/Git/cmd/git.exe"
+          test -x "$native_git"
+          "$native_git" worktree add --detach "$(cygpath -w "$RUNNER_TEMP/pair-legacy-baseline")" b148ab71a622582245878082cc342448424994ba
           cmake -S "$RUNNER_TEMP/pair-legacy-baseline/claw" -B "$RUNNER_TEMP/pair-legacy-build" -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=/ucrt64/bin/clang++.exe -DCLAW_ENABLE_LLVM_CPP_POC=ON -DCLAW_LLVM_CONFIG=/ucrt64/bin/llvm-config.exe -DPython3_EXECUTABLE=/ucrt64/bin/python.exe 2>&1 | tee ci-evidence/legacy-configure.log
           cmake --build "$RUNNER_TEMP/pair-legacy-build" --target claw-llvm-poc --parallel 2 2>&1 | tee ci-evidence/legacy-build.log
           /ucrt64/bin/python.exe claw/experimental/llvm_cpp/test_pair_legacy.py --baseline "$RUNNER_TEMP/pair-legacy-build/experimental/llvm_cpp/claw-llvm-poc.exe" --emitter build-pair/experimental/llvm_cpp/claw-llvm-poc.exe --readobj /ucrt64/bin/llvm-readobj.exe --artifacts build-pair/experimental/llvm_cpp/pair-artifacts/legacy 2>&1 | tee ci-evidence/legacy-byte-identity.log

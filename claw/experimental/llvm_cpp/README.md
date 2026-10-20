@@ -333,3 +333,6 @@ optimization `None` dan `Default`. Ini **bukan** janji pipeline IR Cat debug/rel
 atau optimisasi IR O2 tambahan. Tanpa profile eksplisit, TargetMachine default lama
 tetap sama, termasuk corpus scalar dan singleton. Profile pair tanpa flag pair,
 profile ganda, atau nilai low-level selain 0/2 ditolak sebelum publikasi output.
+
+Baseline byte-exact Windows harus dibuat memakai Git native yang sama dengan
+verifikasi revisi CMake; worktree pointer MSYS tidak dipakai sebagai substitusi.

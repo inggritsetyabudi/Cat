@@ -27,3 +27,10 @@ sama. Gate diperbaiki dengan profile machine-code pair-only eksplisit None/Defau
 (`--pair-codegen-O0`/`--pair-codegen-O2`), bukan sekadar nama direktori. Tidak ada
 pipeline IR debug/release baru; profile default -1 mempertahankan perilaku scalar
 atau singleton lama dan profile tanpa pair ditolak sebelum output.
+
+Pada `cb64bfa`, seluruh admission/native pair dan layout Linux+Windows serta PoC
+Release/host-sanitizer/Windows lulus. Job pair Windows kemudian gagal saat
+konfigurasi baseline: Git MSYS menghasilkan pointer worktree yang tidak terbaca
+Git native CMake. Workflow menggunakan Git native saat membuat baseline, tanpa
+mengubah source baseline atau menonaktifkan verifikasi revisi. Job PTY terpisah
+berhenti exit127 tanpa diagnostik cukup; tidak ada assertion/source PTY diubah.
