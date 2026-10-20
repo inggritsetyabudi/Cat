@@ -114,7 +114,9 @@ def emit_env(args, root):
         if not args.readobj:
             raise HarnessError("Windows requires --readobj for the isolated emitter import closure")
         if not hasattr(args, "_emitter_env"):
-            _, args._emitter_env = isolated_windows_emitter(root, args.poc, args.readobj)
+            # The existing helper creates its child, not this caller-owned root.
+            root.mkdir(parents=True, exist_ok=True)
+            args.poc, args._emitter_env = isolated_windows_emitter(root, args.poc, args.readobj)
         return args._emitter_env
     env = os.environ.copy(); env["PATH"] = ""
     for key in ("CC", "CXX", "CLAW_NATIVE_CLANG"):
