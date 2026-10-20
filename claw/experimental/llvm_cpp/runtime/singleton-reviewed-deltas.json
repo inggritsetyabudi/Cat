@@ -19,6 +19,6 @@
     "claw/experimental/llvm_cpp/singleton_admission.h": "386f410a437d19a7d22d1a90acd3979cb82a2c6db9078ba573d0ce4994881a22",
     "claw/experimental/llvm_cpp/singleton_admission.cpp": "353e26872e546d4552c9fd4bb6219302a950a99ef2ef0f8cae6ec3034131c2fb",
     "claw/experimental/llvm_cpp/test_singleton_admission.cpp": "dd4845e038f1fc872725f1bcb3e45cb83c1d8fbe91d2ac4ae92a84e5146d8339",
-    "claw/experimental/llvm_cpp/test_singleton_native.py": "5d6ee9c76f573c7014d6c7d91354b151a384f5201994546f46ab828422a7c630"
+    "claw/experimental/llvm_cpp/test_singleton_native.py": "3e2c5f3321e3c264cb0092b081a63f8224331d2429c613e1a87366cd08719958"
   }
 }

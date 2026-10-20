@@ -116,7 +116,10 @@ def emit_env(args, root):
         if not hasattr(args, "_emitter_env"):
             # The existing helper creates its child, not this caller-owned root.
             root.mkdir(parents=True, exist_ok=True)
-            args.poc, args._emitter_env = isolated_windows_emitter(root, args.poc, args.readobj)
+            isolation, args._emitter_env = isolated_windows_emitter(root, args.poc, args.readobj)
+            args.poc = isolation / args.poc.name
+            if not args.poc.is_file():
+                raise HarnessError("isolated Windows emitter is not a file: " + str(args.poc))
         return args._emitter_env
     env = os.environ.copy(); env["PATH"] = ""
     for key in ("CC", "CXX", "CLAW_NATIVE_CLANG"):

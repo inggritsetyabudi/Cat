@@ -7,3 +7,9 @@ Perbaikan hanya pada harness baru: membuat parent milik test sebelum memanggil h
 Sebelum koreksi ini, local Linux Release dan host ASan/UBSan masing-masing telah menyelesaikan 23/23 CTest dan seluruh suite produksi dalam disposable source copies; compiler subtree identik pada head koreksi. Hasil tersebut bukan bukti eksekusi native Windows. Kelulusan Windows baru boleh dinyatakan setelah run exact-head koreksi selesai.
 
 PR #36 tetap draft, opsi default OFF, tanpa merge/promotion. Windows sanitizer tetap SKIP bila tidak tersedia. Terminal access violation stack attempt1 tetap failure nyata yang belum terselesaikan dan tidak diubah oleh perbaikan test harness ini.
+
+## Koreksi kontrak nilai balik helper
+
+Run koreksi `8a0253fca08e874a13863b5741599085dcd27a23` kembali 9/10 dengan `WinError 5` pada gate Windows ([run 39377041096](https://github.com/inggritsetyabudi/Cat/actions/runs/39377041096)). Parent kini ada, tetapi helper historis mengembalikan **directory isolasi**, bukan file executable. Pemanggil baru sempat menggunakan directory itu sebagai argv[0]; kegagalan ini milik harness, bukan hasil native sukses dan bukan access violation backend.
+
+Pemanggil sekarang memakai `directory / original_emitter.name` dan mewajibkan hasilnya file sebelum subprocess. Helper historis, daftar DLL, kontrol PATH, dan semua assertion acceptance/rejection tetap utuh. Probe kontrak host berikutnya menggunakan implementasi helper sebenarnya, dengan hanya inspeksi import DLL dimock, agar perbedaan directory/file ini tidak dapat disamarkan fixture helper palsu. Probe host ini bukan eksekusi native Windows; gate native exact-head tetap wajib dijalankan ulang.
