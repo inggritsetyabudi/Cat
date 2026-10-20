@@ -89,11 +89,24 @@ def main():
         if set(singleton_added)!=expected_singleton_added:raise HarnessError('wrong singleton added file set')
         for path,expected in singleton_added.items():
             if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('singleton added file changed: '+path)
+        pair_delta=json.loads((Path(__file__).parent/'pair-reviewed-deltas.json').read_text())
+        if pair_delta['base_head']!='b148ab71a622582245878082cc342448424994ba':raise HarnessError('wrong pair backend base')
+        pair_files=pair_delta['files']
+        if set(pair_files)!=singleton_allowed:raise HarnessError('wrong pair backend delta set')
+        for path,delta in pair_files.items():
+            if delta['before']!=singleton_files[path]['after']:raise HarnessError('pair delta does not match singleton lock: '+path)
+        pair_added=pair_delta['added_files']
+        expected_pair_added={'claw/experimental/llvm_cpp/'+name for name in
+            ('pair_admission.h','pair_admission.cpp','pair_layout.h','test_pair_admission.cpp','test_pair_native.py','test_pair_legacy.py')}
+        if set(pair_added)!=expected_pair_added:raise HarnessError('wrong pair added file set')
+        for path,expected in pair_added.items():
+            if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('pair added file changed: '+path)
         for path,expected in lock['files'].items():
             if path in deltas:expected=deltas[path]['after']
             if path in parameter_files:expected=parameter_files[path]['after']
             if path in tuple_files:expected=tuple_files[path]['after']
             if path in singleton_files:expected=singleton_files[path]['after']
+            if path in pair_files:expected=pair_files[path]['after']
             if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('evidence-only audit changed protected implementation/oracle: '+path)
         tracked=execute([a.git,'-C',repo,'ls-files','--',*lock['protected_paths']],'tracked-implementation-files')['stdout'].splitlines()
         if set(tracked)!=set(lock['files'])|set(added):raise HarnessError('protected implementation file set changed')
@@ -102,6 +115,7 @@ def main():
         report['reviewed_parameter_metadata_deltas']=parameter_delta
         report['reviewed_tuple_cleanup_metadata_deltas']=tuple_delta
         report['reviewed_singleton_backend_deltas']=singleton_delta
+        report['reviewed_pair_backend_deltas']=pair_delta
         manifest=json.loads(a.manifest.read_text());archive=Path(manifest['archive']['path']).resolve()
         if archive!=a.runtime.resolve():raise HarnessError('runtime archive/manifest mismatch')
         prep=json.loads(a.string_preparation.read_text())

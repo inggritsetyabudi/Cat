@@ -1,0 +1,26 @@
+{
+  "base_head": "b148ab71a622582245878082cc342448424994ba",
+  "scope": "Separate bounded internal pair backend opt-in; historical singleton/scalar corpora and production remain immutable",
+  "files": {
+    "claw/experimental/llvm_cpp/adapter.cpp": {
+      "before": "918a77d8db1a8f6cb343a50c33e7a732dff7a3baa2705d885c38c51eff2cf628",
+      "after": "c3f042c610cb1265cea377c0a12108dc86ed12693a71c31281fa3c10617f0bb1"
+    },
+    "claw/experimental/llvm_cpp/adapter.h": {
+      "before": "45823a4b4490749d0398da804ff46b12e80897887291f159bc8e471a4be0e313",
+      "after": "015766d65f4fa7dc8856f3edc74b5a78f0c9347e0cf4fc54ddb7a8a1b2a270f8"
+    },
+    "claw/experimental/llvm_cpp/driver.cpp": {
+      "before": "d0f0321d6687f7965450d1ec5db1a0c7a51a82598c06e8c475b845623fba1833",
+      "after": "4159032749c8fe301aa5b3569640588e0f97847cafda1a82815b92f68d59e1ca"
+    }
+  },
+  "added_files": {
+    "claw/experimental/llvm_cpp/pair_admission.h": "2ad355c57746d75f72856ab9c0e3c6a533a7a2ec802f0e2aaa147ecf40dded25",
+    "claw/experimental/llvm_cpp/pair_admission.cpp": "d298f03f871e8090c15da45f1cb5b85adb11d19d82a19ed143c8063f72b59210",
+    "claw/experimental/llvm_cpp/pair_layout.h": "2fd9ecdcaf4354cfc6302c6cd0a596d25a0b1a4b5e42bc34707c6de90ec7acbe",
+    "claw/experimental/llvm_cpp/test_pair_admission.cpp": "673a78504119e7ce4328568a20aa73dafd00d991b2e20004df5e784cbd1d1dea",
+    "claw/experimental/llvm_cpp/test_pair_native.py": "09c7d5f07a529816cbf8f86906e5c51c9308f0560501e1484c9b9eb212a28a71",
+    "claw/experimental/llvm_cpp/test_pair_legacy.py": "e44ce8e1973c99bbe63551fb0eefc5f8aa7cc4a7474fb977ccf9adee88e2edd0"
+  }
+}

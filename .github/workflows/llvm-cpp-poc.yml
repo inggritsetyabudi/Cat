@@ -130,6 +130,7 @@ jobs:
             ci-evidence/
             build-llvm-poc/Testing/Temporary/LastTest.log
             build-llvm-poc/experimental/llvm_cpp/singleton-artifacts/
+            build-llvm-poc/experimental/llvm_cpp/pair-artifacts/
             build-llvm-poc/experimental/llvm_cpp/artifacts/results.json
             build-llvm-poc/experimental/llvm_cpp/adapter-artifacts/*.log
             build-llvm-poc/experimental/llvm_cpp/lld/artifacts/testdata.json
@@ -305,6 +306,7 @@ jobs:
             ci-evidence/
             build-llvm-poc-win/Testing/Temporary/LastTest.log
             build-llvm-poc-win/experimental/llvm_cpp/singleton-artifacts/
+            build-llvm-poc-win/experimental/llvm_cpp/pair-artifacts/
             build-llvm-poc-win/experimental/llvm_cpp/artifacts/results.json
             build-llvm-poc-win/experimental/llvm_cpp/llvm-sdk-provenance.txt
             build-llvm-poc-win/experimental/llvm_cpp/adapter-artifacts/*.log

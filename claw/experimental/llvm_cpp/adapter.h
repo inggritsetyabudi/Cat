@@ -15,6 +15,8 @@ struct ObjectOptions {
     bool enableStrings = false;
     // Exact nonowned Tuple[Int32], validated independently before LLVM emission.
     bool enableSingletonI32 = false;
+    // Exact nonowned Tuple[Int32,Int32], validated independently before LLVM emission.
+    bool enablePairI32 = false;
 };
 
 // Low-level opt-in PoC: scalar LIR and an explicitly enabled bounded String slice.

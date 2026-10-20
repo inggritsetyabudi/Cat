@@ -1,0 +1,137 @@
+name: Pair adapter (opt-in, native exact23)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  linux:
+    name: Pair adapter (native Linux, LLVM 23.1.3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install SDK dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends clang cmake ninja-build python3-zstandard libxml2-dev zlib1g-dev libzstd-dev
+      - name: Fetch exact checksum-pinned SDK
+        run: |
+          mkdir -p ci-evidence
+          /usr/bin/python3 claw/experimental/llvm_cpp/fetch_sdk.py --destination "$RUNNER_TEMP/llvm23-sdk" --with-lld | tee ci-evidence/sdk-fetch.json
+          "$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" --version --host-target | tee ci-evidence/sdk-version.txt
+      - name: Build exact pair adapter, production comparator and prebuilt runtime
+        run: |
+          set -euo pipefail
+          cmake -S claw -B build-pair -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=/usr/bin/gcc-13 -DCLAW_ENABLE_LLVM_CPP_POC=ON -DCLAW_ENABLE_LLD_POC=ON -DCLAW_ENABLE_RUNTIME_POC=ON -DCLAW_LLVM_CONFIG="$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" -DCLAW_LLD_EXECUTABLE="$RUNNER_TEMP/llvm23-sdk/bin/ld.lld" -DPython3_EXECUTABLE=/usr/bin/python3 2>&1 | tee ci-evidence/configure.log
+          cmake --build build-pair --parallel 2 --verbose 2>&1 | tee ci-evidence/build.log
+      - name: Run exact-head typed admission and native pair gates
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          ctest --test-dir build-pair -R '^llvm-cpp-pair-(admission|native)$' --no-tests=error --output-on-failure 2>&1 | tee ci-evidence/pair.log
+      - name: Compare unchanged legacy corpora against exact b148 baseline
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/pair-legacy-baseline" b148ab71a622582245878082cc342448424994ba
+          cmake -S "$RUNNER_TEMP/pair-legacy-baseline/claw" -B "$RUNNER_TEMP/pair-legacy-build" -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCLAW_ENABLE_LLVM_CPP_POC=ON -DCLAW_LLVM_CONFIG="$RUNNER_TEMP/llvm23-sdk/bin/llvm-config" -DPython3_EXECUTABLE=/usr/bin/python3 2>&1 | tee ci-evidence/legacy-configure.log
+          cmake --build "$RUNNER_TEMP/pair-legacy-build" --target claw-llvm-poc --parallel 2 2>&1 | tee ci-evidence/legacy-build.log
+          /usr/bin/python3 claw/experimental/llvm_cpp/test_pair_legacy.py --baseline "$RUNNER_TEMP/pair-legacy-build/experimental/llvm_cpp/claw-llvm-poc" --emitter build-pair/experimental/llvm_cpp/claw-llvm-poc --artifacts build-pair/experimental/llvm_cpp/pair-artifacts/legacy 2>&1 | tee ci-evidence/legacy-byte-identity.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: pair-adapter-native-linux
+          path: |
+            ci-evidence/
+            build-pair/Testing/Temporary/LastTest.log
+            build-pair/experimental/llvm_cpp/pair-artifacts/
+          if-no-files-found: error
+
+  windows:
+    name: Pair adapter (native Windows UCRT, LLVM 23.1.3)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      GIT_CONFIG_COUNT: '1'
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: 'false'
+      PYTHONUTF8: '1'
+      PYTHONIOENCODING: utf-8
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-gcc
+            git
+      - name: Install exact checksum-pinned native SDK
+        run: |
+          set -euo pipefail
+          mkdir -p ci-evidence
+          pkg=mingw-w64-ucrt-x86_64-llvm-23.1.3-1-any.pkg.tar.zst
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/$pkg" "https://repo.msys2.org/mingw/ucrt64/$pkg"
+          printf '%s  %s\n' d23bf19409cbafe837b9ef04b29943e81955eda2842e866ac0c77ef3126be569 "$RUNNER_TEMP/$pkg" | sha256sum -c - | tee ci-evidence/sdk-checksum.txt
+          pacman -U --noconfirm "$RUNNER_TEMP/$pkg"
+          test "$(/ucrt64/bin/llvm-config.exe --version)" = 23.1.3
+          /ucrt64/bin/llvm-config.exe --version --host-target | tee ci-evidence/sdk-version.txt
+          lld_pkg=mingw-w64-ucrt-x86_64-lld-23.1.3-1-any.pkg.tar.zst
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/$lld_pkg" "https://repo.msys2.org/mingw/ucrt64/$lld_pkg"
+          printf '%s  %s\n' 88dd5b3cd86dbda5ea956a51f49066447123ac3b07526bc6becfe91b79189b8c "$RUNNER_TEMP/$lld_pkg" | sha256sum -c -
+          pacman -U --noconfirm "$RUNNER_TEMP/$lld_pkg"
+          /ucrt64/bin/ld.lld.exe --version | grep -E '^LLD 23[.]1[.]3([[:space:](]|$)'
+          pacman -Q > ci-evidence/packages.txt
+      - name: Build exact pair adapter, production comparator and prebuilt runtime
+        run: |
+          set -euo pipefail
+          cmake -S claw -B build-pair -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=/ucrt64/bin/clang++.exe -DCMAKE_C_COMPILER=/ucrt64/bin/clang.exe -DCLAW_ENABLE_LLVM_CPP_POC=ON -DCLAW_ENABLE_LLD_POC=ON -DCLAW_ENABLE_RUNTIME_POC=ON -DCLAW_LLVM_CONFIG=/ucrt64/bin/llvm-config.exe -DCLAW_LLD_EXECUTABLE=/ucrt64/bin/ld.lld.exe -DPython3_EXECUTABLE=/ucrt64/bin/python.exe 2>&1 | tee ci-evidence/configure.log
+          cmake --build build-pair --parallel 2 --verbose 2>&1 | tee ci-evidence/build.log
+      - name: Run exact-head typed admission and native pair gates
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          ctest --test-dir build-pair -R '^llvm-cpp-pair-(admission|native)$' --no-tests=error --output-on-failure 2>&1 | tee ci-evidence/pair.log
+          echo 'Windows sanitizer: SKIP (not available); historical attempt-1 AV unresolved' | tee ci-evidence/sanitizer-scope.txt
+      - name: Compare unchanged legacy corpora against exact b148 baseline
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/pair-legacy-baseline" b148ab71a622582245878082cc342448424994ba
+          cmake -S "$RUNNER_TEMP/pair-legacy-baseline/claw" -B "$RUNNER_TEMP/pair-legacy-build" -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=/ucrt64/bin/clang++.exe -DCLAW_ENABLE_LLVM_CPP_POC=ON -DCLAW_LLVM_CONFIG=/ucrt64/bin/llvm-config.exe -DPython3_EXECUTABLE=/ucrt64/bin/python.exe 2>&1 | tee ci-evidence/legacy-configure.log
+          cmake --build "$RUNNER_TEMP/pair-legacy-build" --target claw-llvm-poc --parallel 2 2>&1 | tee ci-evidence/legacy-build.log
+          /ucrt64/bin/python.exe claw/experimental/llvm_cpp/test_pair_legacy.py --baseline "$RUNNER_TEMP/pair-legacy-build/experimental/llvm_cpp/claw-llvm-poc.exe" --emitter build-pair/experimental/llvm_cpp/claw-llvm-poc.exe --readobj /ucrt64/bin/llvm-readobj.exe --artifacts build-pair/experimental/llvm_cpp/pair-artifacts/legacy 2>&1 | tee ci-evidence/legacy-byte-identity.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: pair-adapter-native-windows-ucrt
+          path: |
+            ci-evidence/
+            build-pair/Testing/Temporary/LastTest.log
+            build-pair/experimental/llvm_cpp/pair-artifacts/
+          if-no-files-found: error

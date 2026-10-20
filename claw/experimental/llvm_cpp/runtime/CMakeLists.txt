@@ -93,6 +93,13 @@ if(BUILD_TESTING)
             --profile "${CLAW_LLVM_POC_PLATFORM}" ${_runtime_profile_args})
     set_tests_properties(llvm-cpp-singleton-native PROPERTIES
         DEPENDS llvm-cpp-poc-runtime TIMEOUT 300)
+    add_test(NAME llvm-cpp-pair-native
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/../test_pair_native.py"
+            --emitter "$<TARGET_FILE:claw-llvm-poc>" --production "$<TARGET_FILE:claw>"
+            --runtime "$<TARGET_FILE:claw_llvm_cpp_poc_runtime>" --external "${CLAW_LLD_EXECUTABLE}"
+            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/../pair-artifacts/native"
+            --profile "${CLAW_LLVM_POC_PLATFORM}" ${_runtime_profile_args})
+    set_tests_properties(llvm-cpp-pair-native PROPERTIES DEPENDS llvm-cpp-poc-runtime TIMEOUT 300)
     # Existing native wrapping semantics only: O0/O2 are optimization profiles,
     # not a newly invented Cat debug-safety profile. Keep the old gates intact.
     add_test(NAME llvm-cpp-poc-arithmetic
