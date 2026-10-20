@@ -59,7 +59,7 @@ def inspect_stages(oir, lir):
         require(marker in lir, f'Missing production storage/call marker: {marker}')
 
 
-def inspect_ir(text):
+def inspect_ir(text, native=True):
     # Check the unoptimized production module, not Clang's optimizer output.
     # In particular, {i32} must not be scalar-coerced as if this were C FFI.
     definitions = re.findall(r'^define .*$', text, re.M)
@@ -67,10 +67,10 @@ def inspect_ir(text):
         'define internal { i32 } @"singleton_roundtrip::make"(i32 %arg.x) {',
         'define internal i32 @"singleton_roundtrip::take"({ i32 } %arg.p) {',
         'define internal i32 @"singleton_roundtrip::main"() {',
-        'define i32 @main() {',
     ):
         require(expected in definitions, f'Missing exact Cat LLVM signature: {expected}')
-    require(len(definitions) == 4, 'Unexpected function definition(s)')
+    require(len(definitions) == (4 if native else 3), 'Unexpected function definition(s)')
+    require(('define i32 @main() {' in definitions) == native, 'Wrong native wrapper policy')
     require(not re.search(r'\b(sret|byval|inalloca|preallocated|undef|poison)\b', text), 'Unexpected ABI coercion or uninitialized value')
     require('ret.slot' not in text and 'runtime.' not in text, 'Unexpected hidden result/runtime cleanup')
     lines = text.splitlines()
@@ -79,7 +79,7 @@ def inspect_ir(text):
     require(len(allocas) == 3 and all(l.endswith(', align 4') for l in allocas), 'Wrong singleton storage count/alignment')
     require(len(geps) == 2 and all(re.search(r'getelementptr inbounds \{ i32 \}, ptr %[^,]+, i32 0, i32 0$', l) for l in geps), 'Wrong nonpacked field-0 address calculation')
     calls = [l.strip() for l in lines if 'call ' in l]
-    require(len(calls) == 3, 'Unexpected calls')
+    require(len(calls) == (3 if native else 2), 'Unexpected calls')
     require(any('call { i32 } @"singleton_roundtrip::make"(i32 42)' in l for l in calls), 'Missing direct aggregate result call')
     require(any(re.search(r'call i32 @"singleton_roundtrip::take"\(\{ i32 \} %[^)]+\)$', l) for l in calls), 'Missing direct aggregate parameter call')
     # Canonical make stores field 0 before its first whole-value load/return.
@@ -132,6 +132,8 @@ def main():
             require(not record['stderr_hex'], f'{stage}: unexpected diagnostic')
             (root/(stage+'.txt')).write_bytes(bytes.fromhex(record['stdout_hex']))
         inspect_stages(result['stages']['oir']['stdout'], result['stages']['lir']['stdout'])
+        stage_ir = result['stages']['llvm']['stdout'].replace('\r\n', '\n')
+        result['stage_ir'] = inspect_ir(stage_ir, native=False)
         for level, flags in [('O0', []), ('O2', ['--release'])]:
             directory = root/level; directory.mkdir(exist_ok=True)
             exe = directory/'production.exe'; ll = exe.with_suffix('.ll')
@@ -145,7 +147,9 @@ def main():
             require(item['native']['exit'] == 42 and not item['native']['stdout_hex'] and not item['native']['stderr_hex'], f'Expected exit42 and empty stdout/stderr: {item["native"]}')
             item['executable_format'] = executable_format(exe, windows)
             text = ll.read_text(encoding='utf8'); item['ir'] = inspect_ir(text)
-            require(text == result['stages']['llvm']['stdout'].replace('\r\n', '\n'), 'Build IR differs from inspected production llvm stage')
+            wrapper = 'define i32 @main() {\nentry:\n  %entry.result.0 = call i32 @"singleton_roundtrip::main"()\n  ret i32 %entry.result.0\n}\n'
+            require(text.endswith(wrapper), 'Missing exact native entry wrapper')
+            require(text[:-len(wrapper)].rstrip() == stage_ir.rstrip(), 'Build IR differs from llvm stage beyond the verified native wrapper')
             triple = re.search(r'^target triple = "([^"]+)"$', text, re.M)
             require(triple and triple[1] == ('x86_64-w64-windows-gnu' if windows else 'x86_64-unknown-linux-gnu'), 'Wrong native production triple')
             effective = directory/'clang-effective.ll'

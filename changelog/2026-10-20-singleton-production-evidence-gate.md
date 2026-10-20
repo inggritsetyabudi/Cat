@@ -32,6 +32,13 @@ be mistaken for a newly published artifact or overwrite stale evidence. All prio
 corpora and gates remain in place. Linux release/sanitizer and Windows native
 UCRT64 CI upload the probe's command/results, IR, layout and executable evidence.
 
+The initial evidence-test revision incorrectly compared the build IR, which has
+a native entry wrapper, byte-for-byte with the `llvm` stage, which does not.
+Independent review and the first local/CI executions caught this test bug. The
+corrected test validates both modules and the exact wrapper separately, then
+requires their remaining IR to match. The failed first run remains evidence;
+this correction does not change any production emission.
+
 This change does **not** implement aggregate lowering, add a generic field store,
 modify production codegen/semantics, enable any backend by default, establish C
 ABI compatibility, or close malformed-LIR/invalid-slot/store/field/initialization
