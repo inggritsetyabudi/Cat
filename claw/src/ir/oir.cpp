@@ -187,6 +187,8 @@ struct FunctionLoweringContext {
     int nextTemp = 0;
     int nextBlock = 0;
     int nextRawRegion = 0;
+    uint64_t nextSyntheticStorageId = 1;
+    uint64_t mintSyntheticStorageId() { return nextSyntheticStorageId++; }
     std::vector<LoopTargets> loopStack;
     std::vector<std::string> rawRegionStack;
 
@@ -282,28 +284,26 @@ void appendDropForValue(
     size_t blockIndex,
     const std::string& name,
     const ResolvedType& type,
-    const std::string& bindingKey = {}) {
+    const std::string& bindingKey = {},
+    Provenance provenance = {}) {
     if (type.name == "Tuple") {
+        if (!provenance.source.has_value() && !bindingKey.empty()) {
+            provenance.source = SourceProjection{bindingKey, {}};
+        }
         for (size_t i = 0; i < type.params.size(); ++i) {
             const ResolvedType& fieldType = type.params[i];
-            if (!hasOwnedTupleField(fieldType)) {
-                continue;
-            }
+            if (!hasOwnedTupleField(fieldType)) continue;
             const std::string fieldName = context.tempName();
-            appendInst(
-                context,
-                blockIndex,
-                OirFieldInst{
-                    fieldName,
-                    OirValue{name, type.describe(), false, false, bindingKey},
-                    std::to_string(i),
-                    fieldType.describe()});
-            appendDropForValue(context, blockIndex, fieldName, fieldType);
+            const Provenance fieldProvenance = provenance.project(i, context.mintSyntheticStorageId());
+            appendInst(context, blockIndex, OirFieldInst{
+                fieldName, OirValue{name, type.describe(), false, false, bindingKey, {}, provenance},
+                std::to_string(i), fieldType.describe(), fieldProvenance});
+            appendDropForValue(context, blockIndex, fieldName, fieldType, {}, fieldProvenance);
         }
         return;
     }
     if (type.isOwned()) {
-        appendInst(context, blockIndex, OirDropInst{name, type.describe(), bindingKey});
+        appendInst(context, blockIndex, OirDropInst{name, type.describe(), bindingKey, provenance});
     }
 }
 
@@ -391,11 +391,9 @@ void lowerTupleBindingPattern(
         if (element->kind == PickPatternKind::Wildcard) {
             if (hasOwnedTupleField(fieldType)) {
                 const std::string fieldValueName = context.tempName();
-                appendInst(
-                    context,
-                    blockIndex,
-                    OirFieldInst{fieldValueName, tupleValue, std::to_string(i), type});
-                appendDropForValue(context, blockIndex, fieldValueName, fieldType);
+                const Provenance fieldProvenance = tupleValue.provenance.project(i, context.mintSyntheticStorageId());
+                appendInst(context, blockIndex, OirFieldInst{fieldValueName, tupleValue, std::to_string(i), type, fieldProvenance});
+                appendDropForValue(context, blockIndex, fieldValueName, fieldType, {}, fieldProvenance);
             }
             continue;
         }
@@ -1603,7 +1601,8 @@ OirFunction OirEmitter::lowerFn(const FnDecl* fn, std::string_view realmName, st
             context.function.params.push_back(OirParam{
                 fn->params[i].name,
                 paramType.describe(),
-                layout.has_value() ? layout->passKind : AbiPassKind::Unknown});
+                layout.has_value() ? layout->passKind : AbiPassKind::Unknown,
+                fn->params[i].backendBindingKey});
         }
     }
     const ResolvedType returnType = signature ? signature->returnType : makeUnknownType();

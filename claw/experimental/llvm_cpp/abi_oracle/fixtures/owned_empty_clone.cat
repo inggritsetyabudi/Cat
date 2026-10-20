@@ -1,0 +1,5 @@
+fn main() { val empty = String.from("")
+val owner = String.from("é")
+val copy = owner.clone()
+println(empty.as_str())
+println(copy.as_str()) }

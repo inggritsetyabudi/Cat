@@ -1,0 +1,3 @@
+fn relay(value: String) -> String { return value }
+fn main() { val owner = relay(String.from("Aé😀\0Z"))
+println(owner.as_str()) }

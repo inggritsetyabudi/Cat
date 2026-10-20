@@ -1,0 +1,211 @@
+#!/usr/bin/env python3
+"""Preserve the legacy identity boundary; separately test opt-in local metadata."""
+from __future__ import annotations
+import argparse,hashlib,json,os,re,sys
+from pathlib import Path
+from test_strings import (runtime_argv,no_compiler,check_run,native_bytes,
+                          profile,isolate,verify_exe,verify_target,HarnessError,
+                          file_record,stamp,run,clean_ledger,SAN_ENV,sanitizer_argv)
+
+BASELINE='e394800450593026426c3f56a18ac4473864d997'
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__)
+    for name in ('emitter','production','runtime','external','manifest','cc','artifacts','string-preparation','git'):
+        p.add_argument('--'+name,type=Path,required=True)
+    p.add_argument('--expected-sha',required=True)
+    p.add_argument('--profile',required=True)
+    p.add_argument('--local-binding-keys',action='store_true')
+    p.add_argument('--ucrt-prefix',type=Path);p.add_argument('--sysroot',type=Path)
+    p.add_argument('--readobj',type=Path)
+    a=p.parse_args();root=a.artifacts.absolute();root.mkdir(parents=True,exist_ok=True)
+    repo=Path(__file__).resolve().parents[4]
+    report={'schema':'cat-binding-identity-audit/v1','status':'running','baseline_implementation':BASELINE,
+            'head':a.expected_sha,'profile':a.profile,'decision':'STOP: no universal declaration/use/drop ID before LIR',
+            'cases':[],'commands':[]}
+    report['local_binding_keys']=a.local_binding_keys
+    if a.local_binding_keys:report['decision']='Opt-in local/formal/val-tuple declarations and scoped tuple-cleanup metadata; no universal provenance or aggregate adapter lowering'
+    def execute(argv,label,env=None,ok=0):
+        rec={'phase':label,**run(argv,env=env)};report['commands'].append(rec)
+        if ok is not None and rec['exit']!=ok:raise HarnessError(label+': '+rec['stderr'])
+        return rec
+    try:
+        actual=execute([a.git,'-C',repo,'rev-parse','HEAD'],'exact-head')['stdout'].strip()
+        if actual!=a.expected_sha:raise HarnessError('source HEAD changed since configure')
+        # This gate must not silently turn a stopped audit into implementation.
+        lock=json.loads((Path(__file__).parent/'binding-identity-implementation-lock.json').read_text())
+        if lock['baseline_implementation']!=BASELINE:raise HarnessError('wrong baseline implementation lock')
+        # Preserve every original hash. Only these reviewed opt-in metadata
+        # changes may differ; adapter/runtime/oracles and the file set stay locked.
+        deltas=json.loads((Path(__file__).parent/'local-binding-reviewed-deltas.json').read_text())
+        allowed={'claw/src/analysis/sema.cpp','claw/src/analysis/sema.h','claw/experimental/llvm_cpp/driver.cpp'}
+        if set(deltas)!=allowed:raise HarnessError('wrong local metadata delta set')
+        for path,delta in deltas.items():
+            if delta['before']!=lock['files'][path]:raise HarnessError('local delta does not match original lock: '+path)
+        # The historical lock and first local delta remain immutable. Formal
+        # parameter correspondence is a separately reviewed, explicit next step.
+        parameter_delta=json.loads((Path(__file__).parent/'parameter-binding-reviewed-deltas.json').read_text())
+        if parameter_delta['base_head']!='e0b08f6c36b25fe364cd9c40f4d3893e34cf20c0':raise HarnessError('wrong parameter metadata base')
+        parameter_files=parameter_delta['files']
+        parameter_allowed={
+            'claw/src/ast/ast.h','claw/src/analysis/sema.cpp','claw/src/analysis/sema.h',
+            'claw/src/analysis/ownership.cpp','claw/src/ir/oir.h','claw/src/ir/oir.cpp',
+            'claw/src/ir/lir.h','claw/src/ir/lir.cpp',
+            'claw/experimental/llvm_cpp/adapter.cpp','claw/experimental/llvm_cpp/test_adapter.cpp'}
+        if set(parameter_files)!=parameter_allowed:raise HarnessError('wrong formal parameter metadata delta set')
+        for path,delta in parameter_files.items():
+            before=deltas[path]['after']if path in deltas else lock['files'][path]
+            if delta['before']!=before:raise HarnessError('parameter delta does not match preceding lock: '+path)
+        # Keep both earlier delta ledgers immutable. This next metadata-only
+        # step has an exact changed-file set and exactly one new IR header.
+        tuple_delta=json.loads((Path(__file__).parent/'tuple-cleanup-reviewed-deltas.json').read_text())
+        if tuple_delta['base_head']!='15ec7579d28eb95fee27cafc7fd3952ba6254fe6':raise HarnessError('wrong tuple cleanup metadata base')
+        tuple_files=tuple_delta['files']
+        tuple_allowed={'claw/src/analysis/sema.cpp','claw/src/ir/oir.h','claw/src/ir/oir.cpp',
+                       'claw/src/ir/lir.h','claw/src/ir/lir.cpp',
+                       'claw/experimental/llvm_cpp/adapter.cpp','claw/experimental/llvm_cpp/test_adapter.cpp'}
+        if set(tuple_files)!=tuple_allowed:raise HarnessError('wrong tuple cleanup metadata delta set')
+        for path,delta in tuple_files.items():
+            before=parameter_files[path]['after']if path in parameter_files else (deltas[path]['after']if path in deltas else lock['files'][path])
+            if delta['before']!=before:raise HarnessError('tuple delta does not match preceding lock: '+path)
+        added=tuple_delta['added_files']
+        if set(added)!={'claw/src/ir/provenance.h'}:raise HarnessError('wrong tuple cleanup added file set')
+        for path,expected in added.items():
+            if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('tuple metadata added file changed: '+path)
+        # Keep historical ledgers/corpora immutable. This separate backend-only
+        # delta grants no String/sibling-owner acceptance in this older audit.
+        singleton_delta=json.loads((Path(__file__).parent/'singleton-reviewed-deltas.json').read_text())
+        if singleton_delta['base_head']!='24211867ed293bc4a501fadbf0d6d6961fce6768':raise HarnessError('wrong singleton backend base')
+        singleton_files=singleton_delta['files']
+        singleton_allowed={'claw/experimental/llvm_cpp/adapter.cpp',
+                           'claw/experimental/llvm_cpp/adapter.h','claw/experimental/llvm_cpp/driver.cpp'}
+        if set(singleton_files)!=singleton_allowed:raise HarnessError('wrong singleton backend delta set')
+        for path,delta in singleton_files.items():
+            before=tuple_files[path]['after']if path in tuple_files else(parameter_files[path]['after']if path in parameter_files else(deltas[path]['after']if path in deltas else lock['files'][path]))
+            if delta['before']!=before:raise HarnessError('singleton delta does not match preceding lock: '+path)
+        singleton_added=singleton_delta['added_files']
+        expected_singleton_added={'claw/experimental/llvm_cpp/'+name for name in
+            ('singleton_admission.h','singleton_admission.cpp','test_singleton_admission.cpp','test_singleton_native.py')}
+        if set(singleton_added)!=expected_singleton_added:raise HarnessError('wrong singleton added file set')
+        for path,expected in singleton_added.items():
+            if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('singleton added file changed: '+path)
+        pair_delta=json.loads((Path(__file__).parent/'pair-reviewed-deltas.json').read_text())
+        if pair_delta['base_head']!='b148ab71a622582245878082cc342448424994ba':raise HarnessError('wrong pair backend base')
+        pair_files=pair_delta['files']
+        if set(pair_files)!=singleton_allowed:raise HarnessError('wrong pair backend delta set')
+        for path,delta in pair_files.items():
+            if delta['before']!=singleton_files[path]['after']:raise HarnessError('pair delta does not match singleton lock: '+path)
+        pair_added=pair_delta['added_files']
+        expected_pair_added={'claw/experimental/llvm_cpp/'+name for name in
+            ('pair_admission.h','pair_admission.cpp','pair_layout.h','test_pair_admission.cpp','test_pair_native.py','test_pair_legacy.py')}
+        if set(pair_added)!=expected_pair_added:raise HarnessError('wrong pair added file set')
+        for path,expected in pair_added.items():
+            if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('pair added file changed: '+path)
+        for path,expected in lock['files'].items():
+            if path in deltas:expected=deltas[path]['after']
+            if path in parameter_files:expected=parameter_files[path]['after']
+            if path in tuple_files:expected=tuple_files[path]['after']
+            if path in singleton_files:expected=singleton_files[path]['after']
+            if path in pair_files:expected=pair_files[path]['after']
+            if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('evidence-only audit changed protected implementation/oracle: '+path)
+        tracked=execute([a.git,'-C',repo,'ls-files','--',*lock['protected_paths']],'tracked-implementation-files')['stdout'].splitlines()
+        if set(tracked)!=set(lock['files'])|set(added):raise HarnessError('protected implementation file set changed')
+        report['baseline_code_lock']=lock
+        report['reviewed_metadata_deltas']=deltas
+        report['reviewed_parameter_metadata_deltas']=parameter_delta
+        report['reviewed_tuple_cleanup_metadata_deltas']=tuple_delta
+        report['reviewed_singleton_backend_deltas']=singleton_delta
+        report['reviewed_pair_backend_deltas']=pair_delta
+        manifest=json.loads(a.manifest.read_text());archive=Path(manifest['archive']['path']).resolve()
+        if archive!=a.runtime.resolve():raise HarnessError('runtime archive/manifest mismatch')
+        prep=json.loads(a.string_preparation.read_text())
+        if prep['status']!='PASS':raise HarnessError('preceding String preparation unavailable')
+        protected=dict(prep['protected_files']);protected.update({str(Path(manifest[k]['path']).resolve()):stamp(Path(manifest[k]['path']).resolve())for k in('source','object','archive')})
+        report['preparation']=prep;prof=profile(a);report['crt_inputs']=prof['required_files']
+        emitter,emit_env,emit_isolation=isolate(a.emitter.absolute(),'emitter',root/'isolated-emitter',a.readobj);no_compiler(emit_env,'identity-emission')
+        lld,link_env,link_isolation=isolate(a.external.absolute(),'external',root/'isolated-linker',a.readobj);no_compiler(link_env,'identity-link')
+        run_env=os.environ.copy();run_env['PATH']=''
+        report['isolation']={'emitter':emit_isolation,'linker':link_isolation,'compiler_reachable':False}
+        cases=json.loads((Path(__file__).parent/'binding-identity-cases.json').read_text())
+        if len(cases)!=6 or sum(c['allocations']for c in cases)!=22:raise HarnessError('audit corpus altered')
+        for c in cases:
+            name=c['name'];d=root/name;d.mkdir(exist_ok=True);cat=d/(name+'.cat');cat.write_text(c['source'],encoding='utf-8')
+            row={'name':name,'source':file_record(cat),'expected_stdout_hex':native_bytes(c['stdout'].encode()).hex(),
+                 'allocations_per_execution':c['allocations'],'traces':{},'profiles':{}}
+            for stage in('check','oir','lir','llvm'):
+                record=execute([a.production,stage,cat],name+':'+stage);row['traces'][stage]=record
+                (d/(stage+'.txt')).write_bytes(bytes.fromhex(record['stdout_hex']))
+            for label,flags in(('O0',[]),('O2',['--release'])):
+                exe=d/(label+'.production.exe')
+                build=execute([a.production,'build',*flags,cat,exe],name+':'+label+':build')
+                observed=execute([exe],name+':'+label+':native-run',env=run_env);check_run(observed,c['stdout'].encode())
+                if sys.platform=='linux':
+                    hdr=exe.read_bytes()[:64]
+                    if hdr[:6]!=b'\x7fELF\x02\x01' or int.from_bytes(hdr[16:18],'little')not in(2,3)or int.from_bytes(hdr[18:20],'little')!=62:raise HarnessError('production exe is not native ELF64')
+                else:verify_exe(exe)
+                ir=exe.with_suffix('.ll');text=ir.read_text();allocas=[]
+                for body in re.findall(r'^define[^\n]*\{(.*?)^\}',text,re.M|re.S):
+                    tokens=re.findall(r'^\s*(%[^=\n]+?)\s*=\s*alloca\b',body,re.M)
+                    if len(tokens)!=len(set(tokens)):raise HarnessError('duplicate alloca SSA token')
+                    allocas.append(tokens)
+                native_obj=d/(label+'.reference.o')
+                # Reference-only native codegen, not experimental per-source emission/link.
+                compiled=execute([a.cc,'-Wno-override-module','-O2'if label=='O2'else'-O0','-c',ir,'-o',native_obj],name+':'+label+':reference-object')
+                variants={}
+                for variant,lib in [('observer',prep['observer_archive']),*([('sanitized_runtime',prep['sanitized_archive'])]if prep.get('sanitized_archive')else[])]:
+                    target=d/(label+'.'+variant+'.exe');argv=runtime_argv(lld,native_obj,target,prof,d/(label+'-'+variant),Path(lib['path']))
+                    if variant=='sanitized_runtime':argv=sanitizer_argv(argv,prep)
+                    linked=execute(argv,name+':'+label+':'+variant+':LLD',env=link_env)
+                    result=execute([target],name+':'+label+':'+variant+':run',env={**run_env,**SAN_ENV}if variant=='sanitized_runtime'else run_env)
+                    if variant=='observer':
+                        if result['stdout_hex']!=native_bytes(c['stdout'].encode()).hex()or not clean_ledger(result['stderr'],c['allocations']):raise HarnessError('observer output/ledger mismatch')
+                    else:check_run(result,c['stdout'].encode())
+                    variants[variant]={'link':linked,'run':result}
+                row['profiles'][label]={'build':build,'native':observed,'IR':file_record(ir),'alloca_tokens_by_function':allocas,'reference_compile':compiled,'variants':variants}
+            obj=d/'program.o';ir=d/'program.ll';obj.unlink(missing_ok=True);ir.unlink(missing_ok=True)
+            if a.local_binding_keys:
+                controls=[]
+                for label,flags in [('no-string-feature',['--local-binding-keys']),('duplicate-local-flag',['--strings','--local-binding-keys','--local-binding-keys'])]:
+                    denied_obj=d/(label+'.o');denied_ir=d/(label+'.ll');denied_obj.unlink(missing_ok=True);denied_ir.unlink(missing_ok=True)
+                    denied=execute([emitter,cat,*flags,'-o',denied_obj,'--emit-ir',denied_ir],name+':'+label,env=emit_env,ok=None)
+                    if denied['exit']==0 or denied_obj.exists()or denied_ir.exists():raise HarnessError('local metadata flag bypassed rejection boundary: '+label)
+                    controls.append({'label':label,'emit':denied,'no_object_or_ir':True})
+                row['local_negative_controls']=controls
+            flags=['--local-binding-keys']if a.local_binding_keys else[]
+            emitted=execute([emitter,cat,'--strings','--runtime-i32','--arithmetic-i32',*flags,'-o',obj,'--emit-ir',ir],name+':PoC',env=emit_env,ok=None)
+            expected='pass'if a.local_binding_keys else c['baseline_poc']
+            row['poc']={'baseline_expected':c['baseline_poc'],'expected':expected,'emit':emitted}
+            if expected=='reject':
+                if emitted['exit']==0 or obj.exists()or ir.exists():raise HarnessError('unsupported sibling owner emitted output')
+                if 'duplicate object binding'not in emitted['stderr']:raise HarnessError('wrong rejection boundary')
+                row['poc']['no_object_or_ir']=True
+            else:
+                if emitted['exit']!=0:raise HarnessError(emitted['stderr'])
+                row['poc']['target']=verify_target(obj,ir);exe=d/'program.exe'
+                linked=execute(runtime_argv(lld,obj,exe,prof,d/'poc-link',archive),name+':PoC:LLD',env=link_env)
+                observed=execute([exe],name+':PoC:run',env=run_env);check_run(observed,c['stdout'].encode());verify_exe(exe)
+                row['poc'].update(link=linked,run=observed)
+                if a.local_binding_keys:
+                    variants={}
+                    for variant,lib in [('observer',prep['observer_archive']),*([('sanitized_runtime',prep['sanitized_archive'])]if prep.get('sanitized_archive')else[])]:
+                        target=d/('poc.'+variant+'.exe');argv=runtime_argv(lld,obj,target,prof,d/('poc-'+variant),Path(lib['path']))
+                        if variant=='sanitized_runtime':argv=sanitizer_argv(argv,prep)
+                        linked=execute(argv,name+':PoC:'+variant+':LLD',env=link_env)
+                        result=execute([target],name+':PoC:'+variant+':run',env={**run_env,**SAN_ENV}if variant=='sanitized_runtime'else run_env)
+                        if variant=='observer':
+                            if result['stdout_hex']!=native_bytes(c['stdout'].encode()).hex()or not clean_ledger(result['stderr'],c['allocations']):raise HarnessError('opt-in PoC observer output/ledger mismatch')
+                        else:check_run(result,c['stdout'].encode())
+                        variants[variant]={'link':linked,'run':result}
+                    row['poc']['variants']=variants
+            report['cases'].append(row)
+        for path,before in protected.items():
+            if stamp(Path(path))!=before:raise HarnessError('immutable runtime changed '+path)
+        report['immutable_inputs']=protected;report['status']='PASS'
+        report['observer_total_per_profile']=22;report['observer_total_both_profiles']=44
+        report['sanitizer_scope']='instrumented C runtime only; no universal emitted LLVM instrumentation; Windows availability in preparation probes'
+    except Exception as e:
+        report['status']='FAIL';report['error']=str(e);raise
+    finally:(root/'testdata.json').write_text(json.dumps(report,indent=2)+'\n')
+    if a.local_binding_keys:print('PASS opt-in local keys: 6 native Cat cases; production O0/O2; all PoC outputs; 22 PoC observer alloc/free; not universal identity')
+    else:print('PASS legacy identity audit: 6 real Cat cases; production O0/O2; 4 PoC rejections + 2 controls; 44 alloc/free across both profiles')
+if __name__=='__main__':main()

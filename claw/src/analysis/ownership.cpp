@@ -237,9 +237,9 @@ void OwnershipChecker::checkFnDecl(FnDecl* fn) {
                 : (nonSelfParamIdx < signature->paramTypes.size()
                     ? signature->paramTypes[nonSelfParamIdx++]
                     : makeUnknownType());
-            defineTrackedVar(
-                fn->params[i].name,
-                TrackedVar{type, false, StorageState::Initialized, {}, std::nullopt});
+            TrackedVar parameterState{type, false, StorageState::Initialized, {}, std::nullopt};
+            parameterState.backendBindingKey = fn->params[i].backendBindingKey;
+            defineTrackedVar(fn->params[i].name, parameterState);
         }
     }
 

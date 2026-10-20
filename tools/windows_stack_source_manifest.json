@@ -1,0 +1,137 @@
+{
+  "adapter_path": "claw/experimental/llvm_cpp",
+  "adapter_reviewed_head": "ebf0ba697425f64cccc3c638edc7633b9fab65d5",
+  "adapter_tree": "540ed0c0abda32e45ba76306ab8e2295ba37d9e2",
+  "format": "immutable-stack-source-v1",
+  "pair_reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
+  "prototype_maintenance_paths": [
+    ".github/workflows/windows-stack-oracle-prototype.yml",
+    "tools/windows_stack_source_guard.py",
+    "tools/test_windows_stack_source_guard.py",
+    "tools/windows_stack_source_manifest.json",
+    "changelog/2026-10-20-stack-oracle-source-manifest-guard.md"
+  ],
+  "reviewed_changes": {
+    ".github/workflows/ci.yml": {
+      "mode": "100644",
+      "oid": "e5b56359b309c91dd9c31974de3a391335c96418",
+      "reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
+      "type": "blob"
+    },
+    ".github/workflows/llvm-cpp-poc.yml": {
+      "mode": "100644",
+      "oid": "7dd3bf7ee3a725f0d9aea3d37899be1137f9e884",
+      "reviewed_head": "f2cd0d6d70572a736e0f3fa4186d1f4f010e673e",
+      "type": "blob"
+    },
+    ".github/workflows/pair-adapter.yml": {
+      "mode": "100644",
+      "oid": "79fe287af2277a34ed48bcb956e871a6dd0b8829",
+      "reviewed_head": "ebf0ba697425f64cccc3c638edc7633b9fab65d5",
+      "type": "blob"
+    },
+    ".github/workflows/pair-layout-proof.yml": {
+      "mode": "100644",
+      "oid": "253bb413f571647a2251b47b146af8edeefd8c38",
+      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
+      "type": "blob"
+    },
+    "changelog/2026-10-20-immutable-stack-oracle-adapter-boundary.md": {
+      "mode": "100644",
+      "oid": "968ac0943cac11f983b261a3c225f5ff78369834",
+      "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
+      "type": "blob"
+    },
+    "changelog/2026-10-20-pair-int32-layout-proof.md": {
+      "mode": "100644",
+      "oid": "99a8204ec268be0eac0ffa874dde4872f8e35236",
+      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
+      "type": "blob"
+    },
+    "changelog/2026-10-20-pair-int32-opt-in-admission.md": {
+      "mode": "100644",
+      "oid": "322faeeecc59e22550a9ea967efb47c2f3a64187",
+      "reviewed_head": "ebf0ba697425f64cccc3c638edc7633b9fab65d5",
+      "type": "blob"
+    },
+    "changelog/2026-10-20-pair-int32-production-native-roundtrip.md": {
+      "mode": "100644",
+      "oid": "1cc480793988960ec431b3900a9fa5c3a26b3b3d",
+      "reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
+      "type": "blob"
+    },
+    "changelog/2026-10-20-singleton-int32-opt-in-admission.md": {
+      "mode": "100644",
+      "oid": "056cdcf2ea4f01568987e0f79de074904d57fa48",
+      "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
+      "type": "blob"
+    },
+    "changelog/2026-10-20-singleton-windows-isolation-harness.md": {
+      "mode": "100644",
+      "oid": "8c1ddd8fa3b1d1643b8796514e45b1dd67b6a93b",
+      "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
+      "type": "blob"
+    },
+    "changelog/2026-10-20-windows-stack-first-chance-oracle-prototype.md": {
+      "mode": "100644",
+      "oid": "9f5c28440984481043985b35628fd8c37e0bbbb7",
+      "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
+      "type": "blob"
+    },
+    "claw/tests/native/fixtures/revise_pair_i32_roundtrip.cat": {
+      "mode": "100644",
+      "oid": "c8832fef71075ac766ca6e69c148dd6125838ff2",
+      "reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
+      "type": "blob"
+    },
+    "claw/tests/native/run_native_tests.sh": {
+      "mode": "100644",
+      "oid": "a0fcbc36007dfacefbf6236534acc0831b3d381c",
+      "reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
+      "type": "blob"
+    },
+    "claw/tests/native/run_pair_i32_roundtrip.py": {
+      "mode": "100644",
+      "oid": "92a019504c51f16df2d0d5fe88ca1e638f1607cc",
+      "reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
+      "type": "blob"
+    },
+    "tools/pair_layout/CMakeLists.txt": {
+      "mode": "100644",
+      "oid": "9481cd59121078a79ca7dc9b7ce70d51909b6dc1",
+      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
+      "type": "blob"
+    },
+    "tools/pair_layout/probe.cpp": {
+      "mode": "100644",
+      "oid": "381e581a0377256c0280ddd7ad7950aa333f0467",
+      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
+      "type": "blob"
+    },
+    "tools/pair_layout/run.py": {
+      "mode": "100644",
+      "oid": "ae16be714d0d976ada8e09559079cca798b20aaa",
+      "reviewed_head": "e10b8237dfdf2b36b1dfe07f8e1a05bfe81cde18",
+      "type": "blob"
+    },
+    "tools/windows_stack_contract.py": {
+      "mode": "100644",
+      "oid": "cb72b40fc6bf76a0772f5dd890b54efcfa60855c",
+      "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
+      "type": "blob"
+    },
+    "tools/windows_stack_oracle.py": {
+      "mode": "100644",
+      "oid": "a49d8d50a41622e8fe1dfbe82e784d281e7b4298",
+      "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
+      "type": "blob"
+    },
+    "tools/windows_stack_oracle_debug.c": {
+      "mode": "100644",
+      "oid": "1940a9c7a310fcf22a9a2087cf5d0f56d4e3a640",
+      "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
+      "type": "blob"
+    }
+  },
+  "source_head": "6d697e88a8f679e26732f906f85ae831cdc52bca"
+}

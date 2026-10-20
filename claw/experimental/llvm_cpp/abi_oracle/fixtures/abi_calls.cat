@@ -1,0 +1,26 @@
+fn borrowed_ref(value: Str) -> Str {
+    value
+}
+fn borrowed_view(value: ref Str) -> Str { value }
+fn owned_helper(value: String) -> String {
+    value
+}
+fn make_owned() -> String {
+    String.from("constructor")
+}
+fn main() -> Int32 {
+    val literal: Str = "Aé\0Z"
+    val borrowed: Str = borrowed_ref(literal)
+    println(borrowed)
+    val owner: String = String.from(borrowed)
+    println(borrowed_view(owner.as_str()))
+    val copied: String = owner.clone()
+    val returned: String = owned_helper(copied)
+    println(returned.as_str())
+    val made: String = make_owned()
+    println(made.as_str())
+    val empty: String = String.from("")
+    val empty_copy: String = empty.clone()
+    println(empty_copy.as_str())
+    return 0
+}

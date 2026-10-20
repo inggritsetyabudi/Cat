@@ -1,0 +1,37 @@
+{
+  "base_head": "15ec7579d28eb95fee27cafc7fd3952ba6254fe6",
+  "scope": "Internal current-cleanup-owner projection metadata and fail-closed adapter diagnostics only; no aggregate lowering or semantics changes. Historical locks and corpora remain immutable.",
+  "files": {
+    "claw/src/analysis/sema.cpp": {
+      "before": "e35b1b6ed66f8be2bb62dfc152040072baf10abd161ddc279415bd64a9b9c474",
+      "after": "c3e6557de8128858c1df002f27bd2d67596f850258680d94c24acaf2b1a5bc3e"
+    },
+    "claw/src/ir/oir.h": {
+      "before": "853b288a1319af5934c2c5667b70548c1dd0be1efbdcc8a4c95a405ea3451d7b",
+      "after": "eee6ec8d8bf29247840135c38ce759323a39adeb6b7e225fc0de58f962ce041a"
+    },
+    "claw/src/ir/oir.cpp": {
+      "before": "a26f6e52d880265a2e80c42bf1f8a0b20a8c804150f1f6f17ba0859eb9a036f9",
+      "after": "1187aefdfe7e856fe0d55a3deab93592eec2be9c19113aab31a55aba6a01aff8"
+    },
+    "claw/src/ir/lir.h": {
+      "before": "b0e6ea8669bb16392851888619266564882888029612fad82dff7d59cd9f2f9c",
+      "after": "bb52c9107d2d94697e8e1e8c296d383f76b37dc5fe32ad96571f9f3f36e93d55"
+    },
+    "claw/src/ir/lir.cpp": {
+      "before": "9963b9eccf9e3f9469b5658d9086ff37159b1a4186ceb775a35795163f10c305",
+      "after": "b9bbabb48e656bd9328e7443ecd31cd5c292044892690b41302644fe2196102e"
+    },
+    "claw/experimental/llvm_cpp/adapter.cpp": {
+      "before": "f594fa0315439e824db48f42618bb8f28a9e32f26c9c4ad89e7d96d07402a4cb",
+      "after": "07ae45f7e6f3dfa5b076d9d46c8ee38c822ecdd3032d5a205a7f54ff918f25d3"
+    },
+    "claw/experimental/llvm_cpp/test_adapter.cpp": {
+      "before": "7dbeddfcb8ebc42158ee8a1e25ebdf7ba5e126d0c26290ebe26e47405eb5d235",
+      "after": "57e48a68ff312077b93c84e93e13514450cee148506db4e43b00276104c02e33"
+    }
+  },
+  "added_files": {
+    "claw/src/ir/provenance.h": "f56597980d69494eec6d7b2850bd4585b97f1a62520ac2d4c33fa79ce5cebbba"
+  }
+}

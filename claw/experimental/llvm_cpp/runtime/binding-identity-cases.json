@@ -1,0 +1,44 @@
+[
+  {
+    "name": "sibling_outputs",
+    "source": "fn show(left: Bool) { if left { val owner = String.from(\"left\") println(owner.as_str()) } else { val owner = String.from(\"right\") println(owner.as_str()) } }\nfn main() { show(true) show(false) }\n",
+    "stdout": "left\nright\n",
+    "allocations": 2,
+    "baseline_poc": "reject"
+  },
+  {
+    "name": "sibling_early_return",
+    "source": "fn show(left: Bool) -> Int32 { if left { val owner = String.from(\"early-left\") println(owner.as_str()) return 11 } else { val owner = String.from(\"early-right\") println(owner.as_str()) return 22 } }\nfn main() { println(show(true)) println(show(false)) }\n",
+    "stdout": "early-left\n11\nearly-right\n22\n",
+    "allocations": 2,
+    "baseline_poc": "reject"
+  },
+  {
+    "name": "nested_siblings",
+    "source": "fn show(left: Bool, inner: Bool) { if left { val owner = String.from(\"left-parent\") if inner { val value = String.from(\"left-inner\") println(value.as_str()) } else { val value = String.from(\"left-else\") println(value.as_str()) } println(owner.as_str()) } else { val owner = String.from(\"right-parent\") if inner { val value = String.from(\"right-inner\") println(value.as_str()) } else { val value = String.from(\"right-else\") println(value.as_str()) } println(owner.as_str()) } }\nfn main() { show(true, true) show(true, false) show(false, true) show(false, false) }\n",
+    "stdout": "left-inner\nleft-parent\nleft-else\nleft-parent\nright-inner\nright-parent\nright-else\nright-parent\n",
+    "allocations": 8,
+    "baseline_poc": "reject"
+  },
+  {
+    "name": "nested_shadow_control",
+    "source": "fn show(left: Bool) { val owner = String.from(\"outer\") if left { val owner = String.from(\"inner-left\") println(owner.as_str()) } else { val owner = String.from(\"inner-right\") println(owner.as_str()) } println(owner.as_str()) }\nfn main() { show(true) show(false) }\n",
+    "stdout": "inner-left\nouter\ninner-right\nouter\n",
+    "allocations": 4,
+    "baseline_poc": "pass"
+  },
+  {
+    "name": "parameter_shadow_control",
+    "source": "fn show(owner: String, left: Bool) { if left { val owner = String.from(\"local-left\") println(owner.as_str()) } else { val owner = String.from(\"local-right\") println(owner.as_str()) } println(owner.as_str()) }\nfn main() { show(String.from(\"parameter\"), true) show(String.from(\"parameter\"), false) }\n",
+    "stdout": "local-left\nparameter\nlocal-right\nparameter\n",
+    "allocations": 4,
+    "baseline_poc": "pass"
+  },
+  {
+    "name": "loop_siblings",
+    "source": "fn show(left: Bool) { var again = true loop again { if left { val owner = String.from(\"loop-left\") println(owner.as_str()) } else { val owner = String.from(\"loop-right\") println(owner.as_str()) } again = false } }\nfn main() { show(true) show(false) }\n",
+    "stdout": "loop-left\nloop-right\n",
+    "allocations": 2,
+    "baseline_poc": "reject"
+  }
+]

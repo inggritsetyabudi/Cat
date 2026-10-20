@@ -450,8 +450,9 @@ ResolvedType asViewType(const ResolvedType& base, const std::string& viewKind) {
 
 } // namespace
 
-SemanticAnalyzer::SemanticAnalyzer(std::vector<ImportedBinding> importedBindings, TargetSpec target)
-    : importedBindings(std::move(importedBindings)), target(std::move(target)) {}
+SemanticAnalyzer::SemanticAnalyzer(std::vector<ImportedBinding> importedBindings, TargetSpec target, bool canonicalLocalBindings)
+    : importedBindings(std::move(importedBindings)), target(std::move(target)),
+      canonicalLocalBindings(canonicalLocalBindings) {}
 
 const std::vector<Diagnostic>& SemanticAnalyzer::warnings() const {
     return semanticWarnings;
@@ -2067,6 +2068,7 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
 
     size_t nonSelfParamIdx = 0;
     for (size_t i = 0; i < fn->params.size(); ++i) {
+        fn->params[i].backendBindingKey.clear();
         ResolvedType type;
         if (fn->params[i].isSelf) {
             if (currentSignature && currentSignature->receiverType.has_value()) {
@@ -2094,7 +2096,10 @@ void SemanticAnalyzer::analyzeFnDecl(FnDecl* fn, const std::string& receiverType
             fn->params[i].span,
             (type.isView() || type.name == "Span" || typeContainsScopeName(type) || isBorrowedStrMaybeType(type))
                 ? std::optional<size_t>(i)
-                : std::nullopt);
+                : std::nullopt,
+            nullptr,
+            &fn->params[i].backendBindingKey,
+            true);
     }
 
     bool hasImplicitTailReturn = false;
@@ -2634,7 +2639,8 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                         pattern->span,
                         std::nullopt,
                         bind,
-                        &pattern->backendBindingKey);
+                        &pattern->backendBindingKey,
+                        canonicalLocalBindings);
                 }
             };
             bindPattern(bind->tuplePattern.get(), valueType, "", true);
@@ -4973,7 +4979,8 @@ void SemanticAnalyzer::defineVariable(
     const SourceSpan& duplicateSpan,
     std::optional<size_t> viewSourceParamIndex,
     BindingStmt* bindingDecl,
-    std::string* backendBindingKeyOut) {
+    std::string* backendBindingKeyOut,
+    bool allocateCanonicalBackendKey) {
     auto sym = std::make_shared<Symbol>();
     sym->name = name;
     sym->kind = SymbolKind::Variable;
@@ -4984,7 +4991,16 @@ void SemanticAnalyzer::defineVariable(
     sym->declaredNamedScopes = activeNamedScopes;
     sym->lexicalDepth = lexicalScopeDepth;
 
-    if ((bindingDecl != nullptr || backendBindingKeyOut != nullptr) && scopes.lookup(name) != nullptr) {
+    // Allocate at semantic declaration creation, never from names or lowering
+    // order. Tokens are opaque and valid only for this analysis. Production
+    // retains the shadowing-only policy unless explicitly opted in.
+    if (bindingDecl != nullptr && !bindingDecl->tuplePattern) {
+        bindingDecl->backendBindingKey.clear();
+    }
+    if ((bindingDecl != nullptr || backendBindingKeyOut != nullptr) &&
+        ((canonicalLocalBindings && bindingDecl != nullptr && !bindingDecl->tuplePattern) ||
+         (canonicalLocalBindings && allocateCanonicalBackendKey) ||
+         (!allocateCanonicalBackendKey && scopes.lookup(name) != nullptr))) {
         sym->backendBindingKey = "$local.binding." + std::to_string(nextLocalBindingIdentity++);
         if (bindingDecl != nullptr) {
             if (!bindingDecl->tuplePattern) {
