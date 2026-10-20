@@ -773,6 +773,7 @@ void printUsage() {
               << "  lir           Emit backend-facing lowering IR derived from OIR\n"
               << "  llvm          Emit LLVM IR lowered from LIR\n"
               << "  build         Compile a validated entry graph into a native executable\n"
+              << "Build options: --release, --native-backend=clang|llvm-object (migration-only, SDK-gated)\n"
               << "Aliases:\n"
               << "  emit-air, emit-oir, emit-lir, emit-llvm, build-native\n";
 }
@@ -844,11 +845,16 @@ int main(int argc, char** argv) {
         return 1;
     }
     claw::driver::NativeBuildProfile buildProfile = claw::driver::NativeBuildProfile::Debug;
+    claw::driver::NativeBuildBackend buildBackend = claw::driver::NativeBuildBackend::Clang;
     std::vector<std::string> positional;
     for (int i = 2; i < argc; ++i) {
         const std::string_view arg(argv[i]);
         if (command == "build" && arg == "--release") {
             buildProfile = claw::driver::NativeBuildProfile::Release;
+        } else if (command == "build" && arg == "--native-backend=llvm-object") {
+            buildBackend = claw::driver::NativeBuildBackend::LlvmObject;
+        } else if (command == "build" && arg == "--native-backend=clang") {
+            buildBackend = claw::driver::NativeBuildBackend::Clang;
         } else if (command == "build" && arg.size() > 1 && arg.front() == '-') {
             printBuildError("unknown build option " + std::string(arg));
             printBuildFailure(positional.empty() ? "<input>" : positional[0]);
@@ -1049,7 +1055,8 @@ int main(int argc, char** argv) {
                     [&buildProgress](claw::driver::NativeBuildStage stage) {
                         buildProgress.stage(stage);
                     },
-                    [&buildProgress]() { buildProgress.beforeMessage(); });
+                    [&buildProgress]() { buildProgress.beforeMessage(); },
+                    buildBackend);
                 const auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - buildStarted).count();
                 buildProgress.succeed();
                 const std::string finished = "Finished native release [" +

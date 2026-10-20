@@ -1,6 +1,9 @@
 #include "driver/native_build.h"
 
 #include "codegen/llvm.h"
+#if defined(CLAW_ENABLE_LLVM_OBJECT)
+#include "codegen/native_object.h"
+#endif
 
 #include <array>
 #include <cerrno>
@@ -256,7 +259,8 @@ int runClangLink(
     const std::filesystem::path& runtimePath,
     const std::filesystem::path& outputPath,
     claw::driver::NativeBuildProfile profile,
-    const std::function<void()>& beforeLinkOutput) {
+    const std::function<void()>& beforeLinkOutput,
+    const std::filesystem::path& nativeInputPath) {
 #if defined(_WIN32)
 #if defined(__x86_64__) || defined(_M_X64)
     const auto target = claw::codegen::nativeTargetTriple();
@@ -268,7 +272,7 @@ int runClangLink(
 #if defined(__x86_64__) || defined(_M_X64)
         L"--target=" + std::wstring(target.begin(), target.end()),
 #endif
-        claw::driver::quoteWindowsCommandLineArgument(widen(llvmPath)),
+        claw::driver::quoteWindowsCommandLineArgument(widen(nativeInputPath)),
         claw::driver::quoteWindowsCommandLineArgument(widen(runtimePath)),
         L"-o",
         claw::driver::quoteWindowsCommandLineArgument(widen(outputPath)),
@@ -300,7 +304,7 @@ int runClangLink(
         // Other POSIX hosts retain their existing driver/deployment policy.
         "--target=" + std::string(claw::codegen::nativeTargetTriple()),
 #endif
-        llvmPath.string(),
+        nativeInputPath.string(),
         runtimePath.string(),
         "-o",
         outputPath.string(),
@@ -402,8 +406,14 @@ std::filesystem::path buildNativeExecutable(
     const std::filesystem::path& outputPath,
     claw::driver::NativeBuildProfile profile,
     const std::function<void(claw::driver::NativeBuildStage)>& onStage,
-    const std::function<void()>& beforeLinkOutput) {
+    const std::function<void()>& beforeLinkOutput,
+    NativeBuildBackend backend) {
     (void)project;
+#if !defined(CLAW_ENABLE_LLVM_OBJECT)
+    if (backend == NativeBuildBackend::LlvmObject) {
+        throw std::runtime_error("LLVM object backend is not enabled in this compiler; rebuild with CLAW_ENABLE_LLVM_OBJECT=ON. No fallback was attempted.");
+    }
+#endif
     const auto runtimePath = locateRuntimeSource(compilerBinaryPath);
     const auto absoluteOutput = std::filesystem::absolute(outputPath);
     const auto outputDir = absoluteOutput.parent_path();
@@ -423,10 +433,25 @@ std::filesystem::path buildNativeExecutable(
     const std::string llvmIr = claw::codegen::emitNativeLlvmIr(lir);
     writeTextFile(llvmOutputPath, llvmIr);
 
+    auto nativeInputPath = llvmOutputPath;
+#if defined(CLAW_ENABLE_LLVM_OBJECT)
+    if (backend == NativeBuildBackend::LlvmObject) {
+        nativeInputPath = absoluteOutput;
+        nativeInputPath += ".cat.o";
+        try {
+            const auto verifiedIr = claw::codegen::emitNativeObject(
+                llvmIr, nativeInputPath, profile == NativeBuildProfile::Release);
+            writeTextFile(llvmOutputPath, verifiedIr);
+        } catch (const std::exception& error) {
+            throw std::runtime_error(std::string(error.what()) + llvmArtifactNote(llvmOutputPath));
+        }
+    }
+#endif
+
     if (onStage) {
         onStage(claw::driver::NativeBuildStage::Linking);
     }
-    const int result = runClangLink(llvmOutputPath, runtimePath, absoluteOutput, profile, beforeLinkOutput);
+    const int result = runClangLink(llvmOutputPath, runtimePath, absoluteOutput, profile, beforeLinkOutput, nativeInputPath);
     if (result != 0) {
         throw std::runtime_error(
             "`clang` exited with status " + std::to_string(result) +

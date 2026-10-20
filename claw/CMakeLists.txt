@@ -4,6 +4,7 @@ project(claw CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Threads REQUIRED)
+option(CLAW_ENABLE_LLVM_OBJECT "Enable the migration-only LLVM 23.1.3 native object bridge" OFF)
 
 add_library(claw_frontend
     src/diagnostics/diagnostics.cpp
@@ -36,6 +37,10 @@ add_executable(claw
     src/driver/native_build.cpp
 )
 target_link_libraries(claw PRIVATE claw_frontend Threads::Threads)
+
+if(CLAW_ENABLE_LLVM_OBJECT)
+    include(cmake/NativeObject.cmake)
+endif()
 
 set(CLAW_NATIVE_RUNTIME_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/runtime/native_runtime.c")
 set_property(TARGET claw APPEND PROPERTY LINK_DEPENDS "${CLAW_NATIVE_RUNTIME_SOURCE}")
