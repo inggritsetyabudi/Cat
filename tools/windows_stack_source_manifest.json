@@ -1,7 +1,7 @@
 {
   "adapter_path": "claw/experimental/llvm_cpp",
-  "adapter_reviewed_head": "e10b8237dfdf2b36b1dfe07f8e1a05bfe81cde18",
-  "adapter_tree": "39241d95bc26f1bdcefa9a6317e328c18e398022",
+  "adapter_reviewed_head": "ebf0ba697425f64cccc3c638edc7633b9fab65d5",
+  "adapter_tree": "540ed0c0abda32e45ba76306ab8e2295ba37d9e2",
   "format": "immutable-stack-source-v1",
   "pair_reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
   "prototype_maintenance_paths": [
@@ -26,8 +26,8 @@
     },
     ".github/workflows/pair-adapter.yml": {
       "mode": "100644",
-      "oid": "225885c01640651cd08b4c159aa22f0bc5d98a67",
-      "reviewed_head": "f2cd0d6d70572a736e0f3fa4186d1f4f010e673e",
+      "oid": "79fe287af2277a34ed48bcb956e871a6dd0b8829",
+      "reviewed_head": "ebf0ba697425f64cccc3c638edc7633b9fab65d5",
       "type": "blob"
     },
     ".github/workflows/pair-layout-proof.yml": {
@@ -50,8 +50,8 @@
     },
     "changelog/2026-10-20-pair-int32-opt-in-admission.md": {
       "mode": "100644",
-      "oid": "1b1f4f25537465872aa05de2693993536328f7e7",
-      "reviewed_head": "e10b8237dfdf2b36b1dfe07f8e1a05bfe81cde18",
+      "oid": "322faeeecc59e22550a9ea967efb47c2f3a64187",
+      "reviewed_head": "ebf0ba697425f64cccc3c638edc7633b9fab65d5",
       "type": "blob"
     },
     "changelog/2026-10-20-pair-int32-production-native-roundtrip.md": {

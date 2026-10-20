@@ -15,9 +15,9 @@ import subprocess
 import sys
 
 SOURCE_HEAD = '6d697e88a8f679e26732f906f85ae831cdc52bca'
-ADAPTER_HEAD = 'e10b8237dfdf2b36b1dfe07f8e1a05bfe81cde18'
+ADAPTER_HEAD = 'ebf0ba697425f64cccc3c638edc7633b9fab65d5'
 PAIR_HEAD = 'ceff0e9eb32a9805e0293dbaa93084e9f12076e7'
-MANIFEST_SHA256 = 'ee5b7f2fd4fc8abcc2dce3cb8a7299c695604b01d5a4d1ce8210dc6c224c2d61'
+MANIFEST_SHA256 = '65ba45f38f978378ceb6f1bcc4d02bd0ec81ac7e81c7f770d0c84c16ac384861'
 ADAPTER_PATH = 'claw/experimental/llvm_cpp'
 
 
