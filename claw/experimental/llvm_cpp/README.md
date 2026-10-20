@@ -318,3 +318,18 @@ Flag pair **tidak membuka aritmetika**. Fixture produksi `revise_pair_i32_roundt
 TargetMachine native exact LLVM23.1.3 harus membuktikan nonpacked `{ i32, i32 }`: size/alloc/store8, ABI alignment4, offsets0/4, little-endian, pointer default64 dan AS270/271/272 masing-masing32/32/64. Preferred alignment8 dicatat terpisah, bukan pengganti ABI alignment4. Penolakan layout tidak boleh mengganti `.o`/`.ll` lama.
 
 Gate `llvm-cpp-pair-admission` mencakup typed LIR malformed serta output absent/sentinel dan kebersihan temporary. Gate `llvm-cpp-pair-native` menjalankan sumber Cat nyata melalui adapter object → external LLD23.1.3 → executable native Linux/Windows UCRT, dengan pembanding produksi O0/O2, exit42 dan stdout/stderr kosong. Workflow khusus `pair-adapter.yml` menambah gate ini; workflow penuh Release/host sanitizer/Windows lama tetap dipertahankan. Keberadaan implementasi/gate **bukan bukti PASS** tanpa hasil exact-head dan review independen. Windows sanitizer tetap SKIP; AV historis attempt1 tetap belum terselesaikan. PR tetap draft, build default OFF, tanpa promosi/merge/perubahan versi/PRD atau semantik produksi.
+
+Catatan inspeksi IR LLVM23: alamat field0 dapat dikanonisasi oleh pipeline object
+menjadi `bitcast ptr` tanpa offset, sementara field1 tetap GEP index1 dan pembacaan
+keduanya memakai `extractvalue` index0/index1. Gate harus membuktikan alias base
+storage dan store Int32 field0 serta GEP/store field1, bukan mengasumsikan teks
+GEP nol selalu dipertahankan. Proof layout produksi tetap menjaga source/runtime
+original byte-identical; evolusi adapter hanya diterima lewat pin tree lengkap
+dan provenance manifest exact, bukan pengecualian subtree.
+
+Profile native adapter pair memakai `--pair-codegen-O0` dan `--pair-codegen-O2`
+bersama `--pair-i32`: masing-masing memilih LLVM TargetMachine machine-code
+optimization `None` dan `Default`. Ini **bukan** janji pipeline IR Cat debug/release
+atau optimisasi IR O2 tambahan. Tanpa profile eksplisit, TargetMachine default lama
+tetap sama, termasuk corpus scalar dan singleton. Profile pair tanpa flag pair,
+profile ganda, atau nilai low-level selain 0/2 ditolak sebelum publikasi output.

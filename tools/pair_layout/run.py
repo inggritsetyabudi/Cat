@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = 'c5d901643f50a212800916f5a8d084836b03d2b8'
@@ -61,17 +62,23 @@ def main(args, evidence):
     need(compiler.is_file() and probe.is_file() and clang, 'missing compiler/probe/native Clang')
     head = run(['git', 'rev-parse', 'HEAD']).stdout.decode().strip()
     need(head == args.expected_head, 'not exact expected test head')
-    # Both native CI jobs require full history: prove the audited production,
-    # runtime, adapter and fixture are byte-identical to the exact requested base.
-    protected = ['claw/src', 'claw/runtime', 'claw/CMakeLists.txt',
-                 'claw/experimental/llvm_cpp', str(SOURCE.relative_to(ROOT))]
+    # Production/runtime/fixture remain byte-identical to the original base.
+    # Adapter evolution is admitted only by the complete reviewed tree pin,
+    # never a subtree ignore or blanket exception.
+    protected = ['claw/src', 'claw/runtime', 'claw/CMakeLists.txt', str(SOURCE.relative_to(ROOT))]
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import windows_stack_source_guard as guard
+    manifest = guard.load_manifest(ROOT / 'tools/windows_stack_source_manifest.json')
+    source_integrity = guard.validate(guard.tree_entries(ROOT, guard.SOURCE_HEAD),
+                                     guard.tree_entries(ROOT, head), manifest)
     run(['git', 'diff', '--exit-code', BASE, head, '--', *protected])
-    need(not run(['git', 'status', '--porcelain', '--', *protected]).stdout,
+    need(not run(['git', 'status', '--porcelain', '--', *protected, 'claw/experimental/llvm_cpp']).stdout,
          'production/runtime/adapter/fixture is dirty')
     source_sha = digest(SOURCE)
     evidence.update({'head': head, 'audited_base': BASE, 'source_sha256': source_sha,
                      'compiler_sha256': digest(compiler), 'probe_sha256': digest(probe),
-                     'platform': os.name, 'scope': 'numeric pair layout only; adapter closed'})
+                     'platform': os.name, 'scope': 'numeric pair layout only; adapter separately opt-in',
+                     'source_integrity': source_integrity})
     run([clang, '--version'])
     version = run([probe, '--sdk-version']).stdout.decode()
     need(re.search(r'LLVM version 23\.1\.3(?:\s|$)', version) is not None

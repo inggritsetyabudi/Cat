@@ -27,6 +27,7 @@
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string_view>
 #include <unordered_map>
@@ -570,6 +571,9 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
 #if !defined(__x86_64__) || !(defined(__linux__) || (defined(_WIN32) && defined(CLAW_LLVM_CPP_POC_UCRT_X64)))
     unsupported("host: native Linux x86_64 or explicitly configured Windows x64 UCRT required");
 #else
+    if (options.pairCodeGenOptimization != -1 &&
+        (!options.enablePairI32 || (options.pairCodeGenOptimization != 0 && options.pairCodeGenOptimization != 2)))
+        unsupported("pair codegen profile requires --pair-i32 and exact O0 or O2");
     if (options.objectPath.empty()) unsupported("empty object output path");
     if (!options.irPath.empty() && options.irPath == options.objectPath) unsupported("aliased IR/object output paths");
     if (program.realms.size() != 1) unsupported("multiple LIR modules");
@@ -597,7 +601,8 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     if (!target) throw std::runtime_error("Cannot resolve LLVM target: " + targetError);
     llvm::TargetOptions targetOptions;
     std::unique_ptr<llvm::TargetMachine> machine(target->createTargetMachine(
-        targetTriple, "generic", "", targetOptions, llvm::Reloc::PIC_));
+        targetTriple, "generic", "", targetOptions, llvm::Reloc::PIC_, std::nullopt,
+        options.pairCodeGenOptimization == 0 ? llvm::CodeGenOptLevel::None : llvm::CodeGenOptLevel::Default));
     if (!machine) throw std::runtime_error("Cannot create LLVM TargetMachine");
     llvm::LLVMContext context;
     llvm::Module module("claw_llvm_cpp_poc", context);

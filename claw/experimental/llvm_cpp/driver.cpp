@@ -18,7 +18,7 @@ namespace {
 void usage() {
     std::cerr << "Experimental, object-only LLVM C++ API PoC (not the production backend).\n"
               << "Usage: claw-llvm-poc <single-file.cat> -o <output.o> [--emit-ir <output.ll>]\n"
-              << "       [--runtime-i32] [--arithmetic-i32] [--strings] [--singleton-i32] [--pair-i32]\n"
+              << "       [--runtime-i32] [--arithmetic-i32] [--strings] [--singleton-i32] [--pair-i32] [--pair-codegen-O0|--pair-codegen-O2]\n"
               << "       [--local-binding-keys] (locals only, not universal identity)\n"
               << "Link separately with the prebuilt runtime and LLD.\n";
 }
@@ -55,6 +55,8 @@ int main(int argc, char** argv) {
             options.enableSingletonI32 = true;
         } else if (flag == "--pair-i32" && !options.enablePairI32) {
             options.enablePairI32 = true;
+        } else if ((flag == "--pair-codegen-O0" || flag == "--pair-codegen-O2") && options.pairCodeGenOptimization == -1) {
+            options.pairCodeGenOptimization = flag == "--pair-codegen-O0" ? 0 : 2;
         } else if (flag == "--local-binding-keys" && !localBindingKeys) {
             localBindingKeys = true;
         } else {

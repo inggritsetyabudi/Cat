@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <regex>
 
 using namespace claw::frontend;
 using claw::experimental::llvm_cpp::ObjectOptions;
@@ -58,6 +59,23 @@ void noTemps(const Path& root, const std::string& name) {
         need(entry.path().filename().string().find(".tmp") == std::string::npos,
              "temporary artifact leaked by " + name + ": " + entry.path().string());
 }
+void requirePairIR(const std::string& text) {
+    const std::regex slot(R"(%"%t0\.slot" = alloca \{ i32, i32 \}, align 4)");
+    const std::regex alias(R"(%pair\.field\.addr2 = bitcast ptr %"%t0\.slot" to ptr)");
+    const std::regex field0(R"(store i32 %x, ptr %pair\.field\.addr2, align 4)");
+    const std::regex field1(R"(%pair\.field\.addr1 = getelementptr inbounds nuw \{ i32, i32 \}, ptr %"%t0\.slot", i32 0, i32 1)");
+    const std::regex extract0(R"(%"%a" = extractvalue \{ i32, i32 \} %p, 0)");
+    const std::regex extract1(R"(%"%b" = extractvalue \{ i32, i32 \} %p, 1)");
+    need(std::regex_search(text, slot), "missing pair allocation");
+    const std::regex field0Gep(R"(%pair\.field\.addr0 = getelementptr inbounds nuw \{ i32, i32 \}, ptr %"%t0\.slot", i32 0, i32 0)");
+    const std::regex field0GepStore(R"(store i32 %x, ptr %pair\.field\.addr0, align 4)");
+    need((std::regex_search(text, alias) && std::regex_search(text, field0)) ||
+         (std::regex_search(text, field0Gep) && std::regex_search(text, field0GepStore)),
+         "missing exact field-0 alias/GEP and Int32 store");
+    need(std::regex_search(text, field1), "missing exact inbounds nuw field-1 GEP");
+    need(text.find("store i32 %y, ptr %pair.field.addr1, align 4") != std::string::npos, "missing exact field-1 Int32 store");
+    need(std::regex_search(text, extract0) && std::regex_search(text, extract1), "missing pair extractvalue 0/1");
+}
 void reject(const Path& root,const std::string& name,const LirProgram& p,const ObjectOptions& o,std::ofstream& log) {
     std::filesystem::create_directories(Path(o.objectPath).parent_path()); rm(o); std::string e; bool ok=emitObject(p,o,e);
     need(!ok && e.find("unsupported")!=std::string::npos, "accepted " + name + ": " + e);
@@ -95,7 +113,11 @@ int main(int argc,char** argv) {
        }
    }
    auto p=valid(); validatePairAdmission(p,false); auto o=out(root/"positive",true); std::filesystem::create_directories(Path(o.objectPath).parent_path()); rm(o); std::string e; need(emitObject(p,o,e),"positive: "+e); noTemps(root,"positive");
-   std::ifstream ir(o.irPath); std::string text((std::istreambuf_iterator<char>(ir)),{}); for (auto m:{"{ i32, i32 }","pair::make","pair::take","i32 0, i32 0","i32 0, i32 1"}) need(text.find(m)!=std::string::npos,std::string("missing IR marker ")+m);
+   std::ifstream ir(o.irPath); std::string text((std::istreambuf_iterator<char>(ir)),{}); for (auto m:{"{ i32, i32 }","pair::make","pair::take"}) need(text.find(m)!=std::string::npos,std::string("missing IR marker ")+m); requirePairIR(text);
+   for (const auto& mutation : {std::pair<const char*,std::pair<const char*,const char*>>("removed-field0-alias",{"%pair.field.addr2 = bitcast ptr %\"%t0.slot\" to ptr",""}),std::pair<const char*,std::pair<const char*,const char*>>("wrong-field1-index",{"i32 0, i32 1","i32 0, i32 0"}),std::pair<const char*,std::pair<const char*,const char*>>("wrong-field0-store",{"store i32 %x, ptr %pair.field.addr2","store i32 %y, ptr %pair.field.addr2"})}) {
+       std::string mutated=text; const std::string needle=mutation.second.first; const auto at=mutated.find(needle); need(at!=std::string::npos,std::string("selftest fixture missing ")+mutation.first);
+       mutated.replace(at,needle.size(),mutation.second.second); bool rejected=false; try { requirePairIR(mutated); } catch(const std::runtime_error&) { rejected=true; } need(rejected,std::string("IR structural selftest accepted ")+mutation.first);
+   }
    auto noarith=valid(); validatePairAdmission(noarith,false);
    auto add=valid(); auto& t=fn(add,"take"); t.blocks[0].insts.pop_back(); t.blocks[0].insts.push_back(LirBinaryInst{"%sum","add",k("%a","Int32","%a"),k("%b","Int32","%b"),"Int32"}); t.blocks[0].insts.push_back(LirReturnInst{k("%sum","Int32","%sum")}); validatePairAdmission(add,true);
    auto arithmeticPositive=out(root/"positive-arithmetic",true,true); std::filesystem::create_directories(Path(arithmeticPositive.objectPath).parent_path()); need(emitObject(add,arithmeticPositive,e),"positive arithmetic: "+e); noTemps(root,"positive-arithmetic");
@@ -137,5 +159,7 @@ int main(int argc,char** argv) {
    auto disabled=valid(); reject(root,"default-pair-rejected",disabled,out(root/"default-pair-rejected",false),log);
    auto arithmetic=valid(); reject(root,"arithmetic-alone-pair-rejected",arithmetic,out(root/"arithmetic-alone-pair-rejected",false,true),log);
    auto singleton=valid(); auto singletonOptions=out(root/"singleton-pair-rejected",false); singletonOptions.enableSingletonI32=true; reject(root,"singleton-pair-rejected",singleton,singletonOptions,log);
+   for(int profile:{0,2}) {auto profileOptions=out(root/("profile-without-pair-"+std::to_string(profile)),false);profileOptions.pairCodeGenOptimization=profile;reject(root,"profile-without-pair",valid(),profileOptions,log);}
+   auto badProfile=out(root/"profile-invalid",true);badProfile.pairCodeGenOptimization=1;reject(root,"profile-invalid",valid(),badProfile,log);
    std::cout<<"PASS pair admission: direct constructor/projections, arithmetic gate, malformed matrix, sentinels\n"; return 0;
  } catch(const std::exception&e){std::cerr<<e.what()<<"\n";return 1;} }

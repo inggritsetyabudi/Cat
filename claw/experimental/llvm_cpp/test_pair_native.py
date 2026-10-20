@@ -65,7 +65,7 @@ def env_for(args, root):
     return env
 
 
-def inspect_pair_ir(path):
+def inspect_pair_ir(path, expected_extracts=(0,)):
     text = path.read_text(encoding="utf-8")
     if re.search(r"\b(?:undef|poison|sret|byval|inalloca|preallocated)\b", text):
         raise HarnessError(f"pair IR has invalid ABI/coercion marker: {path}")
@@ -76,17 +76,51 @@ def inspect_pair_ir(path):
         raise HarnessError(f"pair constructor is not Direct nonpacked aggregate ABI: {make}")
     if not re.search(r'define internal i32 @"[^" ]+::take"\(\{ i32, i32 \} %[^)]+\)', take):
         raise HarnessError(f"pair parameter is not Direct nonpacked aggregate ABI: {take}")
-    allocas = [line.strip() for line in text.splitlines() if "alloca { i32, i32 }" in line]
+    def body(symbol):
+        match = re.search(r'^define [^\n]* @"' + re.escape(symbol) + r'"\([^\n]*\) \{\n(.*?)(?=^\}|^define )', text, re.M | re.S)
+        return match.group(1) if match else ""
+    make_body = body(re.search(r'@"([^" ]+::make)"', make).group(1))
+    take_body = body(re.search(r'@"([^" ]+::take)"', take).group(1))
+    params = re.search(r'\(i32 ([^,]+), i32 ([^)]+)\)', make)
+    first, second = (re.escape(params.group(i)) for i in (1, 2))
+    allocas = [line.strip() for line in make_body.splitlines() if "alloca { i32, i32 }" in line]
     if not allocas or not all(line.endswith(", align 4") for line in allocas):
         raise HarnessError("pair aggregate storage is not 4-byte aligned")
-    geps = [line.strip() for line in text.splitlines() if "getelementptr" in line and "{ i32, i32 }" in line]
-    if not any(re.search(r", i32 0, i32 0$", line) for line in geps) or not any(re.search(r", i32 0, i32 1$", line) for line in geps):
-        raise HarnessError("pair projections do not use nonpacked field-0/field-1 addresses")
+    if len(allocas) != 1:
+        raise HarnessError("pair constructor must have one aggregate allocation")
+    slot = re.search(r'(%[^ ]+) = alloca \{ i32, i32 \}, align 4$', allocas[0])
+    if not slot:
+        raise HarnessError("pair aggregate allocation is not structurally identifiable")
+    slot_name = re.escape(slot.group(1))
+    alias = re.search(r'^\s*(%[^ ]+) = bitcast ptr ' + slot_name + r' to ptr$', make_body, re.M)
+    field0_gep = re.search(r'^\s*(%[^ ]+) = getelementptr inbounds nuw \{ i32, i32 \}, ptr ' + slot_name + r', i32 0, i32 0$', make_body, re.M)
+    if alias:
+        address_name = re.escape(alias.group(1))
+    elif field0_gep:
+        address_name = re.escape(field0_gep.group(1))
+    else:
+        raise HarnessError("field 0 is neither the LLVM23 no-offset bitcast alias nor exact GEP0")
+    if not re.search(r'^\s*store i32 ' + first + r', ptr ' + address_name + r', align 4$', make_body, re.M):
+        raise HarnessError("field 0 does not store an Int32 through its exact address")
+    gep = r'^\s*(%[^ ]+) = getelementptr inbounds nuw \{ i32, i32 \}, ptr ' + slot_name + r', i32 0, i32 1$'
+    field1_gep = re.search(gep, make_body, re.M)
+    if not field1_gep:
+        raise HarnessError("field 1 is missing the exact inbounds nuw {i32,i32} GEP")
+    if not re.search(r'^\s*store i32 ' + second + r', ptr ' + re.escape(field1_gep.group(1)) + r', align 4$', make_body, re.M):
+        raise HarnessError('field 1 does not store its Int32 parameter through the exact GEP')
+    pair_geps = [line.strip() for line in make_body.splitlines() if "getelementptr" in line and "{ i32, i32 }" in line]
+    allowed_gep = r'^\s*%[^ ]+ = getelementptr inbounds nuw \{ i32, i32 \}, ptr ' + slot_name + r', i32 0, i32 [01]$'
+    if any(not re.search(allowed_gep, line) for line in pair_geps) or len(pair_geps) != (1 if alias else 2):
+        raise HarnessError("pair contains an unexpected GEP or non-canonical field projection")
+    if 0 in expected_extracts and not re.search(r'^\s*%[^ ]+ = extractvalue \{ i32, i32 \} %[^,]+, 0$', take_body, re.M):
+        raise HarnessError("pair field 0 extractvalue is missing")
+    if 1 in expected_extracts and not re.search(r'^\s*%[^ ]+ = extractvalue \{ i32, i32 \} %[^,]+, 1$', take_body, re.M):
+        raise HarnessError("pair field 1 extractvalue is missing")
     if not re.search(r"call \{ i32, i32 \} @\"[^\"]+::make\"\(i32 40, i32 2\)", text) and not re.search(r"call \{ i32, i32 \} @\"[^\"]+::make\"\(i32 42, i32 2\)", text):
         raise HarnessError("missing direct aggregate constructor call")
     if not re.search(r"call i32 @\"[^\"]+::take\"\(\{ i32, i32 \} %", text):
         raise HarnessError("missing direct aggregate parameter call")
-    return {"definitions": defs, "allocas": allocas, "projections": geps,
+    return {"definitions": defs, "allocas": allocas, "projections": pair_geps,
             "abi": "Cat Direct aggregate pair; nonpacked i32 fields; no C ABI coercion"}
 
 
@@ -126,7 +160,7 @@ def main(args):
         if {"runtime": stamp(args.runtime), "manifest": stamp(args.manifest)} != package_before:
             raise HarnessError(f"runtime/manifest changed during production case {name}")
 
-    def emit(src, case, flags, enabled=True):
+    def emit(src, case, flags, enabled=True, expected_extracts=(0, 1)):
         d = root / case; d.mkdir(parents=True, exist_ok=True)
         s, o, ll = d / "probe.cat", d / "program.o", d / "program.ll"
         s.write_bytes(src.encode() if isinstance(src, str) else src); fresh(o); fresh(ll)
@@ -134,7 +168,7 @@ def main(args):
         result = run(argv, args._emitter_env)
         if result["exit"] != 0 or not o.is_file() or not ll.is_file():
             raise HarnessError(f"pair emit failed: {result}")
-        target = verify_target(o, ll); abi = inspect_pair_ir(ll)
+        target = verify_target(o, ll); abi = inspect_pair_ir(ll, expected_extracts)
         return d, s, o, ll, result, target, abi
 
     def link_and_run(d, o):
@@ -150,9 +184,9 @@ def main(args):
 
     for name, src in production_sources.items():
         # Destructuring is deliberately a separate whole-value transfer proof.
-        flags = ("--arithmetic-i32",) if name == "fixture" else ()
         for level in ("O0", "O2"):
-            d, s, o, ll, e, target, abi = emit(src, f"adapter/{name}/{level}", flags)
+            flags = (("--arithmetic-i32",) if name == "fixture" else ()) + (f"--pair-codegen-{level}",)
+            d, s, o, ll, e, target, abi = emit(src, f"adapter/{name}/{level}", flags, expected_extracts=(0,) if name == "no-arithmetic" else (0, 1))
             exe, native = link_and_run(d, o)
             report["modes"][f"{name}/{level}"] = {"emit": e, "target": target, "abi": abi,
                 "object": file_record(o), "ir": file_record(ll), "exe": file_record(exe), "native": native}
@@ -182,6 +216,8 @@ def main(args):
     reject(source.decode(), "fixture/pair-only-addition", (), True)
     reject(source.decode(), "fixture/pair-plus-singleton", ("--singleton-i32",), True)
     reject(source.decode(), "fixture/pair-plus-runtime", ("--runtime-i32",), True)
+    reject(source.decode(), "fixture/codegen-o0-without-pair", ("--pair-codegen-O0",))
+    reject(source.decode(), "fixture/codegen-o2-without-pair", ("--pair-codegen-O2",))
     for name, src in INVALID.items():
         for mode, flags in MODES.items():
             reject(src, f"{name}/{mode}/without-pair", flags)
