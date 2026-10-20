@@ -1,7 +1,7 @@
 {
   "adapter_path": "claw/experimental/llvm_cpp",
-  "adapter_reviewed_head": "f2cd0d6d70572a736e0f3fa4186d1f4f010e673e",
-  "adapter_tree": "6857494055fd58ceff7252f1f758d6cf17deec0e",
+  "adapter_reviewed_head": "e10b8237dfdf2b36b1dfe07f8e1a05bfe81cde18",
+  "adapter_tree": "39241d95bc26f1bdcefa9a6317e328c18e398022",
   "format": "immutable-stack-source-v1",
   "pair_reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
   "prototype_maintenance_paths": [
@@ -50,8 +50,8 @@
     },
     "changelog/2026-10-20-pair-int32-opt-in-admission.md": {
       "mode": "100644",
-      "oid": "c9a59550e6034b28a92474d57e13c808b82fb898",
-      "reviewed_head": "f2cd0d6d70572a736e0f3fa4186d1f4f010e673e",
+      "oid": "1b1f4f25537465872aa05de2693993536328f7e7",
+      "reviewed_head": "e10b8237dfdf2b36b1dfe07f8e1a05bfe81cde18",
       "type": "blob"
     },
     "changelog/2026-10-20-pair-int32-production-native-roundtrip.md": {
@@ -110,8 +110,8 @@
     },
     "tools/pair_layout/run.py": {
       "mode": "100644",
-      "oid": "716b212f53813a0e88a25ad1b5b32cbdb4861f66",
-      "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
+      "oid": "ae16be714d0d976ada8e09559079cca798b20aaa",
+      "reviewed_head": "e10b8237dfdf2b36b1dfe07f8e1a05bfe81cde18",
       "type": "blob"
     },
     "tools/windows_stack_contract.py": {
