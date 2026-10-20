@@ -156,6 +156,33 @@ target_link_libraries(claw-llvm-sdk-version-probe PRIVATE claw_llvm_cpp_sdk)
 if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     find_program(CLAW_POC_CC NAMES cc clang REQUIRED)
+    # Test-only production singleton evidence. This does not link into the
+    # adapter, change production lowering, or grant aggregate acceptance.
+    find_program(CLAW_SINGLETON_CLANG NAMES clang REQUIRED)
+    find_program(CLAW_SINGLETON_GIT NAMES git
+        HINTS "$ENV{ProgramFiles}/Git/cmd" "$ENV{ProgramW6432}/Git/cmd"
+              "C:/Program Files/Git/cmd" "C:/Program Files/Git/bin" REQUIRED)
+    execute_process(COMMAND "${CLAW_SINGLETON_GIT}" -C "${PROJECT_SOURCE_DIR}" rev-parse HEAD
+        OUTPUT_VARIABLE _singleton_source_sha OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE _singleton_git_status)
+    if(NOT _singleton_git_status EQUAL 0 OR NOT _singleton_source_sha MATCHES "^[0-9a-f]+$")
+        message(FATAL_ERROR "Singleton evidence requires a verifiable Git source revision")
+    endif()
+    add_executable(claw-singleton-layout-probe singleton_layout_probe.cpp)
+    target_link_libraries(claw-singleton-layout-probe PRIVATE claw_frontend claw_llvm_cpp_sdk)
+    add_test(NAME llvm-cpp-production-singleton-roundtrip
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_singleton_production.py"
+            --production "$<TARGET_FILE:claw>" --layout-probe "$<TARGET_FILE:claw-singleton-layout-probe>"
+            --cc "${CLAW_SINGLETON_CLANG}" --git "${CLAW_SINGLETON_GIT}"
+            --expected-sha "${_singleton_source_sha}" --profile "${CLAW_LLVM_POC_PLATFORM}"
+            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/singleton-artifacts/production")
+    set_tests_properties(llvm-cpp-production-singleton-roundtrip PROPERTIES TIMEOUT 180)
+    add_test(NAME llvm-cpp-singleton-rejection
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/test_singleton_rejection.py"
+            --emitter "$<TARGET_FILE:claw-llvm-poc>"
+            --fixture "${PROJECT_SOURCE_DIR}/tests/native/singleton_roundtrip.cat"
+            --artifacts "${CMAKE_CURRENT_BINARY_DIR}/singleton-artifacts/rejection")
+    set_tests_properties(llvm-cpp-singleton-rejection PROPERTIES TIMEOUT 180)
     add_executable(claw-llvm-poc-adapter-tests test_adapter.cpp)
     target_link_libraries(claw-llvm-poc-adapter-tests PRIVATE claw_llvm_cpp_adapter)
     add_executable(claw-local-binding-identity-tests test_local_binding_identity.cpp)

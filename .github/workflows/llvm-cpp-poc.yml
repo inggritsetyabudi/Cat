@@ -106,8 +106,11 @@ jobs:
           set -euo pipefail
           ctest --test-dir build-llvm-poc -R '^llvm-cpp-production-string-abi-oracle$' --output-on-failure 2>&1 | tee ci-evidence/string-abi-oracle.log
       - name: Run all PoC gates and original production suites
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
+          ctest --test-dir build-llvm-poc -R '^llvm-cpp-(production-singleton-roundtrip|singleton-rejection)$' --output-on-failure 2>&1 | tee ci-evidence/singleton-gates.log
           ctest --test-dir build-llvm-poc --output-on-failure 2>&1 | tee ci-evidence/ctest.log
           # Production suites regenerate tracked artifacts: never run them in the evidence checkout.
           compiler="$PWD/build-llvm-poc/claw"
@@ -126,6 +129,7 @@ jobs:
           path: |
             ci-evidence/
             build-llvm-poc/Testing/Temporary/LastTest.log
+            build-llvm-poc/experimental/llvm_cpp/singleton-artifacts/
             build-llvm-poc/experimental/llvm_cpp/artifacts/results.json
             build-llvm-poc/experimental/llvm_cpp/adapter-artifacts/*.log
             build-llvm-poc/experimental/llvm_cpp/lld/artifacts/testdata.json
@@ -264,8 +268,11 @@ jobs:
           set -euo pipefail
           ctest --test-dir build-llvm-poc-win -R '^llvm-cpp-production-string-abi-oracle$' --output-on-failure 2>&1 | tee ci-evidence/string-abi-oracle.log
       - name: Run all PoC gates with native Python
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
+          ctest --test-dir build-llvm-poc-win -R '^llvm-cpp-(production-singleton-roundtrip|singleton-rejection)$' --output-on-failure 2>&1 | tee ci-evidence/singleton-gates.log
           ctest --test-dir build-llvm-poc-win --output-on-failure 2>&1 | tee ci-evidence/ctest.log
       - name: Capture linked SDK, COFF object and native executable evidence
         run: |
@@ -297,6 +304,7 @@ jobs:
           path: |
             ci-evidence/
             build-llvm-poc-win/Testing/Temporary/LastTest.log
+            build-llvm-poc-win/experimental/llvm_cpp/singleton-artifacts/
             build-llvm-poc-win/experimental/llvm_cpp/artifacts/results.json
             build-llvm-poc-win/experimental/llvm_cpp/llvm-sdk-provenance.txt
             build-llvm-poc-win/experimental/llvm_cpp/adapter-artifacts/*.log
