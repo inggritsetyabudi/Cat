@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 import windows_stack_source_guard as guard
 
@@ -151,11 +152,34 @@ class SourceGuardTests(unittest.TestCase):
         self.assertEqual(current.count(addition), 1)
         self.assertEqual(current.replace(addition, b''), old)
 
-    def test_default_off_and_no_pair_adapter_flag(self):
+    def test_manifest_bad_digest_rejected(self):
+        with mock.patch.object(guard, 'MANIFEST_SHA256', '0' * 64):
+            with self.assertRaisesRegex(ValueError, 'digest differs'):
+                guard.load_manifest(Path(__file__).with_name('windows_stack_source_manifest.json'))
+
+    def test_provenance_wrong_tree_blob_commit_and_format(self):
+        for field in ('adapter_tree', 'adapter_reviewed_head', 'format'):
+            changed = copy.deepcopy(self.manifest)
+            changed[field] = '0' * 40 if field != 'format' else 'unknown-format'
+            with self.subTest(field=field), self.assertRaises((ValueError, __import__('subprocess').CalledProcessError)):
+                guard.validate_provenance(ROOT, changed)
+        path = next(iter(self.manifest['reviewed_changes']))
+        for field in ('oid', 'mode', 'type', 'reviewed_head'):
+            changed = copy.deepcopy(self.manifest)
+            changed['reviewed_changes'][path][field] = '0' * 40
+            with self.subTest(field=field), self.assertRaises((ValueError, __import__('subprocess').CalledProcessError)):
+                guard.validate_provenance(ROOT, changed)
+
+    def test_default_off_and_separate_pair_adapter_flag(self):
         cmake = guard.git(SOURCE, 'show', guard.SOURCE_HEAD + ':claw/CMakeLists.txt')
         self.assertRegex(cmake.decode(), r'option\(CLAW_ENABLE_LLVM_CPP_POC[^\n]*OFF\)')
         driver = guard.git(ROOT, 'show', 'HEAD:claw/experimental/llvm_cpp/driver.cpp')
-        self.assertNotIn(b'--pair-i32', driver)
+        self.assertIn(b'--pair-i32', driver)
+        header = guard.git(ROOT, 'show', 'HEAD:claw/experimental/llvm_cpp/adapter.h')
+        self.assertIn(b'bool enablePairI32 = false;', header)
+        adapter = guard.git(ROOT, 'show', 'HEAD:claw/experimental/llvm_cpp/adapter.cpp')
+        self.assertIn(b'validatePairAdmission(program, options.enableArithmeticI32)', adapter)
+        self.assertIn(b'validateSingletonAdmission(program)', adapter)
 
 
 if __name__ == '__main__':

@@ -15,14 +15,33 @@ import subprocess
 import sys
 
 SOURCE_HEAD = '6d697e88a8f679e26732f906f85ae831cdc52bca'
-ADAPTER_HEAD = 'f6acc88da962e021321d6f13c8c47f0bb1e1ac20'
+ADAPTER_HEAD = 'f2cd0d6d70572a736e0f3fa4186d1f4f010e673e'
 PAIR_HEAD = 'ceff0e9eb32a9805e0293dbaa93084e9f12076e7'
-MANIFEST_SHA256 = 'b71872651d0ae22e6a4880d28a337ba8aa78273c1ff22fbdb3452a060be623ba'
+MANIFEST_SHA256 = '2387a4bf8f0b87e8adcfaf5db5c081cfc43fcd5254d6ec69228bfcb3f1446565'
 ADAPTER_PATH = 'claw/experimental/llvm_cpp'
 
 
 def git(root, *args):
     return subprocess.check_output(['git', '-C', str(root), *args])
+
+
+def validate_provenance(root, manifest):
+    if manifest.get('format') != 'immutable-stack-source-v1':
+        raise ValueError('unexpected manifest format')
+    def exact_entry(revision, path):
+        raw = git(root, 'ls-tree', revision, '--', path).decode().strip()
+        if not raw:
+            raise ValueError('review provenance path missing: ' + path)
+        metadata, actual_path = raw.split('\t', 1)
+        if actual_path != path:
+            raise ValueError('review provenance path mismatch')
+        return tuple(metadata.split())
+    if exact_entry(manifest['adapter_reviewed_head'], ADAPTER_PATH) != (
+            '040000', 'tree', manifest['adapter_tree']):
+        raise ValueError('adapter tree differs from reviewed commit')
+    for path, item in manifest['reviewed_changes'].items():
+        if exact_entry(item['reviewed_head'], path) != (item['mode'], item['type'], item['oid']):
+            raise ValueError('blob differs from reviewed commit: ' + path)
 
 
 def load_manifest(path):
@@ -39,6 +58,7 @@ def load_manifest(path):
         result['pair_reviewed_head'], result['adapter_path']) != (
             SOURCE_HEAD, ADAPTER_HEAD, PAIR_HEAD, ADAPTER_PATH):
         raise ValueError('unexpected source/review provenance')
+    validate_provenance(root, result)
     return result
 
 

@@ -1,7 +1,7 @@
 {
   "adapter_path": "claw/experimental/llvm_cpp",
-  "adapter_reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
-  "adapter_tree": "19f7cc0dc4b17fca71e8b86e582b0b1a41f6e9cf",
+  "adapter_reviewed_head": "f2cd0d6d70572a736e0f3fa4186d1f4f010e673e",
+  "adapter_tree": "6857494055fd58ceff7252f1f758d6cf17deec0e",
   "format": "immutable-stack-source-v1",
   "pair_reviewed_head": "ceff0e9eb32a9805e0293dbaa93084e9f12076e7",
   "prototype_maintenance_paths": [
@@ -20,8 +20,14 @@
     },
     ".github/workflows/llvm-cpp-poc.yml": {
       "mode": "100644",
-      "oid": "1816bb115a8fd6526ea9ff178b5bde602593bc87",
-      "reviewed_head": "f6acc88da962e021321d6f13c8c47f0bb1e1ac20",
+      "oid": "7dd3bf7ee3a725f0d9aea3d37899be1137f9e884",
+      "reviewed_head": "f2cd0d6d70572a736e0f3fa4186d1f4f010e673e",
+      "type": "blob"
+    },
+    ".github/workflows/pair-adapter.yml": {
+      "mode": "100644",
+      "oid": "225885c01640651cd08b4c159aa22f0bc5d98a67",
+      "reviewed_head": "f2cd0d6d70572a736e0f3fa4186d1f4f010e673e",
       "type": "blob"
     },
     ".github/workflows/pair-layout-proof.yml": {
@@ -40,6 +46,12 @@
       "mode": "100644",
       "oid": "99a8204ec268be0eac0ffa874dde4872f8e35236",
       "reviewed_head": "b68a5be73ccb51b01c825e30c1a95f7efc3120df",
+      "type": "blob"
+    },
+    "changelog/2026-10-20-pair-int32-opt-in-admission.md": {
+      "mode": "100644",
+      "oid": "c9a59550e6034b28a92474d57e13c808b82fb898",
+      "reviewed_head": "f2cd0d6d70572a736e0f3fa4186d1f4f010e673e",
       "type": "blob"
     },
     "changelog/2026-10-20-pair-int32-production-native-roundtrip.md": {
