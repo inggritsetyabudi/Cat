@@ -1,0 +1,9 @@
+# 2026-10-20 — Batas coverage oracle stack immutable dan adapter opt-in
+
+CI pada `9f4069039bcbda9b18eb91706fb0f167a1d2121a` menemukan guard prototype first-chance membandingkan seluruh tree `claw/`. Dua job gagal sebelum observer berjalan karena perubahan adapter eksperimen, walaupun `claw/src`, runtime, default build, dan corpus produksi tidak berubah. Failure tersebut dipertahankan pada run [39375880426](https://github.com/inggritsetyabudi/Cat/actions/runs/39375880426), bukan diubah menjadi PASS atau disembunyikan dengan retry.
+
+Guard kini tetap membandingkan seluruh entry `claw/`, termasuk entry baru/tidak dikenal, kecuali subtree `experimental`; pada subtree itu hanya `llvm_cpp` yang boleh berbeda. Seluruh entry eksperimen lain tetap dibandingkan. Ini bukan pengecualian produksi: source compiler, runtime, seluruh tests, default CMake, dokumentasi compiler, dan gate diagnostik asli tetap immutable terhadap source pinned `6d697e88a8f679e26732f906f85ae831cdc52bca`.
+
+Prototype masih menjalankan **binary asli dari artefak attempt1 yang checksum-pinned**, dengan source asli pinned, kontrol negatif yang sama, observer yang sama, dan pengulangan yang sama. Guard provenance run/head/hash/failure attempt1 tidak diubah. Bukti `adapter-not-covered.json` kini secara eksplisit menyatakan bahwa prototype ini **tidak memvalidasi adapter head baru**; adapter wajib lulus gate exact-headnya sendiri. Daftar tree produksi yang dilindungi ikut diunggah sebagai bukti.
+
+Koreksi ini hanya memperjelas batas harness yang diperlukan untuk workstream adapter saat ini. Ia tidak memperbaiki atau menghapus terminal Windows access violation attempt1. PR tetap draft/default OFF, tanpa promosi atau merge. Hasil CI baru baru boleh dinyatakan PASS setelah run exact-head selesai dan artefaknya ditinjau.

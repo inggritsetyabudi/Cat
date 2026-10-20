@@ -48,7 +48,24 @@ jobs:
           if ($run.run_attempt -ne 1 -or $run.conclusion -ne 'failure') { throw 'Attempt-1 failure not preserved' }
           $claw = (git rev-parse HEAD:claw).Trim()
           $originalClaw = (git -C original-source rev-parse HEAD:claw).Trim()
-          if ($claw -ne $originalClaw) { throw 'This immutable prototype does not cover changed production/test source' }
+          # The observer still runs ONLY the checksum-pinned original binaries
+          # against the pinned original source. A separate opt-in adapter is not
+          # covered by this historical diagnostic and must pass its own gates.
+          # Compare every other entry, including unknown/new production paths;
+          # do not replace this with a short allowlist of production filenames.
+          $protected = @(git ls-tree HEAD:claw | Where-Object { $_ -notmatch "`texperimental$" }) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect test-head compiler tree' }
+          $originalProtected = @(git -C original-source ls-tree HEAD:claw | Where-Object { $_ -notmatch "`texperimental$" }) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect immutable compiler tree' }
+          if ($protected -ne $originalProtected) { throw 'This immutable prototype does not cover changed production/test source' }
+          $experimentalProtected = @(git ls-tree HEAD:claw/experimental | Where-Object { $_ -notmatch "`tllvm_cpp$" }) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect test-head experimental tree' }
+          $originalExperimentalProtected = @(git -C original-source ls-tree HEAD:claw/experimental | Where-Object { $_ -notmatch "`tllvm_cpp$" }) -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect immutable experimental tree' }
+          if ($experimentalProtected -ne $originalExperimentalProtected) { throw 'Unexpected experimental subtree outside the separately gated LLVM adapter' }
+          $protected | Out-File evidence/protected-production-tree.txt
+          $experimentalProtected | Out-File evidence/protected-experimental-tree.txt
+          [ordered]@{testHeadAdapter=(git rev-parse HEAD:claw/experimental/llvm_cpp).Trim(); originalAdapter=(git -C original-source rev-parse HEAD:claw/experimental/llvm_cpp).Trim(); covered=$false; reason='Historical immutable binaries only; current adapter requires its own exact-head gates'} | ConvertTo-Json | Out-File evidence/adapter-not-covered.json
           foreach ($file in @('.github/workflows/backend-stack-diagnostic.yml','CMakeLists.txt')) {
             if ((Test-Path $file) -and (Test-Path "original-source/$file")) {
               if ((Get-FileHash $file).Hash -ne (Get-FileHash "original-source/$file").Hash) { throw "Original gate/default file changed: $file" }
