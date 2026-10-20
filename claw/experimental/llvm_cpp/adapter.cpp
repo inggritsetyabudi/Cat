@@ -1,4 +1,5 @@
 #include "experimental/llvm_cpp/adapter.h"
+#include "experimental/llvm_cpp/singleton_admission.h"
 #include "codegen/llvm.h"
 #include "codegen/llvm_internal.h"
 
@@ -67,7 +68,10 @@ bool isSliceType(const std::string& name) { return name == "Str" || name == "ref
 bool isBufferType(const std::string& name) { return name == "String"; }
 bool isStringType(const std::string& name) { return isSliceType(name) || isBufferType(name); }
 
-llvm::Type* stringType(llvm::LLVMContext& context, const std::string& name, bool enabled) {
+bool isSingletonType(const std::string& name) { return name == "Tuple[Int32]"; }
+llvm::Type* stringType(llvm::LLVMContext& context, const std::string& name, bool enabled, bool singleton = false) {
+    if (singleton && isSingletonType(name))
+        return llvm::StructType::get(context, {llvm::Type::getInt32Ty(context)}, false);
     if (!enabled || !isStringType(name)) return scalarType(context, name);
     const char* tag = isSliceType(name) ? "claw.slice" : "claw.buffer";
     if (auto* existing = llvm::StructType::getTypeByName(context, tag)) return existing;
@@ -102,12 +106,13 @@ public:
     FunctionLowerer(llvm::LLVMContext& context, const FunctionInfo& function,
                     const FunctionMap& functions, llvm::Function* entry, llvm::Function* runtimeI32,
                     llvm::Function* runtimeDivisionByZero, bool enableArithmeticI32,
-                    bool enableStrings, llvm::Module* module,
+                    bool enableStrings, bool enableSingletonI32, llvm::Module* module,
                     llvm::Function* runtimeStringAlloc, llvm::Function* runtimeStringCopy,
                     llvm::Function* runtimeStringFree, llvm::Function* runtimePrintSlice)
         : context_(context), builder_(context), function_(function), functions_(functions), entry_(entry),
           runtimeI32_(runtimeI32), runtimeDivisionByZero_(runtimeDivisionByZero),
-          enableArithmeticI32_(enableArithmeticI32), enableStrings_(enableStrings), module_(module),
+          enableArithmeticI32_(enableArithmeticI32), enableStrings_(enableStrings),
+          enableSingletonI32_(enableSingletonI32), module_(module),
           runtimeStringAlloc_(runtimeStringAlloc), runtimeStringCopy_(runtimeStringCopy),
           runtimeStringFree_(runtimeStringFree), runtimePrintSlice_(runtimePrintSlice) {}
 
@@ -133,7 +138,7 @@ public:
             if (argument->getType()->isPointerTy() && isStringType(param.type)) {
                 if (!parameterAddresses_.emplace(id, argument).second)
                     unsupported("duplicate parameter slot '" + id + "'");
-                parameterTypes_.emplace(id, stringType(context_, param.type, enableStrings_));
+                parameterTypes_.emplace(id, stringType(context_, param.type, enableStrings_, enableSingletonI32_));
             } else if (!values_.emplace(id, argument).second) {
                 unsupported("duplicate parameter value '" + id + "'");
             }
@@ -164,11 +169,14 @@ private:
         // Every spill has one static slot per call site, not one allocation per
         // loop iteration. Initialization remains at the original use site.
         llvm::IRBuilder<> storage(&function_.ir->getEntryBlock(), function_.ir->getEntryBlock().begin());
-        return storage.CreateAlloca(type, nullptr, name);
+        auto* slot = storage.CreateAlloca(type, nullptr, name);
+        if (enableSingletonI32_)
+            slot->setAlignment(module_->getDataLayout().getABITypeAlign(type));
+        return slot;
     }
     llvm::Value* value(const LirValue& input) {
         rejectProjectionProvenance(input.provenance);
-        auto* expectedType = stringType(context_, input.type, enableStrings_);
+        auto* expectedType = stringType(context_, input.type, enableStrings_, enableSingletonI32_);
         if (input.isUnit || expectedType->isVoidTy()) unsupported("Unit as a scalar operand");
         llvm::Value* result = nullptr;
         const auto id = key(input);
@@ -210,7 +218,7 @@ private:
         if (!values_.emplace(name, result).second || slots_.contains(name) || parameterAddresses_.contains(name)) unsupported("duplicate SSA result '" + name + "'");
     }
     void lowerInstruction(const LirObjectInst& inst) {
-        auto* type = stringType(context_, inst.type, enableStrings_);
+        auto* type = stringType(context_, inst.type, enableStrings_, enableSingletonI32_);
         if (type->isVoidTy()) unsupported("Unit local storage");
         const auto id = inst.bindingKey.empty() ? inst.name : inst.bindingKey;
         if (slots_.contains(id) || values_.contains(id) || parameterAddresses_.contains(id)) unsupported("duplicate object binding '" + id + "'");
@@ -344,11 +352,11 @@ private:
         auto* callee = found->second.ir;
         if (callee == entry_) unsupported("call to entry main");
         if (callee == function_.ir) unsupported("recursive direct call");
-        if (stringType(context_, inst.type, enableStrings_) != stringType(context_, found->second.lir->returnType, enableStrings_))
+        if (stringType(context_, inst.type, enableStrings_, enableSingletonI32_) != stringType(context_, found->second.lir->returnType, enableStrings_, enableSingletonI32_))
             unsupported("call logical result type mismatch");
         const bool indirectReturn = found->second.lir->returnType == "String";
         if (inst.args.size() + (indirectReturn ? 1 : 0) != callee->arg_size()) unsupported("call argument count mismatch");
-        if ((!indirectReturn && stringType(context_, inst.type, enableStrings_) != callee->getReturnType()) ||
+        if ((!indirectReturn && stringType(context_, inst.type, enableStrings_, enableSingletonI32_) != callee->getReturnType()) ||
             (indirectReturn && !callee->getReturnType()->isVoidTy())) unsupported("call result type mismatch");
         std::vector<llvm::Value*> arguments;
         llvm::AllocaInst* returnSlot = nullptr;
@@ -358,8 +366,8 @@ private:
             arguments.push_back(returnSlot);
         }
         for (size_t i = 0; i < inst.args.size(); ++i) {
-            if (stringType(context_, inst.args[i].type, enableStrings_) !=
-                stringType(context_, found->second.lir->params[i].type, enableStrings_))
+            if (stringType(context_, inst.args[i].type, enableStrings_, enableSingletonI32_) !=
+                stringType(context_, found->second.lir->params[i].type, enableStrings_, enableSingletonI32_))
                 unsupported("call logical argument type mismatch");
             auto* operand = value(inst.args[i]);
             auto* expected = callee->getFunctionType()->getParamType(i + (indirectReturn ? 1 : 0));
@@ -466,9 +474,25 @@ private:
         rejectProjectionProvenance(inst.provenance);
         lowerStringDrop(inst);
     }
+    void lowerInstruction(const LirStoreFieldInst& inst) {
+        rejectProjectionProvenance(inst.object.provenance);
+        rejectProjectionProvenance(inst.value.provenance);
+        if (!enableSingletonI32_ || !isSingletonType(inst.object.type) || inst.object.isUnit ||
+            inst.field != "0" || inst.value.type != "Int32" || inst.safety != LirSafetyTag::ProvenSafe)
+            unsupported("singleton field construction");
+        const auto found = slots_.find(key(inst.object));
+        if (found == slots_.end() || found->second->getAllocatedType() !=
+                stringType(context_, inst.object.type, enableStrings_, enableSingletonI32_))
+            unsupported("singleton constructor requires actual local stack storage");
+        auto* address = builder_.CreateStructGEP(found->second->getAllocatedType(), found->second, 0, "singleton.field0.addr");
+        builder_.CreateStore(value(inst.value), address);
+    }
     void lowerInstruction(const LirFieldInst& inst) {
         rejectProjectionProvenance(inst.provenance);
-        unsupported("LIR field projection (aggregate lowering remains unsupported)");
+        if (!enableSingletonI32_ || !isSingletonType(inst.object.type) || inst.field != "0" ||
+            inst.type != "Int32" || inst.safety != LirSafetyTag::ProvenSafe)
+            unsupported("LIR field projection (only explicitly validated singleton is supported)");
+        bind(inst.result, builder_.CreateExtractValue(value(inst.object), {0}, inst.result));
     }
     void lowerInstruction(const LirDiscardInst& inst) {
         if (!inst.value.isUnit && inst.value.type != "Unit") (void)value(inst.value);
@@ -484,6 +508,7 @@ private:
     llvm::Function* runtimeDivisionByZero_;
     bool enableArithmeticI32_;
     bool enableStrings_;
+    bool enableSingletonI32_;
     llvm::Module* module_;
     llvm::Function* runtimeStringAlloc_;
     llvm::Function* runtimeStringCopy_;
@@ -540,6 +565,8 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     if (options.objectPath.empty()) unsupported("empty object output path");
     if (!options.irPath.empty() && options.irPath == options.objectPath) unsupported("aliased IR/object output paths");
     if (program.realms.size() != 1) unsupported("multiple LIR modules");
+    // Validate the complete typed program before creating LLVM instructions or artifacts.
+    if (options.enableSingletonI32) validateSingletonAdmission(program);
     static const bool targetReady = [] {
         return !llvm::InitializeNativeTarget() && !llvm::InitializeNativeTargetAsmPrinter();
     }();
@@ -567,6 +594,14 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     if (!layout.isLittleEndian() || layout.getPointerSizeInBits() != 64)
         unsupported("target DataLayout: little-endian 64-bit pointers required");
     module.setDataLayout(layout);
+    if (options.enableSingletonI32) {
+        auto* singleton = llvm::cast<llvm::StructType>(stringType(context, "Tuple[Int32]", false, true));
+        if (singleton->isPacked() || singleton->getNumElements() != 1 ||
+            layout.getTypeAllocSize(singleton).getFixedValue() != 4 ||
+            layout.getABITypeAlign(singleton).value() != 4 ||
+            layout.getStructLayout(singleton)->getElementOffset(0) != 0)
+            unsupported("singleton TargetMachine DataLayout requires size4/align4/offset0");
+    }
     if (options.enableStrings) {
         auto* slice = stringType(context, "ref Str", true);
         auto* buffer = stringType(context, "String", true);
@@ -636,7 +671,7 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
         for (const auto& parameter : function->params) {
             if (parameter.name.empty() || !parameterNames.insert(parameter.name).second)
                 unsupported("empty or duplicate parameter name");
-            auto* type = stringType(context, parameter.type, options.enableStrings);
+            auto* type = stringType(context, parameter.type, options.enableStrings, options.enableSingletonI32);
             if (type->isVoidTy()) unsupported("parameter ABI");
             const bool stringParam = isStringType(parameter.type);
             const bool pointerAbi = stringParam && (parameter.type == "String" ||
@@ -646,13 +681,13 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
                 false
 #endif
             );
-            if (!stringParam && parameter.passKind != AbiPassKind::Scalar) unsupported("parameter ABI");
+            if (!stringParam && parameter.passKind != (options.enableSingletonI32 && isSingletonType(parameter.type) ? AbiPassKind::Direct : AbiPassKind::Scalar)) unsupported("parameter ABI");
             if (stringParam && parameter.passKind != (isBufferType(parameter.type) ? AbiPassKind::Indirect : AbiPassKind::Direct))
                 unsupported("string parameter ABI");
             parameters.push_back(pointerAbi ? llvm::PointerType::getUnqual(context) : type);
         }
-        auto* result = stringType(context, function->returnType, options.enableStrings);
-        if (!isStringType(function->returnType) && function->returnPassKind != (result->isVoidTy() ? AbiPassKind::Void : AbiPassKind::Scalar))
+        auto* result = stringType(context, function->returnType, options.enableStrings, options.enableSingletonI32);
+        if (!isStringType(function->returnType) && function->returnPassKind != (result->isVoidTy() ? AbiPassKind::Void : (options.enableSingletonI32 && isSingletonType(function->returnType) ? AbiPassKind::Direct : AbiPassKind::Scalar)))
             unsupported("return ABI");
         if (isStringType(function->returnType) && function->returnType != "String" &&
             function->returnPassKind != AbiPassKind::Direct) unsupported("Str return ABI");
@@ -695,7 +730,7 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
         unsupported("entry main signature or symbol");
     for (const auto& info : definitions)
         FunctionLowerer(context, info, functions, entry, runtimeI32, runtimeDivisionByZero,
-                        options.enableArithmeticI32, options.enableStrings, &module,
+                        options.enableArithmeticI32, options.enableStrings, options.enableSingletonI32, &module,
                         runtimeStringAlloc, runtimeStringCopy, runtimeStringFree, runtimePrintSlice).lower();
 
     auto* main = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getInt32Ty(context), false),
@@ -711,6 +746,14 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     if (llvm::verifyModule(module, &diagnostic))
         throw std::runtime_error("LLVM verifyModule failed: " + diagnostic.str());
 
+    // CodeGen can rewrite zero-offset GEPs and overalign stack slots. Preserve
+    // the verified API module for this new slice, not its machine-pass mutation.
+    // Keep the historical dump policy byte-invariant when the new flag is OFF.
+    std::string singletonIr;
+    if (options.enableSingletonI32 && !options.irPath.empty()) {
+        llvm::raw_string_ostream stream(singletonIr);
+        module.print(stream, nullptr);
+    }
     // Generate to memory first: unsupported LIR and verifier failures publish nothing.
     llvm::SmallVector<char, 0> object;
     llvm::raw_svector_ostream objectStream(object);
@@ -721,9 +764,11 @@ void emit(const LirProgram& program, const ObjectOptions& options) {
     auto stagedObject = StagedArtifact::stage(options.objectPath, llvm::StringRef(object.data(), object.size()));
     std::unique_ptr<StagedArtifact> stagedIr;
     if (!options.irPath.empty()) {
-        std::string text;
-        llvm::raw_string_ostream stream(text);
-        module.print(stream, nullptr);
+        std::string text = std::move(singletonIr);
+        if (!options.enableSingletonI32) {
+            llvm::raw_string_ostream stream(text);
+            module.print(stream, nullptr);
+        }
         stagedIr = StagedArtifact::stage(options.irPath, text);
     }
     // Both outputs have been written/checked before either is published. Each rename

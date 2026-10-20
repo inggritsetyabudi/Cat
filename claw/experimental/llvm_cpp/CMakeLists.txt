@@ -122,8 +122,7 @@ target_link_libraries(claw_llvm_cpp_sdk INTERFACE
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/llvm-sdk-provenance.txt"
     "platform=${CLAW_LLVM_POC_PLATFORM}\nllvm-config=${CLAW_LLVM_CONFIG}\nversion=${CLAW_LLVM_VERSION}\nheaders=${CLAW_LLVM_INCLUDEDIR}\nhost-target=${CLAW_LLVM_HOST_TARGET}\nhas-rtti=${CLAW_LLVM_HAS_RTTI}\nrequired-components=core codegen mc target x86codegen x86desc x86info\nstatic-libraries=${CLAW_LLVM_LIBFILES}\nsystem-libraries=${CLAW_LLVM_SYSTEM_LIBS}\n")
 message(STATUS "PoC SDK: exact ${CLAW_LLVM_VERSION}, ${CLAW_LLVM_HOST_TARGET}, static X86 components, RTTI=${CLAW_LLVM_HAS_RTTI}")
-
-add_library(claw_llvm_cpp_adapter adapter.cpp)
+add_library(claw_llvm_cpp_adapter adapter.cpp singleton_admission.cpp)
 target_include_directories(claw_llvm_cpp_adapter PUBLIC
     "${PROJECT_SOURCE_DIR}/src"
     "${PROJECT_SOURCE_DIR}")
@@ -185,6 +184,10 @@ if(BUILD_TESTING)
     set_tests_properties(llvm-cpp-singleton-rejection PROPERTIES TIMEOUT 180)
     add_executable(claw-llvm-poc-adapter-tests test_adapter.cpp)
     target_link_libraries(claw-llvm-poc-adapter-tests PRIVATE claw_llvm_cpp_adapter)
+    add_executable(claw-singleton-admission-tests test_singleton_admission.cpp)
+    target_link_libraries(claw-singleton-admission-tests PRIVATE claw_llvm_cpp_adapter)
+    add_test(NAME llvm-cpp-singleton-admission
+        COMMAND claw-singleton-admission-tests "${CMAKE_CURRENT_BINARY_DIR}/singleton-artifacts/admission")
     add_executable(claw-local-binding-identity-tests test_local_binding_identity.cpp)
     target_link_libraries(claw-local-binding-identity-tests PRIVATE claw_frontend)
     add_test(NAME llvm-cpp-local-binding-keys-metadata

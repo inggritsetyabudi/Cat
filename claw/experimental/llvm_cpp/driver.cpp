@@ -18,7 +18,7 @@ namespace {
 void usage() {
     std::cerr << "Experimental, object-only LLVM C++ API PoC (not the production backend).\n"
               << "Usage: claw-llvm-poc <single-file.cat> -o <output.o> [--emit-ir <output.ll>]\n"
-              << "       [--runtime-i32] [--arithmetic-i32] [--strings]\n"
+              << "       [--runtime-i32] [--arithmetic-i32] [--strings] [--singleton-i32]\n"
               << "       [--local-binding-keys] (locals only, not universal identity)\n"
               << "Link separately with the prebuilt runtime and LLD.\n";
 }
@@ -51,6 +51,8 @@ int main(int argc, char** argv) {
             options.enableArithmeticI32 = true;
         } else if (flag == "--strings" && !options.enableStrings) {
             options.enableStrings = true;
+        } else if (flag == "--singleton-i32" && !options.enableSingletonI32) {
+            options.enableSingletonI32 = true;
         } else if (flag == "--local-binding-keys" && !localBindingKeys) {
             localBindingKeys = true;
         } else {

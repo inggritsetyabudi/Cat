@@ -284,3 +284,25 @@ token formal. Tuple/pick/try binders, seluruh synthetic storage, specialization
 dan identitas lintas analisis/modul tidak dipromosikan menjadi canonical universal.
 PR tetap draft, opsi default OFF, dan seluruh v0.1–v0.3 tidak dinyatakan
 production-grade berdasarkan kelulusan irisan ini.
+
+## Singleton Int32 internal, opt-in terpisah
+
+`--singleton-i32` (`ObjectOptions.enableSingletonI32=false` secara default) membuka hanya tipe canonical **`Tuple[Int32]`**, bukan tuple umum. Flag identitas lokal, runtime, aritmetika, dan String tanpa flag ini tetap menolak singleton. Tidak ada perubahan sintaks, ownership, produksi, PRD, atau versi bahasa; PR tetap draft dan tidak dipromosikan.
+
+```cat
+fn make(x: Int32) -> (Int32,) { (x,) }
+fn take(p: (Int32,)) -> Int32 { p.0 }
+fn main() -> Int32 { val p = make(42) return take(p) }
+```
+
+Jalankan emitter dengan `--singleton-i32`, kemudian tautkan object melalui LLD terpisah memakai paket runtime dan CRT target yang sudah ada. Emisi tidak memanggil Clang. Kontrak internal Cat adalah parameter/result **Direct**, LLVM nonpacked `{ i32 }`, tanpa scalar flattening, `sret`, atau `byval`. TargetMachine DataLayout wajib membuktikan size4, alignment4, offset field0=0 sebelum lowering.
+
+Validator typed LIR berjalan sebelum instruksi LLVM/publikasi artefak. Ia membuktikan tipe persis, signature/ABI/linkage internal `claw`, tabel storage/SSA function-local, asal slot `alloc stack`, konstruksi field0 Int32, inisialisasi sebelum baca, transfer utuh, proyeksi `.0`, call dan return. Key operand tetap binding key jika ada, atau identitas temporary/nama LIR existing jika tidak; **cleanup provenance bukan key storage**. Provenance malformed maupun nonempty, seluruh drop, field store ke parameter/rvalue, storage tak dikenal/duplikat, atau call bertipe salah ditolak.
+
+`val (x,) = p` boleh melewati boundary yang sama dengan `.0`: frontend produksi memvalidasi semantiknya dan menghasilkan canonical LIR yang identik; tidak ada tag asal sintaks baru. Wildcard nonowned `val (_,) = p` tidak menambah runtime operation bila LIR identik dengan parameter yang tidak digunakan. Ini tidak membuka wildcard owned/drop. Shadowing dan scope bersarang hanya diterima bila identitas slot valid dan CFG membentuk rantai linear terurut: setiap block hanya menuju block berikutnya, tanpa cabang, cycle, phi, atau join. Jalur di luar bukti ini ditolak, bukan diberi nilai nol/undef.
+
+Pair/nested/generic aggregate, tuple tipe lain, aggregate value phi/join, Pick/Choice/Anchor, ref/view, owned cleanup, FFI/external ABI, mutable field, dan kombinasi String dalam program singleton tetap di luar slice, walaupun seluruh flag lama diaktifkan. Pembatasan ini milik eksperimen backend, bukan pengurangan semantik tuple bahasa C@.
+
+Gate tambahan `llvm-cpp-singleton-admission` menyuntikkan malformed LIR dan memeriksa object/IR absent maupun sentinel byte-exact. `llvm-cpp-singleton-native` menjalankan sumber Cat nyata, semantik negatif frontend, produksi check/OIR/LIR/LLVM dan O0/O2, lalu adapter object → external LLD → ELF/COFF/PE native dengan exit42 serta stdout/stderr kosong. Gate produksi singleton dan penolakan flag lama tetap utuh. Keberadaan gate bukan bukti PASS sebelum hasil exact-head tersedia; sanitizer host tidak berarti seluruh executable target terinstrumentasi, dan Windows sanitizer yang tidak tersedia tetap **SKIP**.
+
+Kegagalan Windows stack diagnostic attempt1 berupa terminal access violation masih **belum terselesaikan**. Exact rerun dan prototype first-chance yang hijau tidak membatalkan kegagalan tersebut dan bukan bukti perbaikan backend singleton.

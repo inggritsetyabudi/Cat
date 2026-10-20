@@ -72,10 +72,28 @@ def main():
         if set(added)!={'claw/src/ir/provenance.h'}:raise HarnessError('wrong tuple cleanup added file set')
         for path,expected in added.items():
             if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('tuple metadata added file changed: '+path)
+        # Keep historical ledgers/corpora immutable. This separate backend-only
+        # delta grants no String/sibling-owner acceptance in this older audit.
+        singleton_delta=json.loads((Path(__file__).parent/'singleton-reviewed-deltas.json').read_text())
+        if singleton_delta['base_head']!='24211867ed293bc4a501fadbf0d6d6961fce6768':raise HarnessError('wrong singleton backend base')
+        singleton_files=singleton_delta['files']
+        singleton_allowed={'claw/experimental/llvm_cpp/adapter.cpp',
+                           'claw/experimental/llvm_cpp/adapter.h','claw/experimental/llvm_cpp/driver.cpp'}
+        if set(singleton_files)!=singleton_allowed:raise HarnessError('wrong singleton backend delta set')
+        for path,delta in singleton_files.items():
+            before=tuple_files[path]['after']if path in tuple_files else(parameter_files[path]['after']if path in parameter_files else(deltas[path]['after']if path in deltas else lock['files'][path]))
+            if delta['before']!=before:raise HarnessError('singleton delta does not match preceding lock: '+path)
+        singleton_added=singleton_delta['added_files']
+        expected_singleton_added={'claw/experimental/llvm_cpp/'+name for name in
+            ('singleton_admission.h','singleton_admission.cpp','test_singleton_admission.cpp','test_singleton_native.py')}
+        if set(singleton_added)!=expected_singleton_added:raise HarnessError('wrong singleton added file set')
+        for path,expected in singleton_added.items():
+            if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('singleton added file changed: '+path)
         for path,expected in lock['files'].items():
             if path in deltas:expected=deltas[path]['after']
             if path in parameter_files:expected=parameter_files[path]['after']
             if path in tuple_files:expected=tuple_files[path]['after']
+            if path in singleton_files:expected=singleton_files[path]['after']
             if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('evidence-only audit changed protected implementation/oracle: '+path)
         tracked=execute([a.git,'-C',repo,'ls-files','--',*lock['protected_paths']],'tracked-implementation-files')['stdout'].splitlines()
         if set(tracked)!=set(lock['files'])|set(added):raise HarnessError('protected implementation file set changed')
@@ -83,6 +101,7 @@ def main():
         report['reviewed_metadata_deltas']=deltas
         report['reviewed_parameter_metadata_deltas']=parameter_delta
         report['reviewed_tuple_cleanup_metadata_deltas']=tuple_delta
+        report['reviewed_singleton_backend_deltas']=singleton_delta
         manifest=json.loads(a.manifest.read_text());archive=Path(manifest['archive']['path']).resolve()
         if archive!=a.runtime.resolve():raise HarnessError('runtime archive/manifest mismatch')
         prep=json.loads(a.string_preparation.read_text())

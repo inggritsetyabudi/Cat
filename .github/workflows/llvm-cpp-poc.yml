@@ -110,7 +110,7 @@ jobs:
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          ctest --test-dir build-llvm-poc -R '^llvm-cpp-(production-singleton-roundtrip|singleton-rejection)$' --output-on-failure 2>&1 | tee ci-evidence/singleton-gates.log
+          ctest --test-dir build-llvm-poc -R '^llvm-cpp-(production-singleton-roundtrip|singleton-rejection|singleton-admission|singleton-native)$' --output-on-failure 2>&1 | tee ci-evidence/singleton-gates.log
           ctest --test-dir build-llvm-poc --output-on-failure 2>&1 | tee ci-evidence/ctest.log
           # Production suites regenerate tracked artifacts: never run them in the evidence checkout.
           compiler="$PWD/build-llvm-poc/claw"
@@ -272,7 +272,7 @@ jobs:
           EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          ctest --test-dir build-llvm-poc-win -R '^llvm-cpp-(production-singleton-roundtrip|singleton-rejection)$' --output-on-failure 2>&1 | tee ci-evidence/singleton-gates.log
+          ctest --test-dir build-llvm-poc-win -R '^llvm-cpp-(production-singleton-roundtrip|singleton-rejection|singleton-admission|singleton-native)$' --output-on-failure 2>&1 | tee ci-evidence/singleton-gates.log
           ctest --test-dir build-llvm-poc-win --output-on-failure 2>&1 | tee ci-evidence/ctest.log
       - name: Capture linked SDK, COFF object and native executable evidence
         run: |
