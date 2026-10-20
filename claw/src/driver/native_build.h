@@ -11,6 +11,7 @@
 namespace claw::driver {
 
 enum class NativeBuildProfile { Debug, Release };
+enum class NativeBuildBackend { Clang, LlvmObject };
 
 enum class NativeBuildStage { Resolving, Checking, Ownership, Lowering, Emitting, Linking };
 
@@ -24,6 +25,7 @@ std::filesystem::path buildNativeExecutable(
     const std::filesystem::path& outputPath,
     NativeBuildProfile profile,
     const std::function<void(NativeBuildStage)>& onStage,
-    const std::function<void()>& beforeLinkOutput);
+    const std::function<void()>& beforeLinkOutput,
+    NativeBuildBackend backend = NativeBuildBackend::Clang);
 
 } // namespace claw::driver
