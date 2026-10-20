@@ -1,0 +1,66 @@
+name: Windows stack root cause (diagnostic only)
+on:
+  push:
+    branches: [diag/windows-stack-root-cause-20261020]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  reproduce-original:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - name: Download immutable original failed artifacts
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 39364055321 --repo inggritsetyabudi/Cat --name windows-backend-stack-diagnostic --dir original
+          New-Item -ItemType Directory -Force evidence | Out-Null
+          Get-ChildItem original -Recurse -File | Get-FileHash -Algorithm SHA256 | Format-List | Out-File evidence/original-hashes.txt
+          Copy-Item original/windows-stack-diagnostic.json evidence/original-diagnostic.json
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-binutils
+      - name: Reproduce via original native probe and independent Win32 debugger
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          clang --version | tee evidence/clang-version.txt
+          clang -std=c11 -Wall -Wextra -municode "$(cygpath -w tools/windows_stack_debug.c)" -o evidence/debug.exe
+          for variant in baseline fixed; do
+            for opt in O0 O2; do
+              exe="$PWD/original/$variant/$variant-$opt.exe"
+              for run in 1 2 3; do
+                prefix="$PWD/evidence/$variant-$opt-$run"
+                original/windows_stack_status_probe.exe "$(cygpath -w "$exe")" "$(cygpath -w "$prefix.stdout")" "$(cygpath -w "$prefix.stderr")" "$(cygpath -w "$prefix.status")"
+                cat "$prefix.status"
+              done
+              evidence/debug.exe "$(cygpath -w "$exe")" > "evidence/$variant-$opt-debug.txt" 2>&1
+              cat "evidence/$variant-$opt-debug.txt"
+              objdump -d "$exe" > "evidence/$variant-$opt-disassembly.txt"
+              objdump -p "$exe" > "evidence/$variant-$opt-pe.txt"
+            done
+          done
+      - name: Independent PowerShell native process statuses
+        shell: pwsh
+        run: |
+          foreach ($variant in @('baseline', 'fixed')) {
+            foreach ($opt in @('O0','O2')) {
+              $path = (Resolve-Path "original/$variant/$variant-$opt.exe").Path
+              $p = Start-Process -FilePath $path -Wait -PassThru -NoNewWindow -RedirectStandardOutput "evidence/$variant-$opt-pwsh.stdout" -RedirectStandardError "evidence/$variant-$opt-pwsh.stderr"
+              "$variant/$opt signed=$($p.ExitCode) hex=$('{0:X8}' -f $p.ExitCode)" | Tee-Object -Append evidence/pwsh-status.txt
+            }
+          }
+      - name: Upload root cause evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-stack-root-cause
+          path: evidence
+          if-no-files-found: error
