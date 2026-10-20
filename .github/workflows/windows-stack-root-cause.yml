@@ -27,6 +27,7 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-clang
             mingw-w64-ucrt-x86_64-binutils
+            python
       - name: Reproduce via original native probe and independent Win32 debugger
         shell: msys2 {0}
         run: |
@@ -47,6 +48,9 @@ jobs:
               objdump -p "$exe" > "evidence/$variant-$opt-pe.txt"
             done
           done
+      - name: Repeat original MSYS Python parent and debug exception chain
+        shell: msys2 {0}
+        run: python3 tools/windows_stack_stress.py
       - name: Independent PowerShell native process statuses
         shell: pwsh
         run: |
