@@ -1,0 +1,3 @@
+fn make(x: Int32, y: Int32) -> (Int32, Int32) { (x, y) }
+fn take(p: (Int32, Int32)) -> Int32 { p.0 + p.1 }
+fn main() -> Int32 { val p = make(40, 2) return take(p) }

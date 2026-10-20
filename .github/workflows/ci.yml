@@ -51,6 +51,13 @@ jobs:
           CLAW_EXE: ${{ github.workspace }}/claw/build-ci/claw
         run: bash claw/tests/run_all_tests.sh
 
+      - name: Retain production pair native evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-pair-linux-${{ github.sha }}
+          path: claw/tests/native/artifacts/pair-i32-roundtrip/
+
   linux-sanitizers:
     name: Linux (Clang, ASan UBSan LSan)
     runs-on: ubuntu-24.04
@@ -85,6 +92,13 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: bash claw/tests/run_all_tests.sh
+
+      - name: Retain production pair native evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-pair-linux-host-sanitizers-${{ github.sha }}
+          path: claw/tests/native/artifacts/pair-i32-roundtrip/
 
   windows-ucrt64:
     name: Windows (MSYS2 UCRT64, Clang, Release)
@@ -140,3 +154,10 @@ jobs:
           export CLAW_EXE="$(cygpath -u "$GITHUB_WORKSPACE")/claw/build-ci/claw.exe"
           printf 'Using compiler: %s\n' "$CLAW_EXE"
           bash claw/tests/run_all_tests.sh
+
+      - name: Retain production pair native evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-pair-windows-ucrt64-${{ github.sha }}
+          path: claw/tests/native/artifacts/pair-i32-roundtrip/

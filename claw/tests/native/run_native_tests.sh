@@ -1768,6 +1768,7 @@ else
   echo "[sanitizer/skip] clang ASan/UBSan/LSan runtimes are unavailable for fixed-array indexed assignment"
 fi
 
+CLAW_EXE="$CLAW_EXE" python3 "$SCRIPT_DIR/run_pair_i32_roundtrip.py"
 python3 "$SCRIPT_DIR/run_division_by_zero_tests.py"
 
 owned_shape_missing_compiler="$CWD_TEST_DIR/missing compiler.exe"
