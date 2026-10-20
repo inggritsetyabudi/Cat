@@ -29,7 +29,7 @@ std::string formatValue(const LirValue& value) {
 }
 
 LirValue lowerValue(const OirValue& value) {
-    return LirValue{value.text, value.type, value.isUnit, value.bindingKey};
+    return LirValue{value.text, value.type, value.isUnit, value.bindingKey, value.provenance};
 }
 
 std::string tailSegment(std::string_view text) {
@@ -487,7 +487,7 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
                     currentBlock.insts.push_back(LirDiscardInst{lowerValue(value.value)});
                 },
                 [&](const OirDropInst& value) {
-                    currentBlock.insts.push_back(LirDropInst{value.name, value.type, value.bindingKey});
+                    currentBlock.insts.push_back(LirDropInst{value.name, value.type, value.bindingKey, value.provenance});
                 },
                 [&](const OirBranchInst& value) {
                     currentBlock.insts.push_back(LirBranchInst{lowerValue(value.condition), value.trueLabel, value.falseLabel});
@@ -633,7 +633,7 @@ LirFunction lowerFunction(const OirFunction& fn, const std::unordered_set<std::s
                     });
                 },
                 [&](const OirFieldInst& value) {
-                    currentBlock.insts.push_back(LirFieldInst{value.result, lowerValue(value.object), value.field, value.type, LirSafetyTag::ProvenSafe});
+                    currentBlock.insts.push_back(LirFieldInst{value.result, lowerValue(value.object), value.field, value.type, LirSafetyTag::ProvenSafe, value.provenance});
                 },
                 [&](const OirIndexInst& value) {
                     const LirValue object = lowerValue(value.object);

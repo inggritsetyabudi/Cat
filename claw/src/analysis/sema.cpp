@@ -2639,7 +2639,8 @@ void SemanticAnalyzer::analyzeStmt(Stmt* stmt) {
                         pattern->span,
                         std::nullopt,
                         bind,
-                        &pattern->backendBindingKey);
+                        &pattern->backendBindingKey,
+                        canonicalLocalBindings);
                 }
             };
             bindPattern(bind->tuplePattern.get(), valueType, "", true);

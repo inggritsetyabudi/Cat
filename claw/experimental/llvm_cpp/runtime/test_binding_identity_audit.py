@@ -24,7 +24,7 @@ def main():
             'head':a.expected_sha,'profile':a.profile,'decision':'STOP: no universal declaration/use/drop ID before LIR',
             'cases':[],'commands':[]}
     report['local_binding_keys']=a.local_binding_keys
-    if a.local_binding_keys:report['decision']='Opt-in local and formal declaration metadata; pattern/synthetic identity remains out of scope'
+    if a.local_binding_keys:report['decision']='Opt-in local/formal/val-tuple declarations and scoped tuple-cleanup metadata; no universal provenance or aggregate adapter lowering'
     def execute(argv,label,env=None,ok=0):
         rec={'phase':label,**run(argv,env=env)};report['commands'].append(rec)
         if ok is not None and rec['exit']!=ok:raise HarnessError(label+': '+rec['stderr'])
@@ -56,15 +56,33 @@ def main():
         for path,delta in parameter_files.items():
             before=deltas[path]['after']if path in deltas else lock['files'][path]
             if delta['before']!=before:raise HarnessError('parameter delta does not match preceding lock: '+path)
+        # Keep both earlier delta ledgers immutable. This next metadata-only
+        # step has an exact changed-file set and exactly one new IR header.
+        tuple_delta=json.loads((Path(__file__).parent/'tuple-cleanup-reviewed-deltas.json').read_text())
+        if tuple_delta['base_head']!='15ec7579d28eb95fee27cafc7fd3952ba6254fe6':raise HarnessError('wrong tuple cleanup metadata base')
+        tuple_files=tuple_delta['files']
+        tuple_allowed={'claw/src/analysis/sema.cpp','claw/src/ir/oir.h','claw/src/ir/oir.cpp',
+                       'claw/src/ir/lir.h','claw/src/ir/lir.cpp',
+                       'claw/experimental/llvm_cpp/adapter.cpp','claw/experimental/llvm_cpp/test_adapter.cpp'}
+        if set(tuple_files)!=tuple_allowed:raise HarnessError('wrong tuple cleanup metadata delta set')
+        for path,delta in tuple_files.items():
+            before=parameter_files[path]['after']if path in parameter_files else (deltas[path]['after']if path in deltas else lock['files'][path])
+            if delta['before']!=before:raise HarnessError('tuple delta does not match preceding lock: '+path)
+        added=tuple_delta['added_files']
+        if set(added)!={'claw/src/ir/provenance.h'}:raise HarnessError('wrong tuple cleanup added file set')
+        for path,expected in added.items():
+            if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('tuple metadata added file changed: '+path)
         for path,expected in lock['files'].items():
             if path in deltas:expected=deltas[path]['after']
             if path in parameter_files:expected=parameter_files[path]['after']
+            if path in tuple_files:expected=tuple_files[path]['after']
             if hashlib.sha256((repo/path).read_bytes()).hexdigest()!=expected:raise HarnessError('evidence-only audit changed protected implementation/oracle: '+path)
         tracked=execute([a.git,'-C',repo,'ls-files','--',*lock['protected_paths']],'tracked-implementation-files')['stdout'].splitlines()
-        if set(tracked)!=set(lock['files']):raise HarnessError('protected implementation file set changed')
+        if set(tracked)!=set(lock['files'])|set(added):raise HarnessError('protected implementation file set changed')
         report['baseline_code_lock']=lock
         report['reviewed_metadata_deltas']=deltas
         report['reviewed_parameter_metadata_deltas']=parameter_delta
+        report['reviewed_tuple_cleanup_metadata_deltas']=tuple_delta
         manifest=json.loads(a.manifest.read_text());archive=Path(manifest['archive']['path']).resolve()
         if archive!=a.runtime.resolve():raise HarnessError('runtime archive/manifest mismatch')
         prep=json.loads(a.string_preparation.read_text())

@@ -48,7 +48,13 @@ using namespace claw::frontend;
 [[noreturn]] void unsupported(const std::string& detail) {
     throw std::runtime_error("LLVM C++ PoC unsupported " + detail);
 }
-
+void rejectProjectionProvenance(const Provenance& provenance) {
+    if (!provenance.isValid()) unsupported("invalid cleanup provenance metadata");
+    // This is an inspection/diagnostic boundary, not aggregate storage support.
+    // Never use a source binding or a synthetic storage ID as a scalar key.
+    if (provenance.source || provenance.syntheticStorageId)
+        unsupported("tuple cleanup provenance (aggregate lowering remains unsupported)");
+}
 llvm::Type* scalarType(llvm::LLVMContext& context, const std::string& name) {
     // Deliberately do not erase ref/view prefixes or reinterpret aggregate ABI.
     if (name == "Int32") return llvm::Type::getInt32Ty(context);
@@ -161,6 +167,7 @@ private:
         return storage.CreateAlloca(type, nullptr, name);
     }
     llvm::Value* value(const LirValue& input) {
+        rejectProjectionProvenance(input.provenance);
         auto* expectedType = stringType(context_, input.type, enableStrings_);
         if (input.isUnit || expectedType->isVoidTy()) unsupported("Unit as a scalar operand");
         llvm::Value* result = nullptr;
@@ -455,7 +462,14 @@ private:
         else result = builder_.CreateICmpSGE(left, right, inst.result);
         bind(inst.result, result);
     }
-    void lowerInstruction(const LirDropInst& inst) { lowerStringDrop(inst); }
+    void lowerInstruction(const LirDropInst& inst) {
+        rejectProjectionProvenance(inst.provenance);
+        lowerStringDrop(inst);
+    }
+    void lowerInstruction(const LirFieldInst& inst) {
+        rejectProjectionProvenance(inst.provenance);
+        unsupported("LIR field projection (aggregate lowering remains unsupported)");
+    }
     void lowerInstruction(const LirDiscardInst& inst) {
         if (!inst.value.isUnit && inst.value.type != "Unit") (void)value(inst.value);
     }

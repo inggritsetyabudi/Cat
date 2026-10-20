@@ -302,6 +302,36 @@ int main(int argc, char** argv) {
             {"reserved_print", [](auto& p) { entry(p).linkage.symbol = "claw.runtime.println.slice"; }},
             {"duplicate_indirect_params", [=](auto& p) { stringHelper(p); auto& f = std::get<LirFunction>(p.realms.front().decls.back()); f.params.push_back(f.params.front()); }},
             {"forged_indirect_load_type", [=](auto& p) { stringHelper(p); auto& f = std::get<LirFunction>(p.realms.front().decls.back()); f.returnType = "ref Str"; f.returnPassKind = AbiPassKind::Direct; f.blocks.front().insts = {LirReturnInst{{"x", "ref Str"}}}; }},
+            {"tuple_cleanup_on_string", [=](auto& p) {
+                LirDropInst drop{"%owner", "String", {}};
+                drop.provenance = Provenance::forRoot("opaque:tuple-owner", 1).project(0, 2);
+                instructions(p, {stringFrom(), drop, LirReturnInst{{"7", "Int32"}}});
+            }},
+            {"tuple_cleanup_unknown_source", [=](auto& p) {
+                LirDropInst drop{"%owner", "String", {}};
+                drop.provenance.syntheticStorageId = 1;
+                instructions(p, {stringFrom(), drop, LirReturnInst{{"7", "Int32"}}});
+            }},
+            {"invalid_cleanup_empty_source", [](auto& p) {
+                LirDropInst drop{"missing", "String", {}};
+                drop.provenance.source = SourceProjection{"", {0}};
+                instructions(p, {drop});
+            }},
+            {"invalid_cleanup_zero_storage", [](auto& p) {
+                LirDropInst drop{"missing", "String", {}};
+                drop.provenance.syntheticStorageId = 0;
+                instructions(p, {drop});
+            }},
+            {"tuple_projection_metadata", [](auto& p) {
+                LirFieldInst field{"%field", {"missing", "Tuple[Anchor[Int32], Int32]"}, "0", "Anchor[Int32]"};
+                field.provenance = Provenance::forRoot("opaque:tuple-owner", 1).project(0, 2);
+                instructions(p, {field});
+            }},
+            {"tuple_provenance_on_scalar", [](auto& p) {
+                LirValue value{"7", "Int32"};
+                value.provenance = Provenance::forRoot("opaque:tuple-owner", 1).project(0, 2);
+                instructions(p, {LirReturnInst{value}});
+            }},
         };
         for (const auto& [name, mutate] : stringNegatives) {
             auto p = scalarProgram(); mutate(p);
@@ -310,6 +340,10 @@ int main(int argc, char** argv) {
             std::filesystem::remove(obj); std::filesystem::remove(irPath);
             require(!emitObject(p, {obj.string(), irPath.string(), false, false, true}, error), "accepted malformed String " + name);
             require(!error.empty() && !std::filesystem::exists(obj) && !std::filesystem::exists(irPath), "String rejection published artifacts " + name);
+            if (name.rfind("invalid_cleanup_", 0) == 0)
+                require(error.find("invalid cleanup provenance") != std::string::npos, "wrong invariant diagnostic: " + error);
+            if (name.rfind("tuple_", 0) == 0)
+                require(error.find("aggregate lowering remains unsupported") != std::string::npos, "wrong provenance gate diagnostic: " + error);
             std::ofstream(artifacts / ("string_reject_" + name + ".log")) << error << '\n';
         }
         auto stringProgram = scalarProgram(); stringHelper(stringProgram);

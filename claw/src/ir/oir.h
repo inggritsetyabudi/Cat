@@ -1,6 +1,7 @@
 #pragma once
 
 #include "analysis/types.h"
+#include "ir/provenance.h"
 
 #include <optional>
 #include <string>
@@ -35,6 +36,7 @@ struct OirValue {
     bool terminates = false;
     std::string bindingKey;
     std::vector<OirTemporaryDrop> borrowedOwners;
+    Provenance provenance;
 };
 
 struct OirParam {
@@ -93,6 +95,7 @@ struct OirDropInst {
     std::string name;
     std::string type;
     std::string bindingKey;
+    Provenance provenance;
 };
 
 struct OirBranchInst {
@@ -179,6 +182,7 @@ struct OirFieldInst {
     OirValue object;
     std::string field;
     std::string type;
+    Provenance provenance;
 };
 
 struct OirIndexInst {

@@ -30,6 +30,7 @@ struct LirValue {
     std::string type;
     bool isUnit = false;
     std::string bindingKey;
+    Provenance provenance;
 };
 
 struct LirParam {
@@ -108,6 +109,7 @@ struct LirDropInst {
     std::string name;
     std::string type;
     std::string bindingKey;
+    Provenance provenance;
 };
 
 struct LirBranchInst {
@@ -200,6 +202,7 @@ struct LirFieldInst {
     std::string field;
     std::string type;
     LirSafetyTag safety = LirSafetyTag::ProvenSafe;
+    Provenance provenance;
 };
 
 struct LirIndexInst {
